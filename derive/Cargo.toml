@@ -1,0 +1,17 @@
+[package]
+name = "rust-spec-derive"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Marin Veršić <marin.versic101@gmail.com>"]
+repository = "https://github.com/mversic/co3/rust-spec/derive"
+description = "Derive macros for co3 TypeSpec"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-crate = "3.4.0"
+proc-macro2 = "1.0.105"
+quote = "1.0.43"
+syn = { version = "2.0.114", features = ["full", "visit"] }
