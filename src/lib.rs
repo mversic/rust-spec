@@ -186,25 +186,25 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[bool]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<bool>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
@@ -215,7 +215,7 @@ mod tests {
         );
         // FIXME:
         //assert_impl_all!(Option<bool>:
-        //    ReprFamily<Kind = Unstable>,
+        //    ReprFamily<Kind = Unstable<NonRobust>>,
         //    SizeFamily<Kind = Co3Sized<NonZst>>,
         //    NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         //);
@@ -240,24 +240,24 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[&u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(&mut [&u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&u8]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&u8>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
@@ -294,25 +294,25 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[&bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [&bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&bool]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&bool>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
@@ -347,24 +347,24 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[&mut u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(&mut [&mut u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut u8]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut u8>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
@@ -401,24 +401,24 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[&mut bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(&mut [&mut bool]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut bool]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut bool>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );

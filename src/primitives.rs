@@ -1,6 +1,7 @@
 //! Logic related to the conversion of primitives to and from FFI-compatible representation
 
 use crate::{
+    TypeSpec,
     mutability::{Exclusive, MutabilityFamily},
     niche::{NicheFamily, WithNiche, WithoutNiche},
     repr::{NonRobust, ReprFamily, Robust, Stable},
@@ -26,8 +27,8 @@ macro_rules! primitive_derive {
 
 macro_rules! raw_pointer_derive {
     ( $mutability:tt ) => {
-        impl<R: ReprFamily + ?Sized> ReprFamily for *$mutability R {
-            type Kind = R::Kind;
+        impl<R: TypeSpec + ?Sized> ReprFamily for *$mutability R {
+            type Kind = R::Repr;
         }
         unsafe impl<R: ?Sized> SizeFamily for *$mutability R {
             type Kind = crate::size::Sized<crate::size::NonZst>;
@@ -96,24 +97,24 @@ primitive_derive! { f64 }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-impl<R: ReprFamily> ReprFamily for [R] {
-    type Kind = R::Kind;
+impl<R: TypeSpec> ReprFamily for [R] {
+    type Kind = R::Repr;
 }
 unsafe impl<R> SizeFamily for [R] {
     type Kind = MetaSized<SliceLike>;
 }
-impl<R: MutabilityFamily> MutabilityFamily for [R] {
-    type Kind = R::Kind;
+impl<R: TypeSpec> MutabilityFamily for [R] {
+    type Kind = R::Mutability;
 }
 
-impl<R: ReprFamily, const N: usize> ReprFamily for [R; N] {
-    type Kind = R::Kind;
+impl<R: TypeSpec, const N: usize> ReprFamily for [R; N] {
+    type Kind = R::Repr;
 }
-unsafe impl<R: SizeFamily, const N: usize> SizeFamily for [R; N] {
-    type Kind = R::Kind;
+unsafe impl<R: TypeSpec, const N: usize> SizeFamily for [R; N] {
+    type Kind = R::Size;
 }
-impl<R: MutabilityFamily, const N: usize> MutabilityFamily for [R; N] {
-    type Kind = R::Kind;
+impl<R: TypeSpec, const N: usize> MutabilityFamily for [R; N] {
+    type Kind = R::Mutability;
 }
 
 impl_fn_types! {
@@ -150,7 +151,7 @@ mod tests {
     use super::*;
     use crate::{
         niche::WithNiche,
-        repr::{Robust, Unstable},
+        repr::{NonRobust, Robust, Unstable},
     };
 
     #[test]
@@ -173,21 +174,21 @@ mod tests {
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(&mut [u8]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[u8]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<u8>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!([u8; 2]:
@@ -195,7 +196,7 @@ mod tests {
             NicheFamily<Kind = WithoutNiche>,
         );
         assert_impl_all!(Option<u8>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
     }

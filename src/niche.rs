@@ -7,7 +7,13 @@ use alloc::{boxed::Box, vec::Vec};
 
 use disjoint_impls::disjoint_impls;
 
-use crate::size::{MetaSized, NonZst, SizeFamily, Thin, Zst};
+use crate::{
+    TypeSpec,
+    size::{MetaSized, NonZst, Thin, Zst},
+};
+
+/// Marker for a type that has no trap representations and therefore no niche value
+pub enum WithoutNiche {}
 
 /// Marker for a type that has a niche value.
 pub struct WithNiche<K>(core::marker::PhantomData<K>, Infallible);
@@ -19,9 +25,6 @@ pub enum Stable {}
 
 /// Marker for a custom defined (by this crate) niche (e.g. `[NonZeroU8; 2]`).
 pub enum Custom {}
-
-/// Marker for a type that has no trap representations and therefore no niche value
-pub enum WithoutNiche {}
 
 disjoint_impls! {
     /// Niche kind of the type in the internal representation [IR](`crate::ir::Repr`)
@@ -39,47 +42,47 @@ disjoint_impls! {
         type Kind;
     }
 
-    impl<R: NicheFamily<Kind = WithoutNiche>> NicheFamily for [R] {
+    impl<R: TypeSpec<Niche = WithoutNiche>> NicheFamily for [R] {
         type Kind = WithoutNiche;
     }
-    impl<R: NicheFamily<Kind = WithNiche<K>>, K> NicheFamily for [R] {
+    impl<R: TypeSpec<Niche = WithNiche<K>>, K> NicheFamily for [R] {
         type Kind = WithNiche<crate::niche::Custom>;
     }
 
-    impl<R: SizeFamily<Kind = MetaSized<K>> + ?Sized, K> NicheFamily for &R {
+    impl<R: TypeSpec<Size = MetaSized<K>> + ?Sized, K> NicheFamily for &R {
         type Kind = WithNiche<crate::niche::Custom>;
     }
-    impl<R: SizeFamily<Kind: Thin> + ?Sized> NicheFamily for &R {
+    impl<R: TypeSpec<Size: Thin> + ?Sized> NicheFamily for &R {
         type Kind = WithNiche<crate::niche::Stable>;
     }
 
-    impl<R: SizeFamily<Kind = MetaSized<K>> + ?Sized, K> NicheFamily for &mut R {
+    impl<R: TypeSpec<Size = MetaSized<K>> + ?Sized, K> NicheFamily for &mut R {
         type Kind = WithNiche<crate::niche::Custom>;
     }
-    impl<R: SizeFamily<Kind: Thin> + ?Sized> NicheFamily for &mut R {
+    impl<R: TypeSpec<Size: Thin> + ?Sized> NicheFamily for &mut R {
         type Kind = WithNiche<crate::niche::Stable>;
     }
 
     #[cfg(feature = "alloc")]
-    impl<R: SizeFamily<Kind = MetaSized<K>> + ?Sized, K> NicheFamily for Box<R> {
+    impl<R: TypeSpec<Size = MetaSized<K>> + ?Sized, K> NicheFamily for Box<R> {
         type Kind = WithNiche<crate::niche::Custom>;
     }
     #[cfg(feature = "alloc")]
-    impl<R: SizeFamily<Kind = crate::size::Sized<S>>, S> NicheFamily for Box<R> {
+    impl<R: TypeSpec<Size = crate::size::Sized<S>>, S> NicheFamily for Box<R> {
         type Kind = WithNiche<crate::niche::Stable>;
     }
 
-    impl<R: NicheFamily<Kind = WithoutNiche>, const N: usize> NicheFamily for [R; N] {
+    impl<R: TypeSpec<Niche = WithoutNiche>, const N: usize> NicheFamily for [R; N] {
         type Kind = WithoutNiche;
     }
-    impl<R: NicheFamily<Kind = WithNiche<K>>, K, const N: usize> NicheFamily for [R; N] {
+    impl<R: TypeSpec<Niche = WithNiche<K>>, K, const N: usize> NicheFamily for [R; N] {
         type Kind = WithNiche<crate::niche::Custom>;
     }
 
-    impl<R: NicheFamily<Kind = WithoutNiche>> NicheFamily for Option<R> {
+    impl<R: TypeSpec<Niche = WithoutNiche>> NicheFamily for Option<R> {
         type Kind = WithNiche<crate::niche::Custom>;
     }
-    impl<R: NicheFamily<Kind = WithNiche<crate::niche::Stable>>> NicheFamily for Option<R> {
+    impl<R: TypeSpec<Niche = WithNiche<crate::niche::Stable>>> NicheFamily for Option<R> {
         type Kind = WithoutNiche;
     }
     // TODO: IMHO compiler should be able to resolve circular dependencies here, but it doesn't work for now so I've bounded previous with Niche
@@ -88,7 +91,7 @@ disjoint_impls! {
     //impl<R: NicheFamily<Kind = WithNiche<crate::niche::Custom>>> NicheFamily for Option<R> where Option<Self>: ReprFamily<Kind: ReprRustOrTransmutedNonRobust> {
     //    type Kind = WithNiche<crate::niche::Custom>;
     //}
-    //impl<R: NicheFamily<Kind = WithNiche<crate::niche::Custom>>> NicheFamily for Option<R> where Option<Self>: ReprFamily<Kind = Unstable> {
+    //impl<R: NicheFamily<Kind = WithNiche<crate::niche::Custom>>> NicheFamily for Option<R> where Option<Self>: ReprFamily<Kind = Unstable<NonRobust>> {
     //    type Kind = WithoutNiche;
     //}
     //impl<R: NicheFamily<Kind = WithNiche<crate::niche::Custom>>> NicheFamily for Option<R> where Self: Niche {
@@ -96,14 +99,14 @@ disjoint_impls! {
     //}
 
     impl<
-        R: NicheFamily<Kind = WithoutNiche>,
-        E: NicheFamily<Kind = WithoutNiche>,
+        R: TypeSpec<Niche = WithoutNiche>,
+        E: TypeSpec<Niche = WithoutNiche>,
     > NicheFamily for Result<R, E> {
         type Kind = WithNiche<crate::niche::Custom>;
     }
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<NonZst>> + NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
-        E: SizeFamily<Kind = crate::size::Sized<Zst>> + NicheFamily,
+        R: TypeSpec<Size = crate::size::Sized<NonZst>, Niche = WithNiche<crate::niche::Stable>>,
+        E: TypeSpec<Size = crate::size::Sized<Zst>>,
     > NicheFamily for Result<R, E> {
         type Kind = WithoutNiche;
     }
@@ -165,22 +168,22 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     use super::*;
-    use crate::repr::{ReprFamily, Unstable};
+    use crate::repr::{NonRobust, ReprFamily, Unstable};
 
     #[test]
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
 
         assert_impl_all!(Option<Option<bool>>:
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
         );
 
         assert_impl_all!(Option<(u8, NonZero<u8>)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
             //NicheFamily<Kind = WithoutNiche>,
             //Niche<CType = ReprCTuple2<u8, u8>>,

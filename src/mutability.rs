@@ -7,8 +7,9 @@ use core::ops::Add;
 use disjoint_impls::disjoint_impls;
 
 use crate::{
-    niche::{NicheFamily, WithNiche, WithoutNiche},
-    size::{MetaSized, NonZst, SizeFamily, Thin, Zst},
+    TypeSpec,
+    niche::{WithNiche, WithoutNiche},
+    size::{MetaSized, NonZst, Thin, Zst},
 };
 
 /// Marker for types whose whole ABI-exposed value may be mutated through shared access.
@@ -28,77 +29,70 @@ disjoint_impls! {
     }
 
     #[cfg(feature = "alloc")]
-    impl<R: SizeFamily<Kind: Thin>> MutabilityFamily for Box<R>
-    where
-        R: MutabilityFamily,
-    {
-        type Kind = <R as MutabilityFamily>::Kind;
+    impl<R: TypeSpec<Size: Thin>> MutabilityFamily for Box<R> {
+        type Kind = <R as TypeSpec>::Mutability;
     }
 
     #[cfg(feature = "alloc")]
-    impl<R: SizeFamily<Kind = MetaSized<S>> + ?Sized, S> MutabilityFamily for Box<R> {
+    impl<R: TypeSpec<Size = MetaSized<S>> + ?Sized, S> MutabilityFamily for Box<R> {
         type Kind = Exclusive;
     }
 
-    impl<R: MutabilityFamily + NicheFamily<Kind = WithNiche<N>>, N> MutabilityFamily for Option<R>
+    impl<R: TypeSpec<Niche = WithNiche<N>>, N> MutabilityFamily for Option<R>
     {
-        type Kind = <R as MutabilityFamily>::Kind;
+        type Kind = <R as TypeSpec>::Mutability;
     }
-    impl<R: NicheFamily<Kind = WithoutNiche>> MutabilityFamily for Option<R>
+    impl<R: TypeSpec<Niche = WithoutNiche>> MutabilityFamily for Option<R>
     {
         type Kind = Exclusive;
     }
 
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<K>>,
-        E: SizeFamily<Kind = crate::size::Sized<K>>,
+        R: TypeSpec<Size = crate::size::Sized<K>>,
+        E: TypeSpec<Size = crate::size::Sized<K>>,
         K
     > MutabilityFamily for Result<R, E>
     {
         type Kind = Exclusive;
     }
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<NonZst>> + NicheFamily<Kind = WithNiche<N>> + MutabilityFamily,
-        E: SizeFamily<Kind = crate::size::Sized<Zst>>,
+        R: TypeSpec<Size = crate::size::Sized<NonZst>, Niche = WithNiche<N>>,
+        E: TypeSpec<Size = crate::size::Sized<Zst>>,
         N,
     > MutabilityFamily for Result<R, E>
     {
-        type Kind = <R as MutabilityFamily>::Kind;
+        type Kind = <R as TypeSpec>::Mutability;
     }
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<NonZst>> + NicheFamily<Kind = WithoutNiche>,
-        E: SizeFamily<Kind = crate::size::Sized<Zst>>,
+        R: TypeSpec<Size = crate::size::Sized<NonZst>, Niche = WithoutNiche>,
+        E: TypeSpec<Size = crate::size::Sized<Zst>>,
     > MutabilityFamily for Result<R, E>
-    where
-        R: MutabilityFamily,
     {
         type Kind = Exclusive;
     }
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<Zst>>,
-        E: SizeFamily<Kind = crate::size::Sized<NonZst>> + NicheFamily<Kind = WithNiche<N>> + MutabilityFamily,
+        R: TypeSpec<Size = crate::size::Sized<Zst>>,
+        E: TypeSpec<Size = crate::size::Sized<NonZst>, Niche = WithNiche<N>>,
         N,
     > MutabilityFamily for Result<R, E>
     {
-        type Kind = <E as MutabilityFamily>::Kind;
+        type Kind = <E as TypeSpec>::Mutability;
     }
     impl<
-        R: SizeFamily<Kind = crate::size::Sized<Zst>>,
-        E: SizeFamily<Kind = crate::size::Sized<NonZst>> + NicheFamily<Kind = WithoutNiche>,
+        R: TypeSpec<Size = crate::size::Sized<Zst>>,
+        E: TypeSpec<Size = crate::size::Sized<NonZst>, Niche = WithoutNiche>,
     > MutabilityFamily for Result<R, E>
-    where
-        E: MutabilityFamily,
     {
         type Kind = Exclusive;
     }
 }
 
-impl<R: MutabilityFamily + ?Sized> MutabilityFamily for &R {
-    type Kind = R::Kind;
+impl<R: TypeSpec + ?Sized> MutabilityFamily for &R {
+    type Kind = R::Mutability;
 }
 
-impl<R: MutabilityFamily + ?Sized> MutabilityFamily for &mut R {
-    type Kind = R::Kind;
+impl<R: TypeSpec + ?Sized> MutabilityFamily for &mut R {
+    type Kind = R::Mutability;
 }
 
 #[cfg(feature = "alloc")]

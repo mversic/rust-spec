@@ -1,17 +1,40 @@
 use core::ops::Add;
 
 use crate::{
+    TypeSpec,
     mutability::MutabilityFamily,
     niche::NicheFamily,
-    repr::{ReprFamily, Unstable},
+    repr::{ReprFamily, Robust, Unstable},
     size::SizeFamily,
 };
 
 macro_rules! impl_tuple_repr_family {
+    (@kind $ty:ident) => {
+        <$ty as TypeSpec>::Repr
+    };
+    (@kind $head:ident, $($tail:ident),+) => {
+        <<$head as TypeSpec>::Repr as Add<impl_tuple_repr_family!(@kind $($tail),+)>>::Output
+    };
+
     (@split [$($head:ident,)*] $last:ident) => {
-        impl<$($head,)* $last: ?Sized> ReprFamily for ($($head,)* $last,) {
-            type Kind = Unstable;
+        impl_tuple_repr_family!(@params for ($($head,)* $last,) [$($head,)* $last] []; $($head,)* $last);
+    };
+
+    (@params for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
+        impl<$($params)* $ty: TypeSpec + ?Sized> ReprFamily for $target
+        where
+            Unstable<Robust>: Add<impl_tuple_repr_family!(@kind $($all),+)>,
+        {
+            type Kind = <Unstable<Robust> as Add<impl_tuple_repr_family!(@kind $($all),+)>>::Output;
         }
+    };
+    (@params for $target:ty [$($all:ident),+] [$($params:tt)*]; $head:ident, $($tail:ident),+) => {
+        impl_tuple_repr_family!(
+            @params for $target
+            [$($all),+]
+            [$($params)* $head: TypeSpec<Repr: Add<impl_tuple_repr_family!(@kind $($tail),+)>>,]
+            ; $($tail),+
+        );
     };
 
     (@split [$($head:ident,)*] $next:ident, $($tail:ident),+) => {
@@ -24,35 +47,38 @@ macro_rules! impl_tuple_repr_family {
 }
 
 macro_rules! impl_tuple_families {
-    (@kind $family:ident; $ty:ident) => {
-        <$ty as $family>::Kind
+    (@kind $axis:ident; $ty:ident) => {
+        <$ty as TypeSpec>::$axis
     };
-    (@kind $family:ident; $head:ident, $($tail:ident),+) => {
-        <<$head as $family>::Kind as Add<impl_tuple_families!(@kind $family; $($tail),+)>>::Output
+    (@kind $axis:ident; $head:ident, $($tail:ident),+) => {
+        <<$head as TypeSpec>::$axis as Add<impl_tuple_families!(@kind $axis; $($tail),+)>>::Output
     };
 
     (@impl SizeFamily for $target:ty; $($all:ident),+) => {
-        impl_tuple_families!(@params unsafe SizeFamily for $target [$($all),+] []; $($all),+);
+        impl_tuple_families!(@params unsafe SizeFamily Size for $target [$($all),+] []; $($all),+);
     };
-    (@impl $family:ident for $target:ty; $($all:ident),+) => {
-        impl_tuple_families!(@params safe $family for $target [$($all),+] []; $($all),+);
+    (@impl NicheFamily for $target:ty; $($all:ident),+) => {
+        impl_tuple_families!(@params safe NicheFamily Niche for $target [$($all),+] []; $($all),+);
+    };
+    (@impl MutabilityFamily for $target:ty; $($all:ident),+) => {
+        impl_tuple_families!(@params safe MutabilityFamily Mutability for $target [$($all),+] []; $($all),+);
     };
 
-    (@params unsafe SizeFamily for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
-        unsafe impl<$($params)* $ty: SizeFamily + ?Sized> SizeFamily for $target {
-            type Kind = impl_tuple_families!(@kind SizeFamily; $($all),+);
+    (@params unsafe SizeFamily $axis:ident for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
+        unsafe impl<$($params)* $ty: TypeSpec + ?Sized> SizeFamily for $target {
+            type Kind = impl_tuple_families!(@kind $axis; $($all),+);
         }
     };
-    (@params safe $family:ident for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
-        impl<$($params)* $ty: $family + ?Sized> $family for $target {
-            type Kind = impl_tuple_families!(@kind $family; $($all),+);
+    (@params safe $family:ident $axis:ident for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
+        impl<$($params)* $ty: TypeSpec + ?Sized> $family for $target {
+            type Kind = impl_tuple_families!(@kind $axis; $($all),+);
         }
     };
-    (@params $safety:ident $family:ident for $target:ty [$($all:ident),+] [$($params:tt)*]; $head:ident, $($tail:ident),+) => {
+    (@params $safety:ident $family:ident $axis:ident for $target:ty [$($all:ident),+] [$($params:tt)*]; $head:ident, $($tail:ident),+) => {
         impl_tuple_families!(
-            @params $safety $family for $target
+            @params $safety $family $axis for $target
             [$($all),+]
-            [$($params)* $head: $family<Kind: Add<impl_tuple_families!(@kind $family; $($tail),+)>>,]
+            [$($params)* $head: TypeSpec<$axis: Add<impl_tuple_families!(@kind $axis; $($tail),+)>>,]
             ; $($tail),+
         );
     };
@@ -105,6 +131,7 @@ mod tests {
     use super::*;
     use crate::{
         niche::WithoutNiche,
+        repr::NonRobust,
         rust_spec::{
             niche::WithNiche,
             size::{NonZst, Sized as Co3Sized, Zst},
@@ -127,58 +154,58 @@ mod tests {
     #[test]
     fn stored_tuple_3_without_niche() {
         assert_impl_all!((u8, u8, u8):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithoutNiche>,
         );
 
         assert_impl_all!(&(u8, u8, u8):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&mut (u8, u8, u8):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, u8, u8)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, u8, u8)]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, u8, u8)]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, u8, u8)]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, u8, u8)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<Robust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithoutNiche>,
         );
         assert_impl_all!(Option<(u8, u8, u8)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
@@ -187,58 +214,58 @@ mod tests {
     #[test]
     fn stored_tuple_3_with_niche() {
         assert_impl_all!((u8, NonZero<u8>, bool):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
 
         assert_impl_all!(&(u8, NonZero<u8>, bool):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&mut (u8, NonZero<u8>, bool):
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, NonZero<u8>, bool)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Stable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, NonZero<u8>, bool)]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, NonZero<u8>, bool)]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, NonZero<u8>, bool)]>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, NonZero<u8>, bool)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(Option<(u8, NonZero<u8>, bool)>:
-            ReprFamily<Kind = Unstable>,
+            ReprFamily<Kind = Unstable<NonRobust>>,
             SizeFamily<Kind = Co3Sized<NonZst>>,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
             //NicheFamily<Kind = WithNiche<crate::niche::Custom>>,
