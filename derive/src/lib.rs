@@ -301,36 +301,15 @@ fn gen_view_delegate_impls(
     };
 
     quote! {
-        impl #impl_generics #family::repr::ReprFamily for #name #ty_generics
+        unsafe impl #impl_generics #family::TypeSpec for #name #ty_generics
         where
-            #owner_ty: #family::repr::ReprFamily,
+            #for_dummy #owner_ty: #family::TypeSpec,
             #predicates
         {
-            type Kind = <#owner_ty as #family::repr::ReprFamily>::Kind;
-        }
-
-        unsafe impl #impl_generics #family::size::SizeFamily for #name #ty_generics
-        where
-            #owner_ty: #family::size::SizeFamily,
-            #predicates
-        {
-            type Kind = <#owner_ty as #family::size::SizeFamily>::Kind;
-        }
-
-        impl #impl_generics #family::niche::NicheFamily for #name #ty_generics
-        where
-            #for_dummy #owner_ty: #family::niche::NicheFamily,
-            #predicates
-        {
-            type Kind = <#owner_ty as #family::niche::NicheFamily>::Kind;
-        }
-
-        impl #impl_generics #family::mutability::MutabilityFamily for #name #ty_generics
-        where
-            #owner_ty: #family::mutability::MutabilityFamily,
-            #predicates
-        {
-            type Kind = <#owner_ty as #family::mutability::MutabilityFamily>::Kind;
+            type Repr = <#owner_ty as #family::TypeSpec>::Repr;
+            type Size = <#owner_ty as #family::TypeSpec>::Size;
+            type Niche = <#owner_ty as #family::TypeSpec>::Niche;
+            type Mutability = <#owner_ty as #family::TypeSpec>::Mutability;
         }
     }
 }
@@ -370,30 +349,20 @@ fn gen_struct_family_impls(
     has_custom_niche: bool,
 ) -> proc_macro2::TokenStream {
     let fields = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
-    let repr_family_impl = if repr.is_some() {
-        gen_repr_family_impl(family, name, generics, &fields, has_trap_values)
+    let repr = if repr.is_some() {
+        gen_repr_family(family, generics, &fields, has_trap_values)
     } else {
-        gen_rust_repr_family_impl(family, name, generics, &fields)
+        gen_rust_repr_family(family, generics, &fields)
     };
-    let size_family_impl = gen_size_family_impl(family, name, generics, &fields);
-    let niche_family_impl = if has_custom_niche {
-        gen_niche_family_impl_with_kind(
-            family,
-            name,
-            generics,
-            quote! { #family::niche::WithNiche<#family::niche::Custom> },
-        )
+    let size = gen_size_family(family, generics, &fields);
+    let niche = if has_custom_niche {
+        AggregateFamily::fixed(quote! { #family::niche::WithNiche<#family::niche::Custom> })
     } else {
-        gen_niche_family_impl(family, name, generics, &fields)
+        gen_niche_family(family, generics, &fields)
     };
-    let mutability_family_impl = gen_mutability_family_impl(family, name, generics, &fields);
+    let mutability = gen_mutability_family(family, generics, &fields);
 
-    quote! {
-        #repr_family_impl
-        #size_family_impl
-        #niche_family_impl
-        #mutability_family_impl
-    }
+    gen_type_spec_impl(family, name, generics, repr, size, niche, mutability)
 }
 
 fn gen_enum_family_impls(
@@ -408,25 +377,20 @@ fn gen_enum_family_impls(
         .flat_map(|variant| variant.fields.iter().map(|field| &field.ty))
         .collect::<Vec<_>>();
 
-    let repr_family_impl = if repr.is_some() {
+    let repr_family = if repr.is_some() {
         let has_trap_values = enum_tag_type(repr, variants.len())
             .is_some_and(|tag| !is_exhaustive_enum(variants.len(), &tag));
-        gen_repr_family_impl(family, name, generics, &fields, has_trap_values)
+        gen_repr_family(family, generics, &fields, has_trap_values)
     } else {
-        gen_rust_repr_family_impl(family, name, generics, &fields)
+        gen_rust_repr_family(family, generics, &fields)
     };
     // FIXME: Sometimes enums with variants are ZSTs and don't have a tag
     // This happens if all variants are uninhabited but one is ZST/fieldless.
-    let size_family_impl = gen_non_zst_sized_family_impl(family, name, generics);
-    let niche_family_impl = gen_enum_niche_family_impl(family, repr, name, generics, variants);
-    let mutability_family_impl = gen_mutability_family_impl(family, name, generics, &fields);
+    let size = AggregateFamily::fixed(quote! { #family::size::Sized<#family::size::NonZst> });
+    let niche = gen_enum_niche_family(family, repr, variants);
+    let mutability = gen_mutability_family(family, generics, &fields);
 
-    quote! {
-        #repr_family_impl
-        #size_family_impl
-        #niche_family_impl
-        #mutability_family_impl
-    }
+    gen_type_spec_impl(family, name, generics, repr_family, size, niche, mutability)
 }
 
 fn gen_fieldless_enum_family_impls(
@@ -455,219 +419,96 @@ fn gen_fieldless_enum_family_impls(
     } else {
         enum_tag_type(repr, variants.len())
     };
-    let size_family_impl = if tag_type.is_none() {
-        gen_size_family_impl(family, name, generics, &[])
+    let size = if tag_type.is_none() {
+        gen_size_family(family, generics, &[])
     } else {
-        gen_non_zst_sized_family_impl(family, name, generics)
+        AggregateFamily::fixed(quote! { #family::size::Sized<#family::size::NonZst> })
     };
-    let niche_family_impl = if tag_type.is_none() {
-        gen_niche_family_impl_with_kind(
-            family,
-            name,
-            generics,
-            quote! { #family::niche::WithoutNiche },
-        )
+    let niche = if tag_type.is_none() {
+        AggregateFamily::fixed(quote! { #family::niche::WithoutNiche })
     } else {
-        gen_enum_niche_family_impl(family, repr, name, generics, variants)
+        gen_enum_niche_family(family, repr, variants)
     };
-    let mutability_family_impl = gen_mutability_family_impl(family, name, generics, &[]);
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let mutability = gen_mutability_family(family, generics, &[]);
+    let repr = AggregateFamily::fixed(repr_family);
 
-    quote! {
-        impl #impl_generics #family::repr::ReprFamily for #name #ty_generics #where_clause {
-            type Kind = #repr_family;
-        }
-
-        #size_family_impl
-        #niche_family_impl
-        #mutability_family_impl
-    }
+    gen_type_spec_impl(family, name, generics, repr, size, niche, mutability)
 }
 
-fn gen_rust_repr_family_impl(
+fn gen_rust_repr_family(
     family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
-    let aggregate = gen_aggregate_family(
-        quote! { #family::repr::ReprFamily },
+) -> AggregateFamily {
+    gen_aggregate_family(
+        family,
+        quote! { Repr },
         quote! { #family::repr::Unstable<#family::repr::Robust> },
         generics,
         fields,
-    );
-    let repr_kind = aggregate.kind;
-    let field_bounds = aggregate.field_bounds;
-    let aggregate_bounds = aggregate.aggregate_bounds;
-
-    quote! {
-        impl #impl_generics #family::repr::ReprFamily for #name #ty_generics where
-            #(#field_bounds,)*
-            #(#aggregate_bounds,)*
-            #predicates
-        {
-            type Kind = #repr_kind;
-        }
-    }
+    )
 }
 
-fn gen_repr_family_impl(
+fn gen_repr_family(
     family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
     has_trap_values: bool,
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
+) -> AggregateFamily {
     let init = if has_trap_values {
         quote! { #family::repr::NonRobust }
     } else {
         quote! { #family::repr::Robust }
     };
-    let aggregate = gen_aggregate_family(
-        quote! { #family::repr::ReprFamily },
+    gen_aggregate_family(
+        family,
+        quote! { Repr },
         quote! { #family::repr::Stable<#init> },
         generics,
         fields,
-    );
-    let repr_kind = aggregate.kind;
-    let field_bounds = aggregate.field_bounds;
-    let aggregate_bounds = aggregate.aggregate_bounds;
-
-    quote! {
-        impl #impl_generics #family::repr::ReprFamily for #name #ty_generics where
-            #(#field_bounds,)*
-            #(#aggregate_bounds,)*
-            #predicates
-        {
-            type Kind = #repr_kind;
-        }
-    }
+    )
 }
 
-fn gen_size_family_impl(
+fn gen_size_family(
     family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
-    let aggregate = gen_aggregate_family(
-        quote! { #family::size::SizeFamily },
+) -> AggregateFamily {
+    gen_aggregate_family(
+        family,
+        quote! { Size },
         quote! { #family::size::Sized<#family::size::Zst> },
         generics,
         fields,
-    );
-    let size_kind = aggregate.kind;
-    let field_bounds = aggregate.field_bounds;
-    let aggregate_bounds = aggregate.aggregate_bounds;
-
-    quote! {
-        unsafe impl #impl_generics #family::size::SizeFamily for #name #ty_generics where
-            #(#field_bounds,)*
-            #(#aggregate_bounds,)*
-            #predicates
-        {
-            type Kind = #size_kind;
-        }
-    }
+    )
 }
 
-fn gen_non_zst_sized_family_impl(
+fn gen_niche_family(
     family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
-    generics: &syn::Generics,
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    quote! {
-        unsafe impl #impl_generics #family::size::SizeFamily for #name #ty_generics #where_clause {
-            type Kind = #family::size::Sized<#family::size::NonZst>;
-        }
-    }
-}
-
-fn gen_niche_family_impl(
-    family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
-    let aggregate = gen_aggregate_family(
-        quote! { #family::niche::NicheFamily },
+) -> AggregateFamily {
+    gen_aggregate_family(
+        family,
+        quote! { Niche },
         // TODO: We're just using WithoutNiche for the ease of implementation. Remove it?
         quote! { #family::niche::WithoutNiche },
         generics,
         fields,
-    );
-    let niche_kind = aggregate.kind;
-    let field_bounds = aggregate.field_bounds;
-    let aggregate_bounds = aggregate.aggregate_bounds;
-
-    quote! {
-        impl #impl_generics #family::niche::NicheFamily for #name #ty_generics where
-            #(#field_bounds,)*
-            #(#aggregate_bounds,)*
-            #predicates
-        {
-            type Kind = #niche_kind;
-        }
-    }
+    )
 }
 
-fn gen_niche_family_impl_with_kind(
+fn gen_mutability_family(
     family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
-    generics: &syn::Generics,
-    kind: proc_macro2::TokenStream,
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    quote! {
-        impl #impl_generics #family::niche::NicheFamily for #name #ty_generics #where_clause {
-            type Kind = #kind;
-        }
-    }
-}
-
-fn gen_mutability_family_impl(
-    family: &proc_macro2::TokenStream,
-    name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
+) -> AggregateFamily {
     let init_kind = if fields.is_empty() {
         quote! { #family::mutability::Exclusive }
     } else {
         quote! { #family::mutability::Interior }
     };
-    let aggregate = gen_aggregate_family(
-        quote! { #family::mutability::MutabilityFamily },
-        init_kind,
-        generics,
-        fields,
-    );
-    let mutability_kind = aggregate.kind;
-    let field_bounds = aggregate.field_bounds;
-    let aggregate_bounds = aggregate.aggregate_bounds;
-
-    quote! {
-        impl #impl_generics #family::mutability::MutabilityFamily for #name #ty_generics where
-            #(#field_bounds,)*
-            #(#aggregate_bounds,)*
-            #predicates
-        {
-            type Kind = #mutability_kind;
-        }
-    }
+    gen_aggregate_family(family, quote! { Mutability }, init_kind, generics, fields)
 }
 
 struct AggregateFamily {
@@ -676,8 +517,19 @@ struct AggregateFamily {
     aggregate_bounds: Vec<proc_macro2::TokenStream>,
 }
 
+impl AggregateFamily {
+    fn fixed(kind: proc_macro2::TokenStream) -> Self {
+        Self {
+            kind,
+            field_bounds: Vec::new(),
+            aggregate_bounds: Vec::new(),
+        }
+    }
+}
+
 fn gen_aggregate_family(
-    family_trait: proc_macro2::TokenStream,
+    family: &proc_macro2::TokenStream,
+    axis: proc_macro2::TokenStream,
     init_kind: proc_macro2::TokenStream,
     generics: &syn::Generics,
     fields: &[&syn::Type],
@@ -688,17 +540,17 @@ fn gen_aggregate_family(
     let mut kind = init_kind;
     let field_bounds = parametrized_fields
         .iter()
-        .map(|ty| quote! { #ty: #family_trait })
+        .map(|ty| quote! { #ty: #family::TypeSpec })
         .collect::<Vec<_>>();
     let mut aggregate_bounds = Vec::new();
 
     for &field in &non_parametrized_fields {
-        let field_kind = quote! { <#field as #family_trait>::Kind };
+        let field_kind = quote! { <#field as #family::TypeSpec>::#axis };
         kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
     }
 
     for &field in &parametrized_fields {
-        let field_kind = quote! { <#field as #family_trait>::Kind };
+        let field_kind = quote! { <#field as #family::TypeSpec>::#axis };
         aggregate_bounds.push(quote! { #field_kind: core::ops::Add<#kind> });
         kind = quote! { <#field_kind as core::ops::Add<#kind>>::Output };
     }
@@ -710,13 +562,55 @@ fn gen_aggregate_family(
     }
 }
 
-fn gen_enum_niche_family_impl(
+fn gen_type_spec_impl(
     family: &proc_macro2::TokenStream,
-    repr: Option<&ReprKind>,
     name: &syn::Ident,
     generics: &syn::Generics,
-    variants: &Punctuated<syn::Variant, Token![,]>,
+    repr: AggregateFamily,
+    size: AggregateFamily,
+    niche: AggregateFamily,
+    mutability: AggregateFamily,
 ) -> proc_macro2::TokenStream {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let predicates = where_clause.as_ref().map(|w| &w.predicates);
+    let field_bounds = repr
+        .field_bounds
+        .into_iter()
+        .chain(size.field_bounds)
+        .chain(niche.field_bounds)
+        .chain(mutability.field_bounds)
+        .collect::<Vec<_>>();
+    let aggregate_bounds = repr
+        .aggregate_bounds
+        .into_iter()
+        .chain(size.aggregate_bounds)
+        .chain(niche.aggregate_bounds)
+        .chain(mutability.aggregate_bounds)
+        .collect::<Vec<_>>();
+    let repr_kind = repr.kind;
+    let size_kind = size.kind;
+    let niche_kind = niche.kind;
+    let mutability_kind = mutability.kind;
+
+    quote! {
+        unsafe impl #impl_generics #family::TypeSpec for #name #ty_generics where
+            #(#field_bounds,)*
+            #(#aggregate_bounds,)*
+            #predicates
+        {
+            type Repr = #repr_kind;
+            type Size = #size_kind;
+            type Niche = #niche_kind;
+            type Mutability = #mutability_kind;
+        }
+    }
+}
+
+fn gen_enum_niche_family(
+    family: &proc_macro2::TokenStream,
+    repr: Option<&ReprKind>,
+    variants: &Punctuated<syn::Variant, Token![,]>,
+) -> AggregateFamily {
     let is_exhaustive = enum_tag_type(repr, variants.len())
         .is_none_or(|tag| is_exhaustive_enum(variants.len(), &tag));
     let niche_kind = if is_exhaustive {
@@ -725,7 +619,7 @@ fn gen_enum_niche_family_impl(
         quote! { #family::niche::WithNiche<#family::niche::Custom> }
     };
 
-    gen_niche_family_impl_with_kind(family, name, generics, niche_kind)
+    AggregateFamily::fixed(niche_kind)
 }
 
 fn enum_tag_type(repr: Option<&ReprKind>, variants_len: usize) -> Option<syn::Type> {

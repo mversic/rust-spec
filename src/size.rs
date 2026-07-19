@@ -1,5 +1,5 @@
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use core::ptr::NonNull;
 use core::{convert::Infallible, ops::Add};
@@ -45,28 +45,6 @@ impl Thin for ExternTypeLike {}
 pub(crate) trait Dst {}
 impl Dst for ExternTypeLike {}
 impl<K> Dst for MetaSized<K> {}
-
-/// Classifies whether a type has statically known or metadata-dependent layout.
-///
-/// # Safety
-///
-/// Implementors must classify `Self` truthfully:
-///
-/// - `Sized<Zst>` may only be used for statically sized types with zero size.
-/// - `Sized<NonZst>` may only be used for statically sized types with nonzero size.
-/// - `ExternTypeLike` may only be used for unsized extern-type-like layouts with thin pointers.
-/// - `MetaSized<SliceLike>` may only be used for DST layouts whose last element is a Rust slice.
-/// - `MetaSized<DynTraitLike>` may only be used for DST layouts whose last element is a trait object.
-///
-/// Implementations of [`crate::CFnArg`] depend on this.
-pub unsafe trait SizeFamily {
-    /// Size classification marker for this type.
-    ///
-    /// - Set to [`Sized`] when values of the type have a known layout.
-    /// - For DSTs whose last field is an extern type set to [`ExternTypeLike`].
-    /// - For DSTs with metadata, set to [`MetaSized<SliceLike>`] / [`MetaSized<DynTraitLike>`].
-    type Kind;
-}
 
 /// Pointer that consists of data and metadata (also called a `fat` pointer).
 ///
@@ -117,34 +95,6 @@ pub trait Wide {
     /// See [`Box::from_non_null`]
     #[cfg(feature = "alloc")]
     unsafe fn from_non_null(data: NonNull<Self::Data>, metadata: Self::Metadata) -> Box<Self>;
-}
-
-unsafe impl<T: ?core::marker::Sized> SizeFamily for &T {
-    type Kind = Sized<NonZst>;
-}
-
-unsafe impl<T: ?core::marker::Sized> SizeFamily for &mut T {
-    type Kind = Sized<NonZst>;
-}
-
-#[cfg(feature = "alloc")]
-unsafe impl<T: ?core::marker::Sized> SizeFamily for Box<T> {
-    type Kind = Sized<NonZst>;
-}
-
-#[cfg(feature = "alloc")]
-unsafe impl<T> SizeFamily for Vec<T> {
-    type Kind = Sized<NonZst>;
-}
-
-// TODO: Option<Uninhabited> is ZST
-unsafe impl<T> SizeFamily for Option<T> {
-    type Kind = Sized<NonZst>;
-}
-
-// TODO: It can also be Zst sometimes
-unsafe impl<T, E> SizeFamily for Result<T, E> {
-    type Kind = Sized<NonZst>;
 }
 
 impl<R> Wide for [R] {

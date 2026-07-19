@@ -13,9 +13,9 @@ unsafe trait TypeSpec {
 }
 ```
 
-`TypeSpec` combines representation stability/robustness, size shape, niche availability, and shared-access mutability into one Rust-spec classification. The older `ReprFamily`, `SizeFamily`, `NicheFamily`, and `MutabilityFamily` names are compatibility projections for code that still needs to name one axis independently.
+`TypeSpec` combines representation stability/robustness, size shape, niche availability, and shared-access mutability into one Rust-spec classification.
 
-`TypeSpec::Size` carries the same safety contract as `SizeFamily::Kind`: implementors must truthfully classify whether the type is statically sized, metadata-sized, or extern-type-like.
+`TypeSpec::Size` carries the safety contract for size classification: implementors must truthfully classify whether the type is statically sized, metadata-sized, or extern-type-like.
 
 ## 2. Representation Axis
 
