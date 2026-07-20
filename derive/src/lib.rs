@@ -175,7 +175,7 @@ fn expand_family(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStre
 fn family_path() -> proc_macro2::TokenStream {
     let rust_spec = proc_macro_crate::crate_name("rust-spec");
     match rust_spec {
-        Ok(proc_macro_crate::FoundCrate::Itself) => return quote! { crate },
+        Ok(proc_macro_crate::FoundCrate::Itself) => return quote! { rust_spec },
         Ok(proc_macro_crate::FoundCrate::Name(name)) => {
             let name = format_ident!("{}", name);
             return quote! { #name };
@@ -463,7 +463,7 @@ fn gen_struct_family_impls(
     };
     let size = gen_size_family(family, generics, &fields);
     let niche = if has_custom_niche {
-        AggregateFamily::fixed(quote! { #family::niche::WithNiche<#family::niche::Custom> })
+        AggregateFamily::fixed(quote! { #family::niche::WithNiche<#family::niche::Unstable> })
     } else {
         gen_niche_family(family, generics, &fields)
     };
@@ -723,7 +723,7 @@ fn gen_enum_niche_family(
     let niche_kind = if is_exhaustive {
         quote! { #family::niche::WithoutNiche }
     } else {
-        quote! { #family::niche::WithNiche<#family::niche::Custom> }
+        quote! { #family::niche::WithNiche<#family::niche::Unstable> }
     };
 
     AggregateFamily::fixed(niche_kind)

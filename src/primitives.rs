@@ -41,7 +41,7 @@ macro_rules! fieldless_enum_derive {
         unsafe impl RustSpec for $src {
             type Layout = Stable<NonRobust>;
             type Size = crate::size::Sized<crate::size::NonZst>;
-            type Niche = WithNiche<crate::niche::Custom>;
+            type Niche = WithNiche<crate::niche::Unstable>;
             type Mutability = Exclusive;
         }
     };
@@ -146,21 +146,21 @@ mod tests {
         );
         assert_impl_all!(&[u8]:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!(&mut [u8]:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[u8]>:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<u8>:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!([u8; 2]:
             RustSpec<Layout = Stable<Robust>>,
@@ -168,7 +168,7 @@ mod tests {
         );
         assert_impl_all!(Option<u8>:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 }

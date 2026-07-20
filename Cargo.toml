@@ -1,11 +1,22 @@
-[package]
-name = "rust-spec"
+[workspace]
+members = ["derive"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Marin Veršić <marin.versic101@gmail.com>"]
-repository = "https://github.com/mversic/rust-spec"
+
+[package]
+name = "rust-spec"
+
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
 description = "Classification of types in accordance with the Rust specification"
+repository = "https://github.com/mversic/rust-spec"
 keywords = ["rust", "specification", "classification", "layout", "repr"]
 
 categories = ["rust-patterns", "no-std"]
@@ -17,7 +28,7 @@ alloc = []
 # Enables `#[derive(RustSpec)]`
 derive = ["rust-spec-derive"]
 
-default = ["alloc"]
+default = ["alloc", "derive"]
 
 [dependencies]
 rust-spec-derive = { path = "derive", optional = true }

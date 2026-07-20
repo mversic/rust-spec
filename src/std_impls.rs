@@ -1,5 +1,7 @@
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::{
     cell::{Cell, UnsafeCell},
     ffi::c_void,
@@ -75,7 +77,15 @@ unsafe impl RustSpec for str {
 unsafe impl RustSpec for String {
     type Layout = Unstable<NonRobust>;
     type Size = crate::size::Sized<crate::size::NonZst>;
-    type Niche = WithNiche<crate::niche::Custom>;
+    type Niche = WithNiche<crate::niche::Unstable>;
+    type Mutability = Exclusive;
+}
+
+#[cfg(feature = "alloc")]
+unsafe impl<T> RustSpec for Vec<T> {
+    type Layout = Unstable<NonRobust>;
+    type Size = crate::size::Sized<crate::size::NonZst>;
+    type Niche = WithNiche<crate::niche::Unstable>;
     type Mutability = Exclusive;
 }
 
@@ -143,24 +153,24 @@ mod tests {
     //    assert_impl_all!(&[ManuallyDrop<u8>]:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(&mut [ManuallyDrop<u8>]:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    #[cfg(feature = "alloc")]
     //    assert_impl_all!(Box<[ManuallyDrop<u8>]>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    #[cfg(feature = "alloc")]
     //    assert_impl_all!(Vec<ManuallyDrop<u8>>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!([ManuallyDrop<u8>; 2]:
     //        RustSpec<Layout = Stable<Robust>>,
@@ -170,7 +180,7 @@ mod tests {
     //    assert_impl_all!(Option<ManuallyDrop<u8>>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
 
     //    assert_not_impl_any!(ManuallyDrop<u8>: ReprC);
@@ -182,7 +192,7 @@ mod tests {
     //    assert_impl_all!(ManuallyDrop<String>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(&ManuallyDrop<String>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
@@ -202,33 +212,33 @@ mod tests {
     //    assert_impl_all!(&[ManuallyDrop<String>]:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(&mut [ManuallyDrop<String>]:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(Box<[ManuallyDrop<String>]>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(Vec<ManuallyDrop<String>>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!([ManuallyDrop<String>; 2]:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
-    //        RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_impl_all!(Option<ManuallyDrop<String>>:
     //        RustSpec<Layout = Unstable<NonRobust>>,
     //        RustSpec<Size = Co3Sized<NonZst>>,
     //        // FIXME:
-    //        //RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+    //        //RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
     //    );
     //    assert_not_impl_any!(ManuallyDrop<String>: ReprC);
 
@@ -248,19 +258,19 @@ mod tests {
         assert_impl_all!(&str:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut str:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<str>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 
@@ -299,24 +309,24 @@ mod tests {
         assert_impl_all!(&[UnsafeCell<u8>]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!(&mut [UnsafeCell<u8>]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[UnsafeCell<u8>]>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<UnsafeCell<u8>>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!([UnsafeCell<u8>; 2]:
             RustSpec<Layout = Stable<Robust>>,
@@ -326,7 +336,7 @@ mod tests {
         assert_impl_all!(Option<UnsafeCell<u8>>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 
@@ -356,24 +366,24 @@ mod tests {
         assert_impl_all!(&[UnsafeCell<NonZero<u8>>]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!(&mut [UnsafeCell<NonZero<u8>>]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[UnsafeCell<NonZero<u8>>]>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<UnsafeCell<NonZero<u8>>>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!([UnsafeCell<NonZero<u8>>; 2]:
             RustSpec<Layout = Stable<NonRobust>>,
@@ -383,7 +393,7 @@ mod tests {
         assert_impl_all!(Option<UnsafeCell<NonZero<u8>>>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 }
