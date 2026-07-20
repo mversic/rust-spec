@@ -10,9 +10,11 @@ use core::{
     ptr::NonNull,
 };
 
+#[cfg(feature = "alloc")]
+use crate::layout::Unstable;
 use crate::{
     RustSpec,
-    layout::{NonRobust, Robust, Stable, Unstable},
+    layout::{NonRobust, Robust, Stable},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
     size::{MetaSized, SliceLike},
@@ -107,6 +109,7 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     use super::*;
+    use crate::layout::Unstable;
     #[cfg(feature = "alloc")]
     use crate::{
         niche::WithNiche,

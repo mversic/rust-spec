@@ -4,17 +4,25 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Marin Veršić <marin.versic101@gmail.com>"]
-repository = "https://github.com/mversic/co3"
-description = "Rust-specified type property traits for co3"
+repository = "https://github.com/mversic/rust-spec"
+description = "Classification of types in accordance with the Rust specification"
+keywords = ["rust", "specification", "classification", "layout", "repr"]
+
+categories = ["rust-patterns", "no-std"]
 
 [features]
-default = ["alloc"]
+# Implement classification for types from the `alloc` crate (e.g. `Box<T>` or `Vec<T>`).
 alloc = []
+
+# Enables `#[derive(RustSpec)]`
 derive = ["rust-spec-derive"]
+
+default = ["alloc"]
 
 [dependencies]
 rust-spec-derive = { path = "derive", optional = true }
-disjoint_impls = { path = "../../disjoint_impls/" }
+
+disjoint_impls = "1.3.8"
 
 [dev-dependencies]
 static_assertions = "1.1.0"
