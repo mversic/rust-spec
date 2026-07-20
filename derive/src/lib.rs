@@ -83,10 +83,20 @@ struct FamilyAttrs {
     is_view: bool,
 }
 
-#[proc_macro_derive(TypeSpec, attributes(reprC))]
-pub fn type_spec(item: TokenStream) -> TokenStream {
+#[proc_macro_derive(RustSpec, attributes(reprC))]
+pub fn rust_spec(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     expand_family(&input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_derive(Wide, attributes(reprC))]
+pub fn wide(item: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let family = family_path();
+
+    gen_wide_impl(&family, &input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -104,7 +114,7 @@ fn expand_family(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStre
         ));
     }
 
-    Ok(match &input.data {
+    let rust_spec_impl = match &input.data {
         syn::Data::Struct(data) => gen_struct_family_impls(
             &family,
             repr.as_ref(),
@@ -153,6 +163,12 @@ fn expand_family(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStre
         syn::Data::Union(_) => {
             return Err(syn::Error::new_spanned(input, "Unions are not supported"));
         }
+    };
+    let wide_impl = gen_wide_impl(&family, input)?;
+
+    Ok(quote! {
+        #rust_spec_impl
+        #wide_impl
     })
 }
 
@@ -301,15 +317,15 @@ fn gen_view_delegate_impls(
     };
 
     quote! {
-        unsafe impl #impl_generics #family::TypeSpec for #name #ty_generics
+        unsafe impl #impl_generics #family::RustSpec for #name #ty_generics
         where
-            #for_dummy #owner_ty: #family::TypeSpec,
+            #for_dummy #owner_ty: #family::RustSpec,
             #predicates
         {
-            type Repr = <#owner_ty as #family::TypeSpec>::Repr;
-            type Size = <#owner_ty as #family::TypeSpec>::Size;
-            type Niche = <#owner_ty as #family::TypeSpec>::Niche;
-            type Mutability = <#owner_ty as #family::TypeSpec>::Mutability;
+            type Layout = <#owner_ty as #family::RustSpec>::Layout;
+            type Size = <#owner_ty as #family::RustSpec>::Size;
+            type Niche = <#owner_ty as #family::RustSpec>::Niche;
+            type Mutability = <#owner_ty as #family::RustSpec>::Mutability;
         }
     }
 }
@@ -318,6 +334,97 @@ fn gen_view_owner_name(view_name: &syn::Ident) -> syn::Ident {
     let view_name_str = view_name.to_string();
     let owned_name = view_name_str.strip_suffix("View").unwrap();
     syn::Ident::new(owned_name, view_name.span())
+}
+
+fn gen_wide_impl(
+    family: &proc_macro2::TokenStream,
+    input: &syn::DeriveInput,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let syn::Data::Struct(data) = &input.data else {
+        return Ok(quote! {});
+    };
+    let fields = &data.fields;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let predicates = where_clause.as_ref().map(|w| &w.predicates);
+
+    if fields.len() != 1 {
+        return Ok(quote! {});
+    }
+    let Some(field) = fields.iter().next() else {
+        return Ok(quote! {});
+    };
+
+    let name = &input.ident;
+    let field_ty = &field.ty;
+    let field_ref = field.ident.as_ref().map_or_else(
+        || quote! { self.0 },
+        |field_name| quote! { self.#field_name },
+    );
+
+    let for_dummy = if input.generics.params.is_empty() {
+        quote! { for<'_dummy> }
+    } else {
+        quote! {}
+    };
+
+    Ok(quote! {
+        impl #impl_generics #family::size::Wide for #name #ty_generics
+        where
+            #for_dummy #field_ty: #family::size::Wide,
+            #predicates
+        {
+            type Data = <#field_ty as #family::size::Wide>::Data;
+            type Metadata = <#field_ty as #family::size::Wide>::Metadata;
+
+            #[inline(always)]
+            fn metadata(&self) -> Self::Metadata {
+                #family::size::Wide::metadata(&#field_ref)
+            }
+
+            #[inline(always)]
+            fn as_ptr(&self) -> *const Self::Data {
+                #family::size::Wide::as_ptr(&#field_ref)
+            }
+
+            #[inline(always)]
+            fn as_mut_ptr(&mut self) -> *mut Self::Data {
+                #family::size::Wide::as_mut_ptr(&mut #field_ref)
+            }
+
+            #[inline(always)]
+            fn into_non_null(self: Box<Self>) -> core::ptr::NonNull<Self::Data> {
+                let field = Box::into_raw(self) as *mut #field_ty;
+                unsafe { <#field_ty as #family::size::Wide>::into_non_null(Box::from_raw(field)) }
+            }
+
+            #[inline(always)]
+            unsafe fn from_raw_parts<'__rust_spec>(
+                data: *const Self::Data,
+                metadata: Self::Metadata,
+            ) -> &'__rust_spec Self {
+                let field = unsafe { <#field_ty as #family::size::Wide>::from_raw_parts(data, metadata) };
+                unsafe { &*(field as *const #field_ty as *const Self) }
+            }
+
+            #[inline(always)]
+            unsafe fn from_raw_parts_mut<'__rust_spec>(
+                data: *mut Self::Data,
+                metadata: Self::Metadata,
+            ) -> &'__rust_spec mut Self {
+                let field = unsafe { <#field_ty as #family::size::Wide>::from_raw_parts_mut(data, metadata) };
+                unsafe { &mut *(field as *mut #field_ty as *mut Self) }
+            }
+
+            #[inline(always)]
+            unsafe fn from_non_null(
+                data: core::ptr::NonNull<Self::Data>,
+                metadata: Self::Metadata,
+            ) -> Box<Self> {
+                let field = unsafe { <#field_ty as #family::size::Wide>::from_non_null(data, metadata) };
+                unsafe { Box::from_raw(Box::into_raw(field) as *mut Self) }
+            }
+        }
+    })
 }
 
 fn generic_param_idents<'a>(
@@ -401,17 +508,17 @@ fn gen_fieldless_enum_family_impls(
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> proc_macro2::TokenStream {
     let repr_family = match repr {
-        None => quote! { #family::repr::Unstable<#family::repr::Robust> },
+        None => quote! { #family::layout::Unstable<#family::layout::Robust> },
         Some(ReprKind::C(None)) => unreachable!(),
-        Some(ReprKind::Transparent) => quote! { #family::repr::Robust },
+        Some(ReprKind::Transparent) => quote! { #family::layout::Robust },
         Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
             let robustness = if is_exhaustive_enum(variants.len(), tag) {
-                quote! { #family::repr::Robust }
+                quote! { #family::layout::Robust }
             } else {
-                quote! { #family::repr::NonRobust }
+                quote! { #family::layout::NonRobust }
             };
 
-            quote! { #family::repr::Stable<#robustness> }
+            quote! { #family::layout::Stable<#robustness> }
         }
     };
     let tag_type = if repr.is_none() && variants.len() == 1 {
@@ -442,8 +549,8 @@ fn gen_rust_repr_family(
 ) -> AggregateFamily {
     gen_aggregate_family(
         family,
-        quote! { Repr },
-        quote! { #family::repr::Unstable<#family::repr::Robust> },
+        quote! { Layout },
+        quote! { #family::layout::Unstable<#family::layout::Robust> },
         generics,
         fields,
     )
@@ -456,14 +563,14 @@ fn gen_repr_family(
     has_trap_values: bool,
 ) -> AggregateFamily {
     let init = if has_trap_values {
-        quote! { #family::repr::NonRobust }
+        quote! { #family::layout::NonRobust }
     } else {
-        quote! { #family::repr::Robust }
+        quote! { #family::layout::Robust }
     };
     gen_aggregate_family(
         family,
-        quote! { Repr },
-        quote! { #family::repr::Stable<#init> },
+        quote! { Layout },
+        quote! { #family::layout::Stable<#init> },
         generics,
         fields,
     )
@@ -540,17 +647,17 @@ fn gen_aggregate_family(
     let mut kind = init_kind;
     let field_bounds = parametrized_fields
         .iter()
-        .map(|ty| quote! { #ty: #family::TypeSpec })
+        .map(|ty| quote! { #ty: #family::RustSpec })
         .collect::<Vec<_>>();
     let mut aggregate_bounds = Vec::new();
 
     for &field in &non_parametrized_fields {
-        let field_kind = quote! { <#field as #family::TypeSpec>::#axis };
+        let field_kind = quote! { <#field as #family::RustSpec>::#axis };
         kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
     }
 
     for &field in &parametrized_fields {
-        let field_kind = quote! { <#field as #family::TypeSpec>::#axis };
+        let field_kind = quote! { <#field as #family::RustSpec>::#axis };
         aggregate_bounds.push(quote! { #field_kind: core::ops::Add<#kind> });
         kind = quote! { <#field_kind as core::ops::Add<#kind>>::Output };
     }
@@ -593,12 +700,12 @@ fn gen_type_spec_impl(
     let mutability_kind = mutability.kind;
 
     quote! {
-        unsafe impl #impl_generics #family::TypeSpec for #name #ty_generics where
+        unsafe impl #impl_generics #family::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
             #predicates
         {
-            type Repr = #repr_kind;
+            type Layout = #repr_kind;
             type Size = #size_kind;
             type Niche = #niche_kind;
             type Mutability = #mutability_kind;

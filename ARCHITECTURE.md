@@ -5,30 +5,30 @@
 Rust-specified type properties are joined under one canonical trait:
 
 ```rs
-unsafe trait TypeSpec {
-    type Repr;
+unsafe trait RustSpec {
+    type Layout;
     type Size;
     type Niche;
     type Mutability;
 }
 ```
 
-`TypeSpec` combines representation stability/robustness, size shape, niche availability, and shared-access mutability into one Rust-spec classification.
+`RustSpec` combines representation stability/robustness, size shape, niche availability, and shared-access mutability into one Rust-spec classification.
 
-`TypeSpec::Size` carries the safety contract for size classification: implementors must truthfully classify whether the type is statically sized, metadata-sized, or extern-type-like.
+`RustSpec::Size` carries the safety contract for size classification: implementors must truthfully classify whether the type is statically sized, metadata-sized, or extern-type-like.
 
 ## 2. Representation Axis
 
-Representation categorization is exposed through `TypeSpec::Repr`:
+Representation categorization is exposed through `RustSpec::Layout`:
 
 ```rs
-unsafe trait TypeSpec {
-    type Repr;
+unsafe trait RustSpec {
+    type Layout;
     // ...
 }
 ```
 
-where `TypeSpec::Repr` is assigned one of the categories below through a marker of the same name:
+where `RustSpec::Layout` is assigned one of the categories below through a marker of the same name:
 
 1. **`Stable<Robust>`** (marker type)
 - Types with stable C layout and no trap representations (e.g. `u32`).
@@ -48,7 +48,7 @@ where `TypeSpec::Repr` is assigned one of the categories below through a marker 
 
 ### 2.1 Composite Types
 
-Composite types derive `TypeSpec::Repr` by combining layout stability and robustness separately:
+Composite types derive `RustSpec::Layout` by combining layout stability and robustness separately:
 
 - `Stable<_> + Stable<_>` remains `Stable<_>`.
 - Any combination containing `Unstable<_>` becomes `Unstable<_>`.
@@ -63,7 +63,7 @@ References and `Box<R>` preserve `Unstable<K>` when the referent is unstable. St
 
 ## 3. Size Axis
 
-Size categorization is exposed through `TypeSpec::Size`.
+Size categorization is exposed through `RustSpec::Size`.
 
 The categories are:
 
@@ -84,16 +84,16 @@ The categories are:
 
 ## 4. Niche Axis
 
-Niche categorization is exposed through `TypeSpec::Niche`:
+Niche categorization is exposed through `RustSpec::Niche`:
 
 ```rs
-unsafe trait TypeSpec {
+unsafe trait RustSpec {
     type Niche;
     // ...
 }
 ```
 
-where `TypeSpec::Niche` is assigned one of the categories below through a marker of the same name:
+where `RustSpec::Niche` is assigned one of the categories below through a marker of the same name:
 
 1. **`WithNiche<Stable>`** (marker type)
 - Type has a compiler-guaranteed niche value (refer to [doc](https://doc.rust-lang.org/std/option/#representation)).
@@ -106,7 +106,7 @@ where `TypeSpec::Niche` is assigned one of the categories below through a marker
 
 ### 4.1 Composite Types
 
-The tables below specifies how composite types derive `TypeSpec::Niche`:
+The tables below specifies how composite types derive `RustSpec::Niche`:
 
 | Self | `Self::Kind` |
 | --- | --- |
@@ -120,7 +120,7 @@ The tables below specifies how composite types derive `TypeSpec::Niche`:
 
 #### `[R; N]`
 
-| `<R as TypeSpec>::Niche` | `Self::Niche` |
+| `<R as RustSpec>::Niche` | `Self::Niche` |
 | --- | --- |
 | `WithNiche<Stable>` | `WithNiche<Custom>` |
 | `WithNiche<Custom>` | `WithNiche<Custom>` |
@@ -128,7 +128,7 @@ The tables below specifies how composite types derive `TypeSpec::Niche`:
 
 #### `Option<R>`
 
-| `<R as TypeSpec>::Niche` | `Self::Niche` |
+| `<R as RustSpec>::Niche` | `Self::Niche` |
 | --- | --- |
 | `WithoutNiche` | `WithNiche<Custom>` |
 | `WithNiche<Stable>` | `WithoutNiche` |
@@ -136,16 +136,16 @@ The tables below specifies how composite types derive `TypeSpec::Niche`:
 
 ## 5. Mutability Axis
 
-Mutability categorization is exposed through `TypeSpec::Mutability`:
+Mutability categorization is exposed through `RustSpec::Mutability`:
 
 ```rs
-unsafe trait TypeSpec {
+unsafe trait RustSpec {
     type Mutability;
     // ...
 }
 ```
 
-where `TypeSpec::Mutability` is assigned one of the categories below through a marker of the same name:
+where `RustSpec::Mutability` is assigned one of the categories below through a marker of the same name:
 
 1. **`Interior`** (marker type)
 - Types whose whole ABI-exposed value may be mutated through shared access.
@@ -156,7 +156,7 @@ where `TypeSpec::Mutability` is assigned one of the categories below through a m
 
 ### 5.1 Composite Types
 
-Composite types derive `TypeSpec::Mutability` structurally:
+Composite types derive `RustSpec::Mutability` structurally:
 
 | Field kinds | Self::Kind |
 | --- | --- |

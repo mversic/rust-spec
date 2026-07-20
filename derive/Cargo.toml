@@ -5,7 +5,7 @@ edition = "2024"
 license = "Apache-2.0"
 authors = ["Marin Veršić <marin.versic101@gmail.com>"]
 repository = "https://github.com/mversic/co3/rust-spec/derive"
-description = "Derive macros for co3 TypeSpec"
+description = "Derive macros for co3 RustSpec"
 
 [lib]
 proc-macro = true

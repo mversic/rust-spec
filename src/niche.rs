@@ -52,27 +52,24 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     use super::*;
-    use crate::{
-        TypeSpec,
-        repr::{NonRobust, Unstable},
-    };
+    use crate::{RustSpec, layout::NonRobust, layout::Unstable};
 
     #[test]
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
 
         assert_impl_all!(Option<Option<bool>>:
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
-            TypeSpec<Repr = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
         );
 
         assert_impl_all!(Option<(u8, NonZero<u8>)>:
-            TypeSpec<Repr = Unstable<NonRobust>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
-            //TypeSpec<Niche = WithoutNiche>,
+            //RustSpec<Niche = WithoutNiche>,
             //Niche<CType = ReprCTuple2<u8, u8>>,
         );
     }

@@ -1,17 +1,18 @@
 //! Logic related to the conversion of primitives to and from FFI-compatible representation
 
 use crate::{
-    TypeSpec,
+    RustSpec,
+    layout::Stable,
+    layout::{NonRobust, Robust},
     mutability::Exclusive,
     niche::{WithNiche, WithoutNiche},
-    repr::{NonRobust, Robust, Stable},
     size::{MetaSized, SliceLike},
 };
 
 macro_rules! primitive_derive {
     ( $primitive:ty ) => {
-        unsafe impl TypeSpec for $primitive {
-            type Repr = Stable<Robust>;
+        unsafe impl RustSpec for $primitive {
+            type Layout = Stable<Robust>;
             type Size = crate::size::Sized<crate::size::NonZst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
@@ -21,8 +22,8 @@ macro_rules! primitive_derive {
 
 macro_rules! raw_pointer_derive {
     ( $mutability:tt ) => {
-        unsafe impl<R: TypeSpec + ?Sized> TypeSpec for *$mutability R {
-            type Repr = R::Repr;
+        unsafe impl<R: RustSpec + ?Sized> RustSpec for *$mutability R {
+            type Layout = R::Layout;
             type Size = crate::size::Sized<crate::size::NonZst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
@@ -37,8 +38,8 @@ macro_rules! impl_fn_types {
 
 macro_rules! fieldless_enum_derive {
     ( $src:ty => $dst:ty: {$niche_val:expr}: $validity_fn:expr ) => {
-        unsafe impl TypeSpec for $src {
-            type Repr = Stable<NonRobust>;
+        unsafe impl RustSpec for $src {
+            type Layout = Stable<NonRobust>;
             type Size = crate::size::Sized<crate::size::NonZst>;
             type Niche = WithNiche<crate::niche::Custom>;
             type Mutability = Exclusive;
@@ -64,23 +65,23 @@ primitive_derive! { f64 }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-unsafe impl<R> TypeSpec for [R]
+unsafe impl<R> RustSpec for [R]
 where
-    R: TypeSpec,
+    R: RustSpec,
     WithoutNiche: core::ops::Add<R::Niche>,
 {
-    type Repr = R::Repr;
+    type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
     type Niche = <WithoutNiche as core::ops::Add<R::Niche>>::Output;
     type Mutability = R::Mutability;
 }
 
-unsafe impl<R, const N: usize> TypeSpec for [R; N]
+unsafe impl<R, const N: usize> RustSpec for [R; N]
 where
-    R: TypeSpec,
+    R: RustSpec,
     WithoutNiche: core::ops::Add<R::Niche>,
 {
-    type Repr = R::Repr;
+    type Layout = R::Layout;
     type Size = R::Size;
     type Niche = <WithoutNiche as core::ops::Add<R::Niche>>::Output;
     type Mutability = R::Mutability;
@@ -119,54 +120,55 @@ mod tests {
 
     use super::*;
     use crate::{
+        layout::Unstable,
+        layout::{NonRobust, Robust},
         niche::WithNiche,
-        repr::{NonRobust, Robust, Unstable},
     };
 
     #[test]
     fn robust_u8() {
         assert_impl_all!(u8:
-            TypeSpec<Repr = Stable<Robust>>,
-            TypeSpec<Niche = WithoutNiche>,
+            RustSpec<Layout = Stable<Robust>>,
+            RustSpec<Niche = WithoutNiche>,
         );
         assert_impl_all!(&u8:
-            TypeSpec<Repr = Stable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<Layout = Stable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&mut u8:
-            TypeSpec<Repr = Stable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<Layout = Stable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<u8>:
-            TypeSpec<Repr = Stable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<Layout = Stable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
         );
         assert_impl_all!(&[u8]:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!(&mut [u8]:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[u8]>:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<u8>:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
         assert_impl_all!([u8; 2]:
-            TypeSpec<Repr = Stable<Robust>>,
-            TypeSpec<Niche = WithoutNiche>,
+            RustSpec<Layout = Stable<Robust>>,
+            RustSpec<Niche = WithoutNiche>,
         );
         assert_impl_all!(Option<u8>:
-            TypeSpec<Repr = Unstable<NonRobust>>,
-            TypeSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
         );
     }
 }
