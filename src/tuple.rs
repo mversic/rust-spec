@@ -119,25 +119,25 @@ mod tests {
         assert_impl_all!(&[(u8, u8, u8)]:
             RustSpec<Layout = Unstable<Robust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, u8, u8)]:
             RustSpec<Layout = Unstable<Robust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, u8, u8)]>:
             RustSpec<Layout = Unstable<Robust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, u8, u8)>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
             RustSpec<Layout = Unstable<Robust>>,
@@ -147,7 +147,7 @@ mod tests {
         assert_impl_all!(Option<(u8, u8, u8)>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 
@@ -156,7 +156,7 @@ mod tests {
         assert_impl_all!((u8, NonZero<u8>, bool):
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
 
         assert_impl_all!(&(u8, NonZero<u8>, bool):
@@ -179,36 +179,36 @@ mod tests {
         assert_impl_all!(&[(u8, NonZero<u8>, bool)]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, NonZero<u8>, bool)]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, NonZero<u8>, bool)]>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, NonZero<u8>, bool)>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
         assert_impl_all!(Option<(u8, NonZero<u8>, bool)>:
             RustSpec<Layout = Unstable<NonRobust>>,
             RustSpec<Size = Co3Sized<NonZst>>,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
-            //RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            //RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
     }
 }

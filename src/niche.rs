@@ -10,11 +10,11 @@ pub struct WithNiche<K>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for a single stable (compiler guaranteed) niche value (e.g. `&u32`).
 ///
-/// Only a handful of [`crate::ir::ReprC`] types have a stable niche
+/// Only a handful of Rust types have a stable niche.
 pub enum Stable {}
 
-/// Marker for a custom defined (by this crate) niche (e.g. `[NonZeroU8; 2]`).
-pub enum Custom {}
+/// Marker for a niche that exists but is not compiler-guaranteed.
+pub enum Unstable {}
 
 impl Add for WithoutNiche {
     type Output = Self;
@@ -24,7 +24,7 @@ impl Add for WithoutNiche {
     }
 }
 impl<K> Add<WithNiche<K>> for WithoutNiche {
-    type Output = WithNiche<crate::niche::Custom>;
+    type Output = WithNiche<crate::niche::Unstable>;
 
     fn add(self, _: WithNiche<K>) -> Self::Output {
         unreachable!()
@@ -38,7 +38,7 @@ impl<K> Add<WithoutNiche> for WithNiche<K> {
     }
 }
 impl<K, U> Add<WithNiche<U>> for WithNiche<K> {
-    type Output = WithNiche<crate::niche::Custom>;
+    type Output = WithNiche<crate::niche::Unstable>;
 
     fn add(self, _: WithNiche<U>) -> Self::Output {
         unreachable!()
@@ -58,11 +58,11 @@ mod tests {
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
             RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
         );
 
         assert_impl_all!(Option<Option<bool>>:
-            RustSpec<Niche = WithNiche<crate::niche::Custom>>,
+            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
             RustSpec<Layout = Unstable<NonRobust>>,
         );
 

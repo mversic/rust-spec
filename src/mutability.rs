@@ -2,10 +2,10 @@
 
 use core::ops::Add;
 
-/// Marker for types whose whole ABI-exposed value may be mutated through shared access.
+/// Marker for types whose whole value may be mutated through shared access.
 pub enum Interior {}
 
-/// Marker for types whose ABI-exposed value requires exclusive access to mutate.
+/// Marker for types whose value requires exclusive access to mutate.
 pub enum Exclusive {}
 
 impl<K> Add<K> for Exclusive {

@@ -98,8 +98,8 @@ where `RustSpec::Niche` is assigned one of the categories below through a marker
 1. **`WithNiche<Stable>`** (marker type)
 - Type has a compiler-guaranteed niche value (refer to [doc](https://doc.rust-lang.org/std/option/#representation)).
 
-2. **`WithNiche<Custom>`** (marker type)
-- Type has a `crate`-defined sentinel niche value and `Option<T>` is encoded as `T::CType`.
+2. **`WithNiche<Unstable>`** (marker type)
+- Type has a niche value, but that niche is not compiler-guaranteed.
 
 3. **`WithoutNiche`** (marker type)
 - Type has no niche value and `Option<T>` must be encoded as a 2-tuple with a discriminant.
@@ -113,26 +113,26 @@ The tables below specifies how composite types derive `RustSpec::Niche`:
 | `&R` | `WithNiche<Stable>` |
 | `&mut R` | `WithNiche<Stable>` |
 | `Box<R>` | `WithNiche<Stable>` |
-| `&[R]` | `WithNiche<Custom>` |
-| `&mut [R]` | `WithNiche<Custom>` |
-| `Box<[R]>` | `WithNiche<Custom>` |
-| `Vec<R>` | `WithNiche<Custom>` |
+| `&[R]` | `WithNiche<Unstable>` |
+| `&mut [R]` | `WithNiche<Unstable>` |
+| `Box<[R]>` | `WithNiche<Unstable>` |
+| `Vec<R>` | `WithNiche<Unstable>` |
 
 #### `[R; N]`
 
 | `<R as RustSpec>::Niche` | `Self::Niche` |
 | --- | --- |
-| `WithNiche<Stable>` | `WithNiche<Custom>` |
-| `WithNiche<Custom>` | `WithNiche<Custom>` |
+| `WithNiche<Stable>` | `WithNiche<Unstable>` |
+| `WithNiche<Unstable>` | `WithNiche<Unstable>` |
 | `WithoutNiche` | `WithoutNiche` |
 
 #### `Option<R>`
 
 | `<R as RustSpec>::Niche` | `Self::Niche` |
 | --- | --- |
-| `WithoutNiche` | `WithNiche<Custom>` |
+| `WithoutNiche` | `WithNiche<Unstable>` |
 | `WithNiche<Stable>` | `WithoutNiche` |
-| `WithNiche<Custom>` | `WithNiche<Custom>` |
+| `WithNiche<Unstable>` | `WithNiche<Unstable>` |
 
 ## 5. Mutability Axis
 
@@ -148,11 +148,11 @@ unsafe trait RustSpec {
 where `RustSpec::Mutability` is assigned one of the categories below through a marker of the same name:
 
 1. **`Interior`** (marker type)
-- Types whose whole ABI-exposed value may be mutated through shared access.
+- Types whose whole value may be mutated through shared access.
 - `UnsafeCell<T>` and wrappers whose entire representation is interior-mutable belong to this family.
 
 2. **`Exclusive`** (marker type)
-- Types whose ABI-exposed value requires exclusive access to mutate.
+- Types whose value requires exclusive access to mutate.
 
 ### 5.1 Composite Types
 
@@ -166,5 +166,5 @@ Composite types derive `RustSpec::Mutability` structurally:
 Empty composites are `Exclusive`.
 References propagate the referent's mutability family.
 `Box<T>` propagates the boxed type's mutability family when `T: Sized`; `Box<T>` for unsized `T` is classified as `Exclusive`.
-Raw pointers, `NonNull<T>`, and `Vec<T>` are classified as `Exclusive` regardless of `T`, because their ABI-exposed wrapper state is not wholly mutable through shared access.
+Raw pointers, `NonNull<T>`, and `Vec<T>` are classified as `Exclusive` regardless of `T`, because their wrapper state is not wholly mutable through shared access.
 `Option<T>` and niche-shaped `Result<T, E>` preserve the payload family when their ABI is the payload representation; explicit wrapper forms are `Exclusive`.

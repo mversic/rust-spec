@@ -1,8 +1,9 @@
-//! Internal Representation (IR) of Rust types during conversion into FFI types.
+//! Representation stability and robustness classification.
 //!
-//! While you can implement [`crate::ExternC`] directly on your type, it is often
-//! preferable to map it into IR by implementing [`Ir`]. This approach gives you
-//! automatic, correct, and zero-cost conversions from IR to the equivalent C type.
+//! This module provides the marker types used by [`crate::RustSpec::Layout`].
+//! Stability describes whether Rust guarantees the representation shape.
+//! Robustness describes whether the represented value space has trap values that
+//! require validity care.
 use core::{convert::Infallible, ops::Add};
 
 /// Marker for a type that doesn't have a guaranteed representation and requires explicit conversion.
@@ -11,7 +12,7 @@ pub struct Unstable<K>(core::marker::PhantomData<K>, Infallible);
 /// Marker for a type that is transmuted to another type and thus delegates its conversion.
 pub struct Stable<K>(core::marker::PhantomData<K>, Infallible);
 
-/// Marker for a robust [`crate::ReprC`] type that does not require conversion.
+/// Marker for a robust type that does not require validity conversion.
 pub enum Robust {}
 
 /// Marker for a non-robust type that is still transmuted by the ABI layer.
