@@ -1,7 +1,0 @@
-error: Unions are not supported
- --> tests/ui_fail/union.rs:4:1
-  |
-4 | / union Unsupported {
-5 | |     value: u8,
-6 | | }
-  | |_^

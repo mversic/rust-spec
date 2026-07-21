@@ -305,7 +305,6 @@ mod tests {
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
             >,
-            size::Wide<Data = u8, Metadata = usize>,
         );
 
         assert_impl_all!(&str:
@@ -345,7 +344,6 @@ mod tests {
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
             >,
-            size::Wide<Data = u8, Metadata = usize>,
         );
         assert_impl_all!(&str:
             RustSpec<

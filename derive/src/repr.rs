@@ -80,10 +80,8 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
         .collect::<Vec<_>>();
 
     if repr_attrs.len() > 1 {
-        return Err(syn::Error::new_spanned(
-            repr_attrs[1],
-            "Multiple repr attributes",
-        ));
+        let err = "Multiple repr attributes";
+        return Err(syn::Error::new_spanned(repr_attrs[1], err));
     }
 
     let Some(&attr) = repr_attrs.first() else {
@@ -108,10 +106,8 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
                     kind = Some(ReprKind::C(Some(prim.clone())));
                 }
                 (Some(_), _) => {
-                    return Err(syn::Error::new_spanned(
-                        attr,
-                        "Duplicate repr kind within attribute",
-                    ));
+                    let err = "Duplicate repr kind within attribute";
+                    return Err(syn::Error::new_spanned(attr, err));
                 }
                 (None, new_kind) => kind = Some(new_kind),
             },
@@ -143,13 +139,6 @@ pub(crate) fn enum_tag_type(repr: Option<&ReprKind>, variants_len: usize) -> Opt
         Some(ReprKind::C(None)) => None,
         Some(ReprKind::C(Some(repr))) | Some(ReprKind::Primitive(repr)) => Some(*repr.clone()),
     }
-}
-
-pub(crate) fn is_transparent_enum_repr(
-    repr: Option<&ReprKind>,
-    variants: &Punctuated<syn::Variant, Token![,]>,
-) -> bool {
-    matches!(repr, Some(ReprKind::Transparent)) || repr.is_none() && variants.len() == 1
 }
 
 pub(crate) fn is_exhaustive_enum(num_variants: usize, repr: &syn::Type) -> bool {

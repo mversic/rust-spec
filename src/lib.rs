@@ -214,6 +214,8 @@ disjoint_impls! {
         // FIXME: if R is uninhabited Option<R> is ZST.
         // The same happens for any enum, even custom!
         type Size = size::Sized<size::NonZst>;
+        // FIXME: If the type is Robust it doesn't have a niche
+        // https://github.com/mversic/rust-spec/issues/7
         type Niche = WithNiche<niche::Unstable>;
         type Mutability = mutability::Exclusive;
     }

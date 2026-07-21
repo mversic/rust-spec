@@ -2,14 +2,9 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
-use crate::{
-    aggregate::AggregateFamily,
-    repr::{ReprKind, enum_tag_type, is_exhaustive_enum, is_transparent_enum_repr, parse_repr},
-};
+use crate::repr::{ReprKind, enum_tag_type, is_exhaustive_enum, parse_repr};
 
-mod aggregate;
 mod repr;
-mod wide;
 
 #[proc_macro_derive(RustSpec)]
 pub fn rust_spec(item: TokenStream) -> TokenStream {
@@ -19,7 +14,7 @@ pub fn rust_spec(item: TokenStream) -> TokenStream {
         .into()
 }
 
-fn family_path() -> proc_macro2::TokenStream {
+fn crate_path() -> proc_macro2::TokenStream {
     let rust_spec = proc_macro_crate::crate_name("rust-spec");
     match rust_spec {
         Ok(proc_macro_crate::FoundCrate::Itself) => return quote! { rust_spec },
@@ -40,236 +35,319 @@ fn family_path() -> proc_macro2::TokenStream {
     }
 }
 
+struct AggregateFamily {
+    kind: proc_macro2::TokenStream,
+    field_bounds: Vec<proc_macro2::TokenStream>,
+    aggregate_bounds: Vec<proc_macro2::TokenStream>,
+}
+
+impl AggregateFamily {
+    fn fixed(kind: proc_macro2::TokenStream) -> Self {
+        Self {
+            kind,
+            field_bounds: Vec::new(),
+            aggregate_bounds: Vec::new(),
+        }
+    }
+
+    fn fold(
+        axis: proc_macro2::TokenStream,
+        init_kind: proc_macro2::TokenStream,
+        generics: &syn::Generics,
+        fields: &[&syn::Type],
+    ) -> Self {
+        let crate_ = crate_path();
+        let (parametrized_fields, non_parametrized_fields): (Vec<&syn::Type>, Vec<_>) = fields
+            .iter()
+            .partition(|ty| is_type_parameterized(ty, generics));
+        let mut kind = init_kind;
+        let field_bounds = parametrized_fields
+            .iter()
+            .map(|ty| quote! { #ty: #crate_::RustSpec })
+            .collect::<Vec<_>>();
+        let mut aggregate_bounds = Vec::new();
+
+        for &field in &non_parametrized_fields {
+            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
+            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
+        }
+
+        for &field in &parametrized_fields {
+            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
+            aggregate_bounds.push(quote! { #field_kind: core::ops::Add<#kind> });
+            kind = quote! { <#field_kind as core::ops::Add<#kind>>::Output };
+        }
+
+        Self {
+            kind,
+            field_bounds,
+            aggregate_bounds,
+        }
+    }
+}
+
+fn is_type_parameterized(ty: &syn::Type, generics: &syn::Generics) -> bool {
+    use syn::visit::Visit;
+
+    struct TypeParamVisitor<'a> {
+        type_params: &'a [&'a syn::Ident],
+        is_generic: bool,
+    }
+
+    impl Visit<'_> for TypeParamVisitor<'_> {
+        fn visit_type_path(&mut self, type_path: &syn::TypePath) {
+            if type_path.qself.is_none()
+                && let Some(first_segment) = type_path.path.segments.first()
+                && self.type_params.contains(&&first_segment.ident)
+            {
+                self.is_generic = true;
+            }
+
+            syn::visit::visit_type_path(self, type_path);
+        }
+    }
+
+    let type_param_idents = generics
+        .type_params()
+        .map(|param| &param.ident)
+        .collect::<Vec<_>>();
+    let mut visitor = TypeParamVisitor {
+        type_params: &type_param_idents,
+        is_generic: false,
+    };
+
+    visitor.visit_type(ty);
+    visitor.is_generic
+}
+
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
-    let family = family_path();
     let repr = parse_repr(&input.attrs)?;
+    let repr = repr.as_ref();
+    let name = &input.ident;
+    let generics = &input.generics;
 
     let rust_spec_impl = match &input.data {
-        syn::Data::Struct(data) => gen_struct_impl(
-            &family,
-            repr.as_ref(),
-            &input.ident,
-            &input.generics,
-            &data.fields,
-        ),
-        syn::Data::Enum(data)
-            if data
-                .variants
-                .iter()
-                .all(|v| matches!(v.fields, syn::Fields::Unit)) =>
-        {
-            gen_fieldless_enum_impl(
-                &family,
-                repr.as_ref(),
-                &input.ident,
-                &input.generics,
-                &data.variants,
-            )
+        syn::Data::Struct(data) => gen_struct_impl(repr, name, generics, &data.fields),
+        syn::Data::Union(data) => gen_union_impl(repr, name, generics, &data.fields),
+        syn::Data::Enum(data) if is_fieldless_enum(data) => {
+            gen_fieldless_enum_impl(repr, name, generics, &data.variants)
         }
-        syn::Data::Enum(data) if is_transparent_enum_repr(repr.as_ref(), &data.variants) => {
+        syn::Data::Enum(data)
+            if matches!(repr, Some(ReprKind::Transparent))
+                || repr.is_none() && data.variants.len() == 1 =>
+        {
             let Some(variant) = data.variants.first() else {
                 return Ok(quote! {});
             };
-            gen_struct_impl(
-                &family,
-                repr.as_ref(),
-                &input.ident,
-                &input.generics,
-                &variant.fields,
-            )
+            gen_struct_impl(repr, name, generics, &variant.fields)
         }
-        syn::Data::Enum(data) => gen_enum_impl(
-            &family,
-            repr.as_ref(),
-            &input.ident,
-            &input.generics,
-            &data.variants,
-        ),
-        syn::Data::Union(_) => {
-            return Err(syn::Error::new_spanned(input, "Unions are not supported"));
-        }
+        syn::Data::Enum(data) => gen_enum_impl(repr, name, generics, &data.variants),
     };
-    let wide_impl = if matches!(repr, Some(ReprKind::Transparent)) {
-        wide::expand(&family, input)?
-    } else {
-        quote! {}
-    };
-
     Ok(quote! {
         #rust_spec_impl
-        #wide_impl
     })
 }
 
+fn is_fieldless_enum(data: &syn::DataEnum) -> bool {
+    data.variants
+        .iter()
+        .all(|variant| matches!(variant.fields, syn::Fields::Unit))
+}
+
+fn field_types(fields: &syn::Fields) -> Vec<&syn::Type> {
+    fields.iter().map(|field| &field.ty).collect()
+}
+
+fn variant_field_types(variants: &Punctuated<syn::Variant, Token![,]>) -> Vec<&syn::Type> {
+    variants
+        .iter()
+        .flat_map(|variant| field_types(&variant.fields))
+        .collect()
+}
+
 fn gen_struct_impl(
-    family: &proc_macro2::TokenStream,
     repr: Option<&ReprKind>,
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &syn::Fields,
 ) -> proc_macro2::TokenStream {
-    let fields = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
-    let layout = if repr.is_some() {
-        gen_stable_layout_family(family, generics, &fields, false)
-    } else {
-        gen_rust_layout_family(family, generics, &fields)
-    };
-    let size = gen_size_family(family, generics, &fields);
-    let niche = gen_niche_family(family, generics, &fields);
-    let mutability = gen_mutability_family(family, generics, &fields);
+    let fields = field_types(fields);
 
-    gen_type_spec_impl(family, name, generics, layout, size, niche, mutability)
+    let layout = if repr.is_some() {
+        gen_stable_layout_family(generics, &fields, false)
+    } else {
+        gen_rust_layout_family(generics, &fields)
+    };
+
+    let size = gen_size_family(generics, &fields);
+    let niche = gen_niche_family(generics, &fields);
+    let mutability = gen_mutability_family(generics, &fields);
+
+    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
 }
 
 fn gen_enum_impl(
-    family: &proc_macro2::TokenStream,
     repr: Option<&ReprKind>,
     name: &syn::Ident,
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> proc_macro2::TokenStream {
-    let fields = variants
+    let crate_ = crate_path();
+    let fields = variant_field_types(variants);
+    let layout = if repr.is_some() {
+        let has_trap_tag_values = enum_tag_type(repr, variants.len())
+            .is_some_and(|tag| !is_exhaustive_enum(variants.len(), &tag));
+
+        gen_stable_layout_family(generics, &fields, has_trap_tag_values)
+    } else {
+        gen_rust_layout_family(generics, &fields)
+    };
+
+    let size = AggregateFamily::fixed(quote! {
+        #crate_::size::Sized<#crate_::size::NonZst>
+    });
+
+    let niche = gen_enum_niche_family(repr, variants);
+    let mutability = gen_mutability_family(generics, &fields);
+
+    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
+}
+
+fn gen_union_impl(
+    repr: Option<&ReprKind>,
+    name: &syn::Ident,
+    generics: &syn::Generics,
+    fields: &syn::FieldsNamed,
+) -> proc_macro2::TokenStream {
+    let crate_ = crate_path();
+
+    let fields = fields
+        .named
         .iter()
-        .flat_map(|variant| variant.fields.iter().map(|field| &field.ty))
+        .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
     let layout = if repr.is_some() {
-        let has_uninhabited_tag_values = enum_tag_type(repr, variants.len())
-            .is_some_and(|tag| !is_exhaustive_enum(variants.len(), &tag));
-        gen_stable_layout_family(family, generics, &fields, has_uninhabited_tag_values)
+        gen_stable_layout_family(generics, &fields, false)
     } else {
-        gen_rust_layout_family(family, generics, &fields)
+        gen_rust_layout_family(generics, &fields)
     };
-    // FIXME: Sometimes enums with variants are ZSTs and don't have a tag
-    // This happens if all variants are uninhabited but one is ZST/fieldless.
-    let size = AggregateFamily::fixed(quote! { #family::size::Sized<#family::size::NonZst> });
-    let niche = gen_enum_niche_family(family, repr, variants);
-    let mutability = gen_mutability_family(family, generics, &fields);
 
-    gen_type_spec_impl(family, name, generics, layout, size, niche, mutability)
+    let niche = AggregateFamily::fixed(quote! {
+        #crate_::niche::WithoutNiche
+    });
+
+    let size = gen_size_family(generics, &fields);
+    let mutability = gen_mutability_family(generics, &fields);
+
+    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
 }
 
 fn gen_fieldless_enum_impl(
-    family: &proc_macro2::TokenStream,
     repr: Option<&ReprKind>,
     name: &syn::Ident,
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> proc_macro2::TokenStream {
+    let crate_ = crate_path();
     let layout_kind = match repr {
-        None => quote! { #family::layout::Unstable<#family::layout::Robust> },
+        None => quote! { #crate_::layout::Unstable<#crate_::layout::Robust> },
         Some(ReprKind::C(None)) => unreachable!(),
-        Some(ReprKind::Transparent) => quote! { #family::layout::Robust },
+        Some(ReprKind::Transparent) => quote! { #crate_::layout::Robust },
         Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
             let robustness = if is_exhaustive_enum(variants.len(), tag) {
-                quote! { #family::layout::Robust }
+                quote! { #crate_::layout::Robust }
             } else {
-                quote! { #family::layout::NonRobust }
+                quote! { #crate_::layout::NonRobust }
             };
 
-            quote! { #family::layout::Stable<#robustness> }
+            quote! { #crate_::layout::Stable<#robustness> }
         }
     };
-    let tag_type = if repr.is_none() && variants.len() == 1 {
-        None
-    } else {
-        enum_tag_type(repr, variants.len())
-    };
+    let tag_type =
+        (repr.is_some() || variants.len() != 1).then(|| enum_tag_type(repr, variants.len()));
+
     let size = if tag_type.is_none() {
-        gen_size_family(family, generics, &[])
+        gen_size_family(generics, &[])
     } else {
-        AggregateFamily::fixed(quote! { #family::size::Sized<#family::size::NonZst> })
+        AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::size::NonZst> })
     };
+
     let niche = if tag_type.is_none() {
-        AggregateFamily::fixed(quote! { #family::niche::WithoutNiche })
+        AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
     } else {
-        gen_enum_niche_family(family, repr, variants)
+        gen_enum_niche_family(repr, variants)
     };
-    let mutability = gen_mutability_family(family, generics, &[]);
+
+    let mutability = gen_mutability_family(generics, &[]);
     let layout = AggregateFamily::fixed(layout_kind);
 
-    gen_type_spec_impl(family, name, generics, layout, size, niche, mutability)
+    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
 }
 
-fn gen_rust_layout_family(
-    family: &proc_macro2::TokenStream,
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
+fn gen_rust_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
     AggregateFamily::fold(
-        family,
         quote! { Layout },
-        quote! { #family::layout::Unstable<#family::layout::Robust> },
+        quote! { #crate_::layout::Unstable<#crate_::layout::Robust> },
         generics,
         fields,
     )
 }
 
 fn gen_stable_layout_family(
-    family: &proc_macro2::TokenStream,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-    has_uninhabited_tag_values: bool,
+    has_trap_values: bool,
 ) -> AggregateFamily {
-    let init = if has_uninhabited_tag_values {
-        quote! { #family::layout::NonRobust }
+    let crate_ = crate_path();
+
+    let init = if has_trap_values {
+        quote! { #crate_::layout::NonRobust }
     } else {
-        quote! { #family::layout::Robust }
+        quote! { #crate_::layout::Robust }
     };
+
     AggregateFamily::fold(
-        family,
         quote! { Layout },
-        quote! { #family::layout::Stable<#init> },
+        quote! { #crate_::layout::Stable<#init> },
         generics,
         fields,
     )
 }
 
-fn gen_size_family(
-    family: &proc_macro2::TokenStream,
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
+fn gen_size_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
     AggregateFamily::fold(
-        family,
         quote! { Size },
-        quote! { #family::size::Sized<#family::size::Zst> },
+        quote! { #crate_::size::Sized<#crate_::size::Zst> },
         generics,
         fields,
     )
 }
 
-fn gen_niche_family(
-    family: &proc_macro2::TokenStream,
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
+fn gen_niche_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
     AggregateFamily::fold(
-        family,
         quote! { Niche },
-        // TODO: We're just using WithoutNiche for the ease of implementation. Remove it?
-        quote! { #family::niche::WithoutNiche },
+        quote! { #crate_::niche::WithoutNiche },
         generics,
         fields,
     )
 }
 
-fn gen_mutability_family(
-    family: &proc_macro2::TokenStream,
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
+fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
     let init_kind = if fields.is_empty() {
-        quote! { #family::mutability::Exclusive }
+        quote! { #crate_::mutability::Exclusive }
     } else {
-        quote! { #family::mutability::Interior }
+        quote! { #crate_::mutability::Interior }
     };
 
-    AggregateFamily::fold(family, quote! { Mutability }, init_kind, generics, fields)
+    AggregateFamily::fold(quote! { Mutability }, init_kind, generics, fields)
 }
 
 fn gen_type_spec_impl(
-    family: &proc_macro2::TokenStream,
     name: &syn::Ident,
     generics: &syn::Generics,
     layout: AggregateFamily,
@@ -277,6 +355,7 @@ fn gen_type_spec_impl(
     niche: AggregateFamily,
     mutability: AggregateFamily,
 ) -> proc_macro2::TokenStream {
+    let crate_ = crate_path();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let predicates = where_clause.as_ref().map(|w| &w.predicates);
     let field_bounds = layout
@@ -299,7 +378,7 @@ fn gen_type_spec_impl(
     let mutability_kind = mutability.kind;
 
     quote! {
-        unsafe impl #impl_generics #family::RustSpec for #name #ty_generics where
+        unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
             #predicates
@@ -313,16 +392,16 @@ fn gen_type_spec_impl(
 }
 
 fn gen_enum_niche_family(
-    family: &proc_macro2::TokenStream,
     repr: Option<&ReprKind>,
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> AggregateFamily {
+    let crate_ = crate_path();
     let is_exhaustive = enum_tag_type(repr, variants.len())
         .is_none_or(|tag| is_exhaustive_enum(variants.len(), &tag));
     let niche_kind = if is_exhaustive {
-        quote! { #family::niche::WithoutNiche }
+        quote! { #crate_::niche::WithoutNiche }
     } else {
-        quote! { #family::niche::WithNiche<#family::niche::Unstable> }
+        quote! { #crate_::niche::WithNiche<#crate_::niche::Unstable> }
     };
 
     AggregateFamily::fixed(niche_kind)
