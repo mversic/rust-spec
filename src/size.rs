@@ -4,17 +4,17 @@ use alloc::boxed::Box;
 use core::ptr::NonNull;
 use core::{convert::Infallible, ops::Add};
 
+/// Marker for types with a constant size known at compile time.
+///
+/// See [`core::marker::Sized`].
+pub struct Sized<K>(core::marker::PhantomData<K>, Infallible);
+
 /// Marker for types with a size that can be determined from pointer metadata.
 ///
 /// Type parameter can be set to either [`SliceLike`] or [`DynTraitLike`] only.
 ///
 /// See [`core::marker::MetaSized`]
 pub struct MetaSized<K>(core::marker::PhantomData<K>, Infallible);
-
-/// Marker for types with a constant size known at compile time.
-///
-/// See [`core::marker::Sized`].
-pub struct Sized<K>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for types that do not contribute storage to an ABI layout.
 pub enum Zst {}
@@ -176,26 +176,18 @@ impl Wide for str {
     }
 }
 
-impl Add<Sized<Zst>> for Sized<Zst> {
+impl<K> Add<Sized<K>> for Sized<Zst> {
+    type Output = Sized<K>;
+
+    fn add(self, _: Sized<K>) -> Self::Output {
+        unreachable!()
+    }
+}
+
+impl<K> Add<Sized<K>> for Sized<NonZst> {
     type Output = Self;
 
-    fn add(self, _: Sized<Zst>) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl Add<Sized<Zst>> for Sized<NonZst> {
-    type Output = Sized<NonZst>;
-
-    fn add(self, _: Sized<Zst>) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl<U> Add<Sized<NonZst>> for Sized<U> {
-    type Output = Sized<NonZst>;
-
-    fn add(self, _: Sized<NonZst>) -> Self::Output {
+    fn add(self, _: Sized<K>) -> Self::Output {
         unreachable!()
     }
 }
@@ -221,5 +213,25 @@ impl<U> Add<Sized<U>> for ExternTypeLike {
 
     fn add(self, _: Sized<U>) -> Self::Output {
         unreachable!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use static_assertions::{assert_impl_all, assert_not_impl_any};
+
+    use super::Wide;
+
+    #[test]
+    fn wide_is_implemented_for_builtin_wide_types() {
+        assert_impl_all!([u8]: Wide<Data = u8, Metadata = usize>);
+        assert_impl_all!(str: Wide<Data = u8, Metadata = usize>);
+    }
+
+    #[test]
+    fn wide_is_not_implemented_for_thin_types() {
+        assert_not_impl_any!(u8: Wide);
+        assert_not_impl_any!([u8; 4]: Wide);
+        assert_not_impl_any!(&[u8]: Wide);
     }
 }

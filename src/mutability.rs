@@ -23,3 +23,161 @@ impl<K> Add<K> for Interior {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "alloc")]
+    use alloc::{boxed::Box, vec::Vec};
+
+    use static_assertions::assert_impl_all;
+
+    use crate::{
+        RustSpec,
+        layout::{NonRobust, Robust},
+        layout::{Stable, Unstable},
+        mutability::{Exclusive, Interior},
+        niche::{self, WithNiche, WithoutNiche},
+        size::{NonZst, Sized as Co3Sized},
+    };
+
+    #[test]
+    fn mutability_family_tracks_whole_value_mutability() {
+        use core::{
+            cell::{Cell, UnsafeCell},
+            ptr::NonNull,
+        };
+
+        assert_impl_all!(u8:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(UnsafeCell<u8>:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!(Cell<u8>:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!((UnsafeCell<u8>, UnsafeCell<u8>):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!((UnsafeCell<u8>, u8):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!([UnsafeCell<u8>; 2]:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!([u8; 2]:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(&UnsafeCell<u8>:
+            RustSpec<
+                Layout = Stable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!(&mut UnsafeCell<u8>:
+            RustSpec<
+                Layout = Stable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Interior,
+            >,
+        );
+        assert_impl_all!(*const UnsafeCell<u8>:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(*mut UnsafeCell<u8>:
+            RustSpec<
+                Layout = Stable<Robust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(NonNull<UnsafeCell<u8>>:
+            RustSpec<
+                Layout = Stable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(Option<UnsafeCell<u8>>:
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
+        );
+
+        #[cfg(feature = "alloc")]
+        assert_impl_all!(Box<UnsafeCell<u8>>:
+            RustSpec<
+                Layout = Stable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Interior,
+            >,
+        );
+        #[cfg(feature = "alloc")]
+        assert_impl_all!(Box<[UnsafeCell<u8>]>:
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
+        );
+        #[cfg(feature = "alloc")]
+        assert_impl_all!(Vec<UnsafeCell<u8>>:
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = Co3Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
+        );
+    }
+}

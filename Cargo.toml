@@ -23,7 +23,7 @@ categories = ["rust-patterns", "no-std"]
 
 [features]
 # Implement classification for types from the `alloc` crate (e.g. `Box<T>` or `Vec<T>`).
-alloc = []
+alloc = ["rust-spec-derive?/alloc"]
 
 # Enables `#[derive(RustSpec)]`
 derive = ["rust-spec-derive"]

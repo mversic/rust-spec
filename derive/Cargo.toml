@@ -12,8 +12,24 @@ repository = "https://github.com/mversic/rust-spec"
 [lib]
 proc-macro = true
 
+[[test]]
+name = "ui"
+path = "tests/ui.rs"
+required-features = ["alloc"]
+
+[features]
+# Implement classification for types from the `alloc` crate (e.g. `Box<T>` or `Vec<T>`).
+alloc = []
+
+default = ["alloc"]
+
 [dependencies]
-syn = { version = "3.0.2", features = ["full", "visit"] }
+syn = { version = "3.0.2", features = ["visit"] }
 proc-macro-crate = "3.5.0"
 proc-macro2 = "1.0.107"
 quote = "1.0.47"
+
+[dev-dependencies]
+rust-spec = { path = ".." }
+static_assertions = "1.1.0"
+trybuild = "1.0.113"

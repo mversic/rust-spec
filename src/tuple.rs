@@ -71,144 +71,236 @@ mod tests {
     use super::*;
     use crate::{
         layout::NonRobust,
-        niche::WithoutNiche,
-        rust_spec::{
-            niche::WithNiche,
-            size::{NonZst, Sized as Co3Sized, Zst},
-        },
+        mutability::Exclusive,
+        niche::{self, WithNiche, WithoutNiche},
+        size::{self, NonZst, Zst},
     };
 
     #[test]
     fn tuple_size_family_tracks_zst_fields() {
-        assert_impl_all!(((), ()): RustSpec<Size = Co3Sized<Zst>>);
-        assert_impl_all!(((), (), ()): RustSpec<Size = Co3Sized<Zst>>);
+        assert_impl_all!(((), ()):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = size::Sized<Zst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(((), (), ()):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = size::Sized<Zst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
     }
 
     #[test]
     fn tuple_size_family_tracks_non_zst_fields() {
-        assert_impl_all!(((), u8): RustSpec<Size = rust_spec::size::Sized<NonZst>>);
-        assert_impl_all!((u8, ()): RustSpec<Size = rust_spec::size::Sized<NonZst>>);
-        assert_impl_all!(((), u8, ()): RustSpec<Size = rust_spec::size::Sized<NonZst>>);
+        assert_impl_all!(((), u8):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!((u8, ()):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
+        assert_impl_all!(((), u8, ()):
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
+        );
     }
 
     #[test]
     fn stored_tuple_3_without_niche() {
         assert_impl_all!((u8, u8, u8):
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithoutNiche>,
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
         );
 
         assert_impl_all!(&(u8, u8, u8):
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!(&mut (u8, u8, u8):
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, u8, u8)>:
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, u8, u8)]:
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, u8, u8)]:
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, u8, u8)]>:
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, u8, u8)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
-            RustSpec<Layout = Unstable<Robust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithoutNiche>,
+            RustSpec<
+                Layout = Unstable<Robust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithoutNiche,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!(Option<(u8, u8, u8)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
     }
 
     #[test]
     fn stored_tuple_3_with_niche() {
         assert_impl_all!((u8, NonZero<u8>, bool):
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
 
         assert_impl_all!(&(u8, NonZero<u8>, bool):
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!(&mut (u8, NonZero<u8>, bool):
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, NonZero<u8>, bool)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Stable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Stable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, NonZero<u8>, bool)]:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, NonZero<u8>, bool)]:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, NonZero<u8>, bool)]>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, NonZero<u8>, bool)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
         assert_impl_all!(Option<(u8, NonZero<u8>, bool)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Size = Co3Sized<NonZst>>,
-            // TODO: Depends on: https://github.com/mversic/co3/issues/33
-            //RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = size::Sized<NonZst>,
+                Niche = WithNiche<niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
     }
 }

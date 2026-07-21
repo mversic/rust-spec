@@ -23,12 +23,21 @@ jobs:
         components: rustfmt, clippy
 
     - name: Rust format
-      run: cargo fmt --check
+      run: cargo fmt --all --check
 
     - name: Link workspace
-      run: cargo clippy -- --deny warnings
+      run: cargo clippy --workspace --benches --tests --examples -- --deny warnings
 
-  test:
+    - name: Link workspace (no default features)
+      run: cargo clippy --workspace --benches --tests --examples --no-default-features -- --deny warnings
+
+    - name: Link workspace (alloc only)
+      run: cargo clippy --workspace --benches --tests --examples --no-default-features --features alloc -- --deny warnings
+
+    - name: Link workspace (derive only)
+      run: cargo clippy --workspace --benches --tests --examples --no-default-features --features derive -- --deny warnings
+
+  tests:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

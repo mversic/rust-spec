@@ -24,7 +24,7 @@ impl Add for WithoutNiche {
     }
 }
 impl<K> Add<WithNiche<K>> for WithoutNiche {
-    type Output = WithNiche<crate::niche::Unstable>;
+    type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithNiche<K>) -> Self::Output {
         unreachable!()
@@ -38,7 +38,7 @@ impl<K> Add<WithoutNiche> for WithNiche<K> {
     }
 }
 impl<K, U> Add<WithNiche<U>> for WithNiche<K> {
-    type Output = WithNiche<crate::niche::Unstable>;
+    type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithNiche<U>) -> Self::Output {
         unreachable!()
@@ -52,22 +52,37 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     use super::*;
-    use crate::{RustSpec, layout::NonRobust, layout::Unstable};
+    use crate::{
+        RustSpec, layout::NonRobust, layout::Unstable, mutability::Exclusive, size::NonZst,
+    };
 
     #[test]
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
-            RustSpec<Layout = Unstable<NonRobust>>,
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithNiche<crate::niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
 
         assert_impl_all!(Option<Option<bool>>:
-            RustSpec<Niche = WithNiche<crate::niche::Unstable>>,
-            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithNiche<crate::niche::Unstable>,
+                Mutability = Exclusive,
+            >,
         );
 
         assert_impl_all!(Option<(u8, NonZero<u8>)>:
-            RustSpec<Layout = Unstable<NonRobust>>,
+            RustSpec<
+                Layout = Unstable<NonRobust>,
+                Size = crate::size::Sized<NonZst>,
+                Niche = WithNiche<crate::niche::Unstable>,
+                Mutability = Exclusive,
+            >,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
             //RustSpec<Niche = WithoutNiche>,
             //Niche<CType = ReprCTuple2<u8, u8>>,
