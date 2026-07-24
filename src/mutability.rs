@@ -2,11 +2,21 @@
 
 use core::ops::Add;
 
+/// Closed family of shared-access mutability classifications.
+#[sealed::sealed]
+pub trait MutabilitySpec {}
+
 /// Marker for types whose whole value may be mutated through shared access.
 pub enum Interior {}
 
 /// Marker for types whose value requires exclusive access to mutate.
 pub enum Exclusive {}
+
+#[sealed::sealed]
+impl MutabilitySpec for Interior {}
+
+#[sealed::sealed]
+impl MutabilitySpec for Exclusive {}
 
 impl<K> Add<K> for Exclusive {
     type Output = Self;

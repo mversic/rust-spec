@@ -381,6 +381,10 @@ fn gen_type_spec_impl(
         unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
+            #layout_kind: #crate_::layout::LayoutSpec,
+            #size_kind: #crate_::size::SizeSpec,
+            #niche_kind: #crate_::niche::NicheSpec,
+            #mutability_kind: #crate_::mutability::MutabilitySpec,
             #predicates
         {
             type Layout = #layout_kind;

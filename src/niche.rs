@@ -2,6 +2,13 @@
 
 use core::{convert::Infallible, ops::Add};
 
+/// Closed family of niche classifications.
+#[sealed::sealed]
+pub trait NicheSpec {}
+
+#[sealed::sealed]
+trait NicheStabilitySpec {}
+
 /// Marker for a type that has no trap representations and therefore no niche value
 pub enum WithoutNiche {}
 
@@ -15,6 +22,18 @@ pub enum Stable {}
 
 /// Marker for a niche that exists but is not compiler-guaranteed.
 pub enum Unstable {}
+
+#[sealed::sealed]
+impl NicheStabilitySpec for Stable {}
+
+#[sealed::sealed]
+impl NicheStabilitySpec for Unstable {}
+
+#[sealed::sealed]
+impl NicheSpec for WithoutNiche {}
+
+#[sealed::sealed]
+impl<K: NicheStabilitySpec> NicheSpec for WithNiche<K> {}
 
 impl Add for WithoutNiche {
     type Output = Self;

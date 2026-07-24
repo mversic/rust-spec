@@ -6,6 +6,14 @@
 //! require validity care.
 use core::{convert::Infallible, ops::Add};
 
+/// Closed family of representation-layout classifications.
+#[sealed::sealed]
+pub trait LayoutSpec {}
+
+/// Closed family of trap-representation classifications.
+#[sealed::sealed]
+pub trait TrapSpec {}
+
 /// Marker for a type that doesn't have a guaranteed representation and requires explicit conversion.
 pub struct Unstable<K>(core::marker::PhantomData<K>, Infallible);
 
@@ -17,6 +25,18 @@ pub enum Robust {}
 
 /// Marker for a non-robust type that is still transmuted by the ABI layer.
 pub enum NonRobust {}
+
+#[sealed::sealed]
+impl TrapSpec for Robust {}
+
+#[sealed::sealed]
+impl TrapSpec for NonRobust {}
+
+#[sealed::sealed]
+impl<K: TrapSpec> LayoutSpec for Unstable<K> {}
+
+#[sealed::sealed]
+impl<K: TrapSpec> LayoutSpec for Stable<K> {}
 
 impl Add for Robust {
     type Output = Self;

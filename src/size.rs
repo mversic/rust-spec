@@ -1,5 +1,15 @@
 use core::{convert::Infallible, ops::Add};
 
+/// Closed family of size and pointer-metadata classifications.
+#[sealed::sealed]
+pub trait SizeSpec {}
+
+#[sealed::sealed]
+trait SizedKindSpec {}
+
+#[sealed::sealed]
+trait MetadataKindSpec {}
+
 /// Marker for types with a constant size known at compile time.
 ///
 /// See [`core::marker::Sized`].
@@ -30,6 +40,27 @@ pub enum DynTraitLike {}
 ///
 /// Pointers to extern types are thin.
 pub enum ExternTypeLike {}
+
+#[sealed::sealed]
+impl SizedKindSpec for Zst {}
+
+#[sealed::sealed]
+impl SizedKindSpec for NonZst {}
+
+#[sealed::sealed]
+impl MetadataKindSpec for SliceLike {}
+
+#[sealed::sealed]
+impl MetadataKindSpec for DynTraitLike {}
+
+#[sealed::sealed]
+impl<K: SizedKindSpec> SizeSpec for Sized<K> {}
+
+#[sealed::sealed]
+impl<K: MetadataKindSpec> SizeSpec for MetaSized<K> {}
+
+#[sealed::sealed]
+impl SizeSpec for ExternTypeLike {}
 
 /// Pointers to types implementing this trait alias are “thin”.
 ///

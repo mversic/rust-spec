@@ -17,6 +17,10 @@ macro_rules! impl_tuple_type_spec {
         unsafe impl<$($params)* $ty: RustSpec + ?Sized> RustSpec for $target
         where
             Unstable<Robust>: Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>,
+            <Unstable<Robust> as Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>>::Output: crate::layout::LayoutSpec,
+            impl_tuple_type_spec!(@kind Size; $($all),+): crate::size::SizeSpec,
+            impl_tuple_type_spec!(@kind Niche; $($all),+): crate::niche::NicheSpec,
+            impl_tuple_type_spec!(@kind Mutability; $($all),+): crate::mutability::MutabilitySpec,
         {
             type Layout = <Unstable<Robust> as Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>>::Output;
             type Size = impl_tuple_type_spec!(@kind Size; $($all),+);

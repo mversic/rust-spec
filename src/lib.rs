@@ -113,16 +113,16 @@ disjoint_impls! {
     /// carries the same safety requirements documented by the size marker types.
     pub unsafe trait RustSpec {
         /// Representation stability and robustness classification.
-        type Layout;
+        type Layout: layout::LayoutSpec;
 
         /// Statically known, metadata-sized, or extern-type-like size classification.
-        type Size;
+        type Size: size::SizeSpec;
 
         /// Niche availability classification.
-        type Niche;
+        type Niche: niche::NicheSpec;
 
         /// Shared-access mutability classification.
-        type Mutability;
+        type Mutability: mutability::MutabilitySpec;
     }
 
     unsafe impl<R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin> + ?Sized, K> RustSpec
@@ -272,7 +272,7 @@ disjoint_impls! {
                 Niche = WithNiche<niche::Stable>,
             >,
         E: RustSpec<Size = size::Sized<size::Zst>>,
-        K,
+        K: layout::TrapSpec,
     > RustSpec for Result<R, E>
     {
         type Layout = layout::Unstable<K>;
@@ -321,8 +321,8 @@ disjoint_impls! {
                 Layout = layout::Unstable<K>,
                 Size = size::Sized<size::NonZst>,
                 Niche = WithNiche<niche::Stable>,
-            >,
-        K,
+        >,
+        K: layout::TrapSpec,
     > RustSpec for Result<R, E>
     {
         type Layout = layout::Unstable<K>;

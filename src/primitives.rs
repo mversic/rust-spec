@@ -70,6 +70,7 @@ raw_pointer_derive! { mut }
 unsafe impl<R: RustSpec> RustSpec for [R]
 where
     WithoutNiche: Add<R::Niche>,
+    <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
     type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
@@ -81,6 +82,7 @@ where
 unsafe impl<R: RustSpec, const N: usize> RustSpec for [R; N]
 where
     WithoutNiche: Add<R::Niche>,
+    <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
     type Layout = R::Layout;
     type Size = R::Size;
