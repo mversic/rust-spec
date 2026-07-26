@@ -183,7 +183,16 @@ fn gen_struct_impl(
     let niche = gen_niche_family(generics, &fields);
     let mutability = gen_mutability_family(generics, &fields);
 
-    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
+    let indirect_layout = gen_indirect_layout_family(generics, &fields);
+    gen_type_spec_impl(
+        name,
+        generics,
+        layout,
+        indirect_layout,
+        size,
+        niche,
+        mutability,
+    )
 }
 
 fn gen_enum_impl(
@@ -210,7 +219,16 @@ fn gen_enum_impl(
     let niche = gen_enum_niche_family(repr, variants);
     let mutability = gen_mutability_family(generics, &fields);
 
-    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
+    let indirect_layout = gen_indirect_layout_family(generics, &fields);
+    gen_type_spec_impl(
+        name,
+        generics,
+        layout,
+        indirect_layout,
+        size,
+        niche,
+        mutability,
+    )
 }
 
 fn gen_union_impl(
@@ -240,7 +258,16 @@ fn gen_union_impl(
     let size = gen_size_family(generics, &fields);
     let mutability = gen_mutability_family(generics, &fields);
 
-    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
+    let indirect_layout = gen_indirect_layout_family(generics, &fields);
+    gen_type_spec_impl(
+        name,
+        generics,
+        layout,
+        indirect_layout,
+        size,
+        niche,
+        mutability,
+    )
 }
 
 fn gen_fieldless_enum_impl(
@@ -282,7 +309,15 @@ fn gen_fieldless_enum_impl(
     let mutability = gen_mutability_family(generics, &[]);
     let layout = AggregateFamily::fixed(layout_kind);
 
-    gen_type_spec_impl(name, generics, layout, size, niche, mutability)
+    gen_type_spec_impl(
+        name,
+        generics,
+        layout,
+        AggregateFamily::fixed(quote! { #crate_::layout::Stable<#crate_::layout::Robust> }),
+        size,
+        niche,
+        mutability,
+    )
 }
 
 fn gen_rust_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
@@ -311,6 +346,16 @@ fn gen_stable_layout_family(
     AggregateFamily::fold(
         quote! { Layout },
         quote! { #crate_::layout::Stable<#init> },
+        generics,
+        fields,
+    )
+}
+
+fn gen_indirect_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
+    AggregateFamily::fold(
+        quote! { __IndirectLayout },
+        quote! { #crate_::layout::Stable<#crate_::layout::Robust> },
         generics,
         fields,
     )
@@ -351,6 +396,7 @@ fn gen_type_spec_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     layout: AggregateFamily,
+    indirect_layout: AggregateFamily,
     size: AggregateFamily,
     niche: AggregateFamily,
     mutability: AggregateFamily,
@@ -362,6 +408,7 @@ fn gen_type_spec_impl(
         .field_bounds
         .into_iter()
         .chain(size.field_bounds)
+        .chain(indirect_layout.field_bounds)
         .chain(niche.field_bounds)
         .chain(mutability.field_bounds)
         .collect::<Vec<_>>();
@@ -369,10 +416,12 @@ fn gen_type_spec_impl(
         .aggregate_bounds
         .into_iter()
         .chain(size.aggregate_bounds)
+        .chain(indirect_layout.aggregate_bounds)
         .chain(niche.aggregate_bounds)
         .chain(mutability.aggregate_bounds)
         .collect::<Vec<_>>();
     let layout_kind = layout.kind;
+    let indirect_layout_kind = indirect_layout.kind;
     let size_kind = size.kind;
     let niche_kind = niche.kind;
     let mutability_kind = mutability.kind;
@@ -382,6 +431,7 @@ fn gen_type_spec_impl(
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
             #layout_kind: #crate_::layout::LayoutSpec,
+            #indirect_layout_kind: #crate_::layout::LayoutSpec,
             #size_kind: #crate_::size::SizeSpec,
             #niche_kind: #crate_::niche::NicheSpec,
             #mutability_kind: #crate_::mutability::MutabilitySpec,
@@ -391,6 +441,7 @@ fn gen_type_spec_impl(
             type Size = #size_kind;
             type Niche = #niche_kind;
             type Mutability = #mutability_kind;
+            type __IndirectLayout = #indirect_layout_kind;
         }
     }
 }

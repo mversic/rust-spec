@@ -14,18 +14,22 @@ macro_rules! impl_tuple_type_spec {
     };
 
     (@params for $target:ty [$($all:ident),+] [$($params:tt)*]; $ty:ident) => {
-        unsafe impl<$($params)* $ty: RustSpec + ?Sized> RustSpec for $target
+        unsafe impl<$($all),+> RustSpec for $target
         where
+            $($params)*
+            $ty: RustSpec,
             Unstable<Robust>: Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>,
             <Unstable<Robust> as Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>>::Output: crate::layout::LayoutSpec,
             impl_tuple_type_spec!(@kind Size; $($all),+): crate::size::SizeSpec,
             impl_tuple_type_spec!(@kind Niche; $($all),+): crate::niche::NicheSpec,
             impl_tuple_type_spec!(@kind Mutability; $($all),+): crate::mutability::MutabilitySpec,
+            impl_tuple_type_spec!(@kind __IndirectLayout; $($all),+): crate::layout::LayoutSpec,
         {
             type Layout = <Unstable<Robust> as Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>>::Output;
             type Size = impl_tuple_type_spec!(@kind Size; $($all),+);
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
+            type __IndirectLayout = impl_tuple_type_spec!(@kind __IndirectLayout; $($all),+);
         }
     };
     (@params for $target:ty [$($all:ident),+] [$($params:tt)*]; $head:ident, $($tail:ident),+) => {
@@ -38,6 +42,7 @@ macro_rules! impl_tuple_type_spec {
                     Size: Add<impl_tuple_type_spec!(@kind Size; $($tail),+)>,
                     Niche: Add<impl_tuple_type_spec!(@kind Niche; $($tail),+)>,
                     Mutability: Add<impl_tuple_type_spec!(@kind Mutability; $($tail),+)>,
+                    __IndirectLayout: Add<impl_tuple_type_spec!(@kind __IndirectLayout; $($tail),+)>,
                 >,
             ]
             ; $($tail),+
@@ -74,7 +79,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        layout::NonRobust,
+        layout::{NonRobust, Stable},
         mutability::Exclusive,
         niche::{self, WithNiche, WithoutNiche},
         size::{self, NonZst, Zst},
@@ -88,6 +93,7 @@ mod tests {
                 Size = size::Sized<Zst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(((), (), ()):
@@ -96,6 +102,7 @@ mod tests {
                 Size = size::Sized<Zst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }
@@ -108,6 +115,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!((u8, ()):
@@ -116,6 +124,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(((), u8, ()):
@@ -124,6 +133,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }
@@ -136,6 +146,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
 
@@ -145,6 +156,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         assert_impl_all!(&mut (u8, u8, u8):
@@ -153,6 +165,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -162,6 +175,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -171,6 +185,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -180,6 +195,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -189,6 +205,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -198,6 +215,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
@@ -206,6 +224,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(Option<(u8, u8, u8)>:
@@ -214,6 +233,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }
@@ -226,6 +246,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
 
@@ -235,6 +256,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         assert_impl_all!(&mut (u8, NonZero<u8>, bool):
@@ -243,6 +265,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -252,6 +275,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -261,6 +285,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -270,6 +295,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -279,6 +305,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -288,6 +315,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:
@@ -296,6 +324,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(Option<(u8, NonZero<u8>, bool)>:
@@ -304,6 +333,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }

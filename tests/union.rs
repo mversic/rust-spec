@@ -27,6 +27,7 @@ fn union_classification() {
     assert_impl_all!(RustUnion:
         RustSpec<
             Layout = Unstable<NonRobust>,
+            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
@@ -35,6 +36,7 @@ fn union_classification() {
     assert_impl_all!(ReprCUnion:
         RustSpec<
             Layout = Stable<Robust>,
+            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,

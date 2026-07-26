@@ -83,6 +83,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
             >,
         );
 
@@ -92,6 +93,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
             >,
         );
 
@@ -101,6 +103,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
             >,
             // TODO: Depends on: https://github.com/mversic/co3/issues/33
             //RustSpec<Niche = WithoutNiche>,

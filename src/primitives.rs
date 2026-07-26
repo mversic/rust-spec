@@ -18,17 +18,20 @@ macro_rules! primitive_derive {
             type Size = size::Sized<NonZst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
+            type __IndirectLayout = Stable<Robust>;
         }
     };
 }
 
 macro_rules! raw_pointer_derive {
     ( $mutability:tt ) => {
-        unsafe impl<R: RustSpec + ?Sized> RustSpec for *$mutability R {
+        unsafe impl<R: ?Sized> RustSpec for *$mutability R {
             type Layout = Stable<Robust>;
             type Size = size::Sized<NonZst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
+            type __IndirectLayout = Stable<Robust>;
+
         }
     };
 }
@@ -45,6 +48,7 @@ macro_rules! fieldless_enum_derive {
             type Size = size::Sized<NonZst>;
             type Niche = WithNiche<niche::Unstable>;
             type Mutability = Exclusive;
+            type __IndirectLayout = Stable<Robust>;
         }
     };
 }
@@ -67,8 +71,9 @@ primitive_derive! { f64 }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-unsafe impl<R: RustSpec> RustSpec for [R]
+unsafe impl<R> RustSpec for [R]
 where
+    R: RustSpec,
     WithoutNiche: Add<R::Niche>,
     <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
@@ -76,11 +81,13 @@ where
     type Size = MetaSized<SliceLike>;
     type Niche = <WithoutNiche as Add<R::Niche>>::Output;
     type Mutability = Exclusive;
+    type __IndirectLayout = R::__IndirectLayout;
 }
 
 // FIXME: N == 0 is a special case with a different spec
-unsafe impl<R: RustSpec, const N: usize> RustSpec for [R; N]
+unsafe impl<R, const N: usize> RustSpec for [R; N]
 where
+    R: RustSpec,
     WithoutNiche: Add<R::Niche>,
     <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
@@ -88,6 +95,7 @@ where
     type Size = R::Size;
     type Niche = <WithoutNiche as Add<R::Niche>>::Output;
     type Mutability = R::Mutability;
+    type __IndirectLayout = R::__IndirectLayout;
 }
 
 impl_fn_types! {
@@ -136,6 +144,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&u8:
@@ -144,6 +153,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&mut u8:
@@ -152,6 +162,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -161,6 +172,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&[u8]:
@@ -169,6 +181,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&mut [u8]:
@@ -177,6 +190,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -186,6 +200,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -195,6 +210,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!([u8; 2]:
@@ -203,6 +219,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(Option<u8>:
@@ -211,6 +228,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }

@@ -57,9 +57,24 @@ Composite types derive `RustSpec::Layout` by combining layout stability and robu
 
 Rust-repr derived structs and enums start from `Unstable<Robust>` and then combine all field families. `#[repr(C)]`, primitive, and transparent derived types start from `Stable<Robust>` unless their tag or fields introduce `NonRobust`.
 
-References and `Box<R>` preserve `Unstable<K>` when the referent is unstable. Stable thin referents are represented as `Stable<NonRobust>`, while stable metadata-sized referents are represented as `Unstable<NonRobust>`.
+References and `Box<R>` follow their referent's layout stability, so an
+unstable referent makes their `Layout` unstable. Their robustness remains
+`NonRobust`, because a reference or owning pointer itself has invalid values.
+Stable thin references start from `Stable<NonRobust>`, while stable
+metadata-sized references start from `Unstable<NonRobust>`.
 
 `Option<R>` and niche-shaped `Result<R, E>` preserve the payload family when the ABI is the payload representation. Explicit wrapper forms are `Unstable<NonRobust>`.
+
+### 2.2 Indirect Layout
+
+Supported pointers follow their pointee when classifying layout stability,
+because a valid Rust reference or `Box` requires a valid pointee. Raw pointers
+and `NonNull<R>` do not follow their pointees because their pointees are not
+part of their validity invariant.
+
+`RustSpec::__IndirectLayout` remains an implementation accumulator: it excludes
+the immediate representation and lets wrappers calculate their layout. Its
+neutral value is `Stable<Robust>`.
 
 ## 3. Size Axis
 

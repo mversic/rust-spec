@@ -25,6 +25,7 @@ fn enum_classification() {
     assert_impl_all!(RustEnum:
         RustSpec<
             Layout = Unstable<Robust>,
+            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
@@ -33,6 +34,7 @@ fn enum_classification() {
     assert_impl_all!(PrimitiveEnum:
         RustSpec<
             Layout = Stable<NonRobust>,
+            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,

@@ -63,6 +63,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(UnsafeCell<u8>:
@@ -71,6 +72,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(Cell<u8>:
@@ -79,6 +81,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!((UnsafeCell<u8>, UnsafeCell<u8>):
@@ -87,6 +90,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!((UnsafeCell<u8>, u8):
@@ -95,6 +99,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!([UnsafeCell<u8>; 2]:
@@ -103,6 +108,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!([u8; 2]:
@@ -111,6 +117,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&UnsafeCell<u8>:
@@ -119,6 +126,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(&mut UnsafeCell<u8>:
@@ -127,6 +135,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(*const UnsafeCell<u8>:
@@ -135,6 +144,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(*mut UnsafeCell<u8>:
@@ -143,6 +153,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(NonNull<UnsafeCell<u8>>:
@@ -151,6 +162,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         assert_impl_all!(Option<UnsafeCell<u8>>:
@@ -159,6 +171,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
 
@@ -169,6 +182,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Stable>,
                 Mutability = Interior,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -178,6 +192,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
         #[cfg(feature = "alloc")]
@@ -187,6 +202,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
+                __IndirectLayout = Stable<Robust>,
             >,
         );
     }
