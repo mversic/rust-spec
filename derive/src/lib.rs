@@ -65,20 +65,13 @@ impl AggregateFamily {
         let crate_ = crate_path();
         let mut kind = init_kind;
 
-        let (parametrized_fields, non_parametrized_fields): (Vec<&syn::Type>, Vec<_>) = fields
-            .iter()
-            .partition(|ty| is_bound_carrying_field(ty, generics));
-
         let mut aggregate_bounds = Vec::new();
-        for &field in &non_parametrized_fields {
+        for &field in fields {
             let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
+            if is_bound_carrying_field(field, generics) {
+                aggregate_bounds.push(quote! { #kind: core::ops::Add<#field_kind> });
+            }
             kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
-        }
-
-        for &field in &parametrized_fields {
-            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
-            aggregate_bounds.push(quote! { #field_kind: core::ops::Add<#kind> });
-            kind = quote! { <#field_kind as core::ops::Add<#kind>>::Output };
         }
 
         Self {

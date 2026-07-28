@@ -95,7 +95,9 @@ use disjoint_impls::disjoint_impls;
 pub use rust_spec_derive::RustSpec;
 
 use crate::{
-    layout::{NonRobust, Robust}, niche::{WithNiche, WithoutNiche}, size::{MetadataKindSpec, SizedKindSpec},
+    layout::{NonRobust, Robust},
+    niche::{WithNiche, WithoutNiche},
+    size::{MetadataKind, SizedKind},
 };
 
 pub mod layout;
@@ -140,7 +142,7 @@ disjoint_impls! {
         type __IndirectLayout;
     }
 
-    unsafe impl<R: ?Sized, K: layout::TrapSpec> RustSpec for &R
+    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &R
     where
         R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
     {
@@ -150,7 +152,7 @@ disjoint_impls! {
         type Mutability = R::Mutability;
         type __IndirectLayout = R::Layout;
     }
-    unsafe impl<R: ?Sized, K: layout::TrapSpec> RustSpec for &R
+    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &R
     where
         R: RustSpec<Layout = layout::Stable<K>, Size: size::Thin>,
     {
@@ -160,7 +162,7 @@ disjoint_impls! {
         type Mutability = R::Mutability;
         type __IndirectLayout = R::Layout;
     }
-    unsafe impl<R: ?Sized, U: MetadataKindSpec> RustSpec for &R
+    unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &R
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
@@ -171,7 +173,7 @@ disjoint_impls! {
         type __IndirectLayout = R::Layout;
     }
 
-    unsafe impl<R: ?Sized, K: layout::TrapSpec> RustSpec for &mut R
+    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &mut R
     where
         R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
     {
@@ -181,7 +183,7 @@ disjoint_impls! {
         type Mutability = R::Mutability;
         type __IndirectLayout = R::Layout;
     }
-    unsafe impl<R: ?Sized, K: layout::TrapSpec> RustSpec for &mut R
+    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &mut R
     where
         R: RustSpec<Layout = layout::Stable<K>, Size: size::Thin>,
     {
@@ -191,7 +193,7 @@ disjoint_impls! {
         type Mutability = R::Mutability;
         type __IndirectLayout = R::Layout;
     }
-    unsafe impl<R: ?Sized, U: MetadataKindSpec> RustSpec for &mut R
+    unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &mut R
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
@@ -203,7 +205,7 @@ disjoint_impls! {
     }
 
     #[cfg(feature = "alloc")]
-    unsafe impl<R: ?Sized, K: layout::TrapSpec> RustSpec for Box<R>
+    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for Box<R>
     where
         R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
     {
@@ -214,7 +216,7 @@ disjoint_impls! {
         type __IndirectLayout = R::Layout;
     }
     #[cfg(feature = "alloc")]
-    unsafe impl<R, S: SizedKindSpec, K: layout::TrapSpec> RustSpec for Box<R>
+    unsafe impl<R, S: SizedKind, K: layout::TrapKind> RustSpec for Box<R>
     where
         R: RustSpec<Layout = layout::Stable<K>, Size = size::Sized<S>>,
     {
@@ -225,7 +227,7 @@ disjoint_impls! {
         type __IndirectLayout = R::Layout;
     }
     #[cfg(feature = "alloc")]
-    unsafe impl<R: ?Sized, U: MetadataKindSpec> RustSpec for Box<R>
+    unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
@@ -278,7 +280,7 @@ disjoint_impls! {
             Niche = WithNiche<niche::Stable>,
             __IndirectLayout = layout::Unstable<K>
         >,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Unstable<K>;
         type Size = size::Sized<size::NonZst>;
@@ -292,7 +294,7 @@ disjoint_impls! {
             Niche = WithNiche<niche::Stable>,
             __IndirectLayout = layout::Stable<K>,
         >,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Stable<K>;
         type Size = size::Sized<size::NonZst>;
@@ -301,7 +303,7 @@ disjoint_impls! {
         type __IndirectLayout = R::__IndirectLayout;
     }
 
-    unsafe impl<R, E, K: SizedKindSpec> RustSpec for Result<R, E>
+    unsafe impl<R, E, K: SizedKind> RustSpec for Result<R, E>
     where
         R: RustSpec<Size = size::Sized<K>>,
         E: RustSpec<Size = size::Sized<K>>,
@@ -345,7 +347,7 @@ disjoint_impls! {
             __IndirectLayout = layout::Unstable<K>,
             >,
         E: RustSpec<Size = size::Sized<size::Zst>>,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Unstable<K>;
         type Size = size::Sized<size::NonZst>;
@@ -361,7 +363,7 @@ disjoint_impls! {
             __IndirectLayout = layout::Stable<K>,
             >,
         E: RustSpec<Size = size::Sized<size::Zst>>,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Stable<K>;
         type Size = size::Sized<size::NonZst>;
@@ -400,7 +402,7 @@ disjoint_impls! {
             Niche = WithNiche<niche::Stable>,
             __IndirectLayout = layout::Unstable<K>,
             >,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Unstable<K>;
         type Size = size::Sized<size::NonZst>;
@@ -416,7 +418,7 @@ disjoint_impls! {
             Niche = WithNiche<niche::Stable>,
             __IndirectLayout = layout::Stable<K>,
             >,
-        K: layout::TrapSpec,
+        K: layout::TrapKind,
     {
         type Layout = layout::Stable<K>;
         type Size = size::Sized<size::NonZst>;

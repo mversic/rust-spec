@@ -3,13 +3,13 @@
 use core::{convert::Infallible, ops::Add};
 
 #[sealed::sealed]
-pub trait NicheStabilitySpec {}
+pub trait NicheStabilityKind {}
 
 /// Marker for a type that has no trap representations and therefore no niche value
 pub enum WithoutNiche {}
 
 /// Marker for a type that has a niche value.
-pub struct WithNiche<K: NicheStabilitySpec>(core::marker::PhantomData<K>, Infallible);
+pub struct WithNiche<K: NicheStabilityKind>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for a single stable (compiler guaranteed) niche value (e.g. `&u32`).
 ///
@@ -20,10 +20,10 @@ pub enum Stable {}
 pub enum Unstable {}
 
 #[sealed::sealed]
-impl NicheStabilitySpec for Stable {}
+impl NicheStabilityKind for Stable {}
 
 #[sealed::sealed]
-impl NicheStabilitySpec for Unstable {}
+impl NicheStabilityKind for Unstable {}
 
 impl Add for WithoutNiche {
     type Output = Self;
@@ -32,21 +32,21 @@ impl Add for WithoutNiche {
         unreachable!()
     }
 }
-impl<K: NicheStabilitySpec> Add<WithNiche<K>> for WithoutNiche {
+impl<K: NicheStabilityKind> Add<WithNiche<K>> for WithoutNiche {
     type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithNiche<K>) -> Self::Output {
         unreachable!()
     }
 }
-impl<K: NicheStabilitySpec> Add<WithoutNiche> for WithNiche<K> {
+impl<K: NicheStabilityKind> Add<WithoutNiche> for WithNiche<K> {
     type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithoutNiche) -> Self::Output {
         unreachable!()
     }
 }
-impl<K: NicheStabilitySpec, U: NicheStabilitySpec> Add<WithNiche<U>> for WithNiche<K> {
+impl<K: NicheStabilityKind, U: NicheStabilityKind> Add<WithNiche<U>> for WithNiche<K> {
     type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithNiche<U>) -> Self::Output {
