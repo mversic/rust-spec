@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
 use crate::repr::{ReprKind, enum_tag_type, is_exhaustive_enum, parse_repr};
@@ -67,7 +67,7 @@ impl AggregateFamily {
 
         let (parametrized_fields, non_parametrized_fields): (Vec<&syn::Type>, Vec<_>) = fields
             .iter()
-            .partition(|ty| is_type_parameterized(ty, generics));
+            .partition(|ty| is_bound_carrying_field(ty, generics));
 
         let mut aggregate_bounds = Vec::new();
         for &field in &non_parametrized_fields {
@@ -127,6 +127,54 @@ fn is_type_parameterized(ty: &syn::Type, generics: &syn::Generics) -> bool {
 
     visitor.visit_type(ty);
     visitor.is_generic
+}
+
+fn contains_lifetime(ty: &syn::Type) -> bool {
+    use syn::visit::Visit;
+
+    struct LifetimeVisitor {
+        found: bool,
+    }
+
+    impl<'ast> Visit<'ast> for LifetimeVisitor {
+        fn visit_lifetime(&mut self, _: &'ast syn::Lifetime) {
+            self.found = true;
+        }
+    }
+
+    let mut visitor = LifetimeVisitor { found: false };
+    visitor.visit_type(ty);
+    visitor.found
+}
+
+fn is_bound_carrying_field(ty: &syn::Type, generics: &syn::Generics) -> bool {
+    if is_type_parameterized(ty, generics) {
+        return true;
+    }
+
+    let field = ty.to_token_stream().to_string();
+    generics
+        .where_clause
+        .iter()
+        .flat_map(|where_clause| where_clause.predicates.iter())
+        .any(|predicate| {
+            let syn::WherePredicate::Type(predicate) = predicate else {
+                return false;
+            };
+            if is_type_parameterized(&predicate.bounded_ty, generics)
+                || !contains_lifetime(&predicate.bounded_ty)
+            {
+                return false;
+            }
+
+            predicate.bounds.iter().any(|bound| {
+                let syn::TypeParamBound::Trait(bound) = bound else {
+                    return false;
+                };
+                field.contains(&predicate.bounded_ty.to_token_stream().to_string())
+                    && field.contains(&format!("as {}", bound.path.to_token_stream()))
+            })
+        })
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -399,9 +447,13 @@ fn gen_niche_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Aggregat
 
 fn gen_transparent_niche_family(fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    let field = fields[0];
 
-    AggregateFamily::fixed(quote! { <#field as #crate_::RustSpec>::Niche })
+    let niche = fields.first().map_or_else(
+        || quote! { #crate_::niche::WithoutNiche },
+        |field| quote! { <#field as #crate_::RustSpec>::Niche },
+    );
+
+    AggregateFamily::fixed(niche)
 }
 
 fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
@@ -424,7 +476,9 @@ fn gen_type_spec_impl(
     let crate_ = crate_path();
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.as_ref().map(|w| &w.predicates);
+    let predicates = where_clause
+        .as_ref()
+        .map(|where_clause| &where_clause.predicates);
 
     let TypeSpecFamilies {
         layout,
@@ -436,7 +490,7 @@ fn gen_type_spec_impl(
 
     let field_bounds = fields
         .iter()
-        .filter(|ty| is_type_parameterized(ty, generics))
+        .filter(|ty| is_bound_carrying_field(ty, generics))
         .map(|ty| quote! { #ty: #crate_::RustSpec })
         .collect::<Vec<_>>();
 
@@ -455,7 +509,10 @@ fn gen_type_spec_impl(
     let mutability_kind = mutability.kind;
     let indirect_layout_kind = indirect_layout.kind;
 
-    let spec_bounds = if fields.iter().any(|ty| is_type_parameterized(ty, generics)) {
+    let spec_bounds = if fields
+        .iter()
+        .any(|ty| is_bound_carrying_field(ty, generics))
+    {
         vec![
             quote! { #layout_kind: #crate_::layout::LayoutSpec },
             quote! { #indirect_layout_kind: #crate_::layout::LayoutSpec },
