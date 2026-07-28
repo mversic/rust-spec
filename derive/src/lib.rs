@@ -87,6 +87,13 @@ impl AggregateFamily {
 }
 
 fn is_type_parameterized(ty: &syn::Type, generics: &syn::Generics) -> bool {
+    // Raw pointers have a fixed classification and never follow their pointee.
+    // A type parameter inside `*const T` or `*mut T` is therefore not part of
+    // this aggregate's structural classification.
+    if matches!(ty, syn::Type::Ptr(_)) {
+        return false;
+    }
+
     use syn::visit::Visit;
 
     struct TypeParamVisitor<'a> {

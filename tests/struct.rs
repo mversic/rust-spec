@@ -52,6 +52,14 @@ struct Pair<T, U> {
     second: U,
 }
 
+struct NotRustSpec;
+
+#[repr(C)]
+#[derive(RustSpec)]
+struct RawPointer<T> {
+    pointer: *mut T,
+}
+
 #[repr(transparent)]
 #[derive(RustSpec)]
 struct Bytes([u8]);
@@ -154,6 +162,15 @@ fn struct_classification() {
             __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+        >,
+    );
+    assert_impl_all!(RawPointer<NotRustSpec>:
+        RustSpec<
+            Layout = Stable<Robust>,
+            __IndirectLayout = Stable<Robust>,
+            Size = size::Sized<NonZst>,
+            Niche = WithoutNiche,
             Mutability = Exclusive,
         >,
     );
