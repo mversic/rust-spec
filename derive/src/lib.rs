@@ -37,15 +37,21 @@ fn crate_path() -> proc_macro2::TokenStream {
 
 struct AggregateFamily {
     kind: proc_macro2::TokenStream,
-    field_bounds: Vec<proc_macro2::TokenStream>,
     aggregate_bounds: Vec<proc_macro2::TokenStream>,
+}
+
+struct TypeSpecFamilies {
+    layout: AggregateFamily,
+    size: AggregateFamily,
+    niche: AggregateFamily,
+    mutability: AggregateFamily,
+    indirect_layout: AggregateFamily,
 }
 
 impl AggregateFamily {
     fn fixed(kind: proc_macro2::TokenStream) -> Self {
         Self {
             kind,
-            field_bounds: Vec::new(),
             aggregate_bounds: Vec::new(),
         }
     }
@@ -57,16 +63,13 @@ impl AggregateFamily {
         fields: &[&syn::Type],
     ) -> Self {
         let crate_ = crate_path();
+        let mut kind = init_kind;
+
         let (parametrized_fields, non_parametrized_fields): (Vec<&syn::Type>, Vec<_>) = fields
             .iter()
             .partition(|ty| is_type_parameterized(ty, generics));
-        let mut kind = init_kind;
-        let field_bounds = parametrized_fields
-            .iter()
-            .map(|ty| quote! { #ty: #crate_::RustSpec })
-            .collect::<Vec<_>>();
-        let mut aggregate_bounds = Vec::new();
 
+        let mut aggregate_bounds = Vec::new();
         for &field in &non_parametrized_fields {
             let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
             kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
@@ -80,7 +83,6 @@ impl AggregateFamily {
 
         Self {
             kind,
-            field_bounds,
             aggregate_bounds,
         }
     }
@@ -189,17 +191,17 @@ fn gen_struct_impl(
     let size = gen_size_family(generics, &fields);
     let niche = gen_niche_family(generics, &fields);
     let mutability = gen_mutability_family(generics, &fields);
-
     let indirect_layout = gen_indirect_layout_family(generics, &fields);
-    gen_type_spec_impl(
-        name,
-        generics,
+
+    let spec = TypeSpecFamilies {
         layout,
-        indirect_layout,
         size,
         niche,
         mutability,
-    )
+        indirect_layout,
+    };
+
+    gen_type_spec_impl(name, generics, &fields, spec)
 }
 
 fn gen_enum_impl(
@@ -225,17 +227,17 @@ fn gen_enum_impl(
 
     let niche = gen_enum_niche_family(repr, variants);
     let mutability = gen_mutability_family(generics, &fields);
-
     let indirect_layout = gen_indirect_layout_family(generics, &fields);
-    gen_type_spec_impl(
-        name,
-        generics,
+
+    let spec = TypeSpecFamilies {
         layout,
-        indirect_layout,
         size,
         niche,
         mutability,
-    )
+        indirect_layout,
+    };
+
+    gen_type_spec_impl(name, generics, &fields, spec)
 }
 
 fn gen_union_impl(
@@ -264,17 +266,17 @@ fn gen_union_impl(
 
     let size = gen_size_family(generics, &fields);
     let mutability = gen_mutability_family(generics, &fields);
-
     let indirect_layout = gen_indirect_layout_family(generics, &fields);
-    gen_type_spec_impl(
-        name,
-        generics,
+
+    let spec = TypeSpecFamilies {
         layout,
-        indirect_layout,
         size,
         niche,
         mutability,
-    )
+        indirect_layout,
+    };
+
+    gen_type_spec_impl(name, generics, &fields, spec)
 }
 
 fn gen_fieldless_enum_impl(
@@ -315,16 +317,19 @@ fn gen_fieldless_enum_impl(
 
     let mutability = gen_mutability_family(generics, &[]);
     let layout = AggregateFamily::fixed(layout_kind);
+    let indirect_layout = AggregateFamily::fixed(quote! {
+        #crate_::layout::Stable<#crate_::layout::Robust>
+    });
 
-    gen_type_spec_impl(
-        name,
-        generics,
+    let spec = TypeSpecFamilies {
         layout,
-        AggregateFamily::fixed(quote! { #crate_::layout::Stable<#crate_::layout::Robust> }),
         size,
         niche,
         mutability,
-    )
+        indirect_layout,
+    };
+
+    gen_type_spec_impl(name, generics, &[], spec)
 }
 
 fn gen_rust_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
@@ -402,46 +407,60 @@ fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Agg
 fn gen_type_spec_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
-    layout: AggregateFamily,
-    indirect_layout: AggregateFamily,
-    size: AggregateFamily,
-    niche: AggregateFamily,
-    mutability: AggregateFamily,
+    fields: &[&syn::Type],
+    families: TypeSpecFamilies,
 ) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let predicates = where_clause.as_ref().map(|w| &w.predicates);
-    let field_bounds = layout
-        .field_bounds
-        .into_iter()
-        .chain(size.field_bounds)
-        .chain(indirect_layout.field_bounds)
-        .chain(niche.field_bounds)
-        .chain(mutability.field_bounds)
+
+    let TypeSpecFamilies {
+        layout,
+        size,
+        niche,
+        mutability,
+        indirect_layout,
+    } = families;
+
+    let field_bounds = fields
+        .iter()
+        .filter(|ty| is_type_parameterized(ty, generics))
+        .map(|ty| quote! { #ty: #crate_::RustSpec })
         .collect::<Vec<_>>();
+
     let aggregate_bounds = layout
         .aggregate_bounds
         .into_iter()
         .chain(size.aggregate_bounds)
-        .chain(indirect_layout.aggregate_bounds)
         .chain(niche.aggregate_bounds)
         .chain(mutability.aggregate_bounds)
+        .chain(indirect_layout.aggregate_bounds)
         .collect::<Vec<_>>();
+
     let layout_kind = layout.kind;
-    let indirect_layout_kind = indirect_layout.kind;
     let size_kind = size.kind;
     let niche_kind = niche.kind;
     let mutability_kind = mutability.kind;
+    let indirect_layout_kind = indirect_layout.kind;
+
+    let spec_bounds = if fields.iter().any(|ty| is_type_parameterized(ty, generics)) {
+        vec![
+            quote! { #layout_kind: #crate_::layout::LayoutSpec },
+            quote! { #indirect_layout_kind: #crate_::layout::LayoutSpec },
+            quote! { #size_kind: #crate_::size::SizeSpec },
+            quote! { #niche_kind: #crate_::niche::NicheSpec },
+            quote! { #mutability_kind: #crate_::mutability::MutabilitySpec },
+        ]
+    } else {
+        Vec::new()
+    };
 
     quote! {
         unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
-            #layout_kind: #crate_::layout::LayoutSpec,
-            #indirect_layout_kind: #crate_::layout::LayoutSpec,
-            #size_kind: #crate_::size::SizeSpec,
-            #niche_kind: #crate_::niche::NicheSpec,
-            #mutability_kind: #crate_::mutability::MutabilitySpec,
+            #(#spec_bounds,)*
             #predicates
         {
             type Layout = #layout_kind;

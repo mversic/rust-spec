@@ -9,6 +9,32 @@ use rust_spec::{
 };
 use static_assertions::assert_impl_all;
 
+trait Projection {
+    type Kita<'a>
+    where
+        Self: 'a;
+}
+
+impl Projection for &i8 {
+    type Kita<'a>
+        = &'a u8
+    where
+        Self: 'a;
+}
+
+impl Projection for &u8 {
+    type Kita<'a>
+        = &'a u8
+    where
+        Self: 'a;
+}
+
+#[expect(dead_code)]
+#[derive(RustSpec)]
+struct WithGat<'a, 'b>(<&'a u8 as Projection>::Kita<'b>)
+where
+    Self: 'b;
+
 #[derive(RustSpec)]
 struct Empty;
 
@@ -75,103 +101,113 @@ pub struct TuplePacket(pub NonZeroU8, pub [u8]);
 
 #[test]
 fn struct_classification() {
+    assert_impl_all!(WithGat<'static, 'static>:
+        RustSpec<
+            Layout = Unstable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+
     assert_impl_all!(Empty:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(RustStruct:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(NonRobustRustRepr:
         RustSpec<
             Layout = Unstable<NonRobust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(ReprCStruct:
         RustSpec<
             Layout = Stable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(InteriorWrapper:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Interior,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(MixedMutability:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(Wrapper<u8>:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(Wrapper<UnsafeCell<u8>>:
         RustSpec<
             Layout = Unstable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Interior,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(Pair<u8, NonZero<u8>>:
         RustSpec<
             Layout = Stable<NonRobust>,
-            __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
-            Niche = WithNiche<StableNiche>,
+            Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(Pair<bool, u8>:
         RustSpec<
             Layout = Stable<NonRobust>,
-            __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(RawPointer<NotRustSpec>:
         RustSpec<
             Layout = Stable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = size::Sized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
 }
@@ -181,28 +217,28 @@ fn struct_wide_classification() {
     assert_impl_all!(Bytes:
         RustSpec<
             Layout = Stable<Robust>,
-            __IndirectLayout = Stable<Robust>,
             Size = MetaSized<SliceLike>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(Packet:
         RustSpec<
             Layout = Unstable<NonRobust>,
-            __IndirectLayout = Stable<Robust>,
             Size = MetaSized<SliceLike>,
             Niche = WithNiche<niche::Unstable>,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
     assert_impl_all!(TuplePacket:
         RustSpec<
             Layout = Unstable<NonRobust>,
-            __IndirectLayout = Stable<Robust>,
             Size = MetaSized<SliceLike>,
             Niche = WithNiche<niche::Unstable>,
             Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
         >,
     );
 }
