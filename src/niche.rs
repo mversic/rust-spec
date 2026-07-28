@@ -50,7 +50,7 @@ impl<K> Add<WithNiche<K>> for WithoutNiche {
     }
 }
 impl<K> Add<WithoutNiche> for WithNiche<K> {
-    type Output = Self;
+    type Output = WithNiche<Unstable>;
 
     fn add(self, _: WithoutNiche) -> Self::Output {
         unreachable!()

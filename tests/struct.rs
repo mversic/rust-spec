@@ -9,7 +9,7 @@ use rust_spec::{
 };
 use static_assertions::assert_impl_all;
 
-trait Projection {
+pub trait Projection {
     type Kita<'a>
     where
         Self: 'a;
@@ -29,10 +29,10 @@ impl Projection for &u8 {
         Self: 'a;
 }
 
-#[expect(dead_code)]
 #[derive(RustSpec)]
-struct WithGat<'a, 'b>(<&'a u8 as Projection>::Kita<'b>)
+pub struct WithGat<'a, 'b>(pub <&'a u8 as Projection>::Kita<'b>)
 where
+    &'a u8: Projection,
     Self: 'b;
 
 #[derive(RustSpec)]
@@ -71,23 +71,30 @@ pub struct Wrapper<T> {
     pub value: T,
 }
 
-#[repr(C)]
 #[derive(RustSpec)]
+#[repr(C)]
 struct Pair<T, U> {
     first: T,
     second: U,
 }
 
+#[derive(RustSpec)]
+pub struct SingletonWithNiche(pub NonZeroU8);
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+struct TransparentWithNiche(NonZeroU8);
+
 struct NotRustSpec;
 
-#[repr(C)]
 #[derive(RustSpec)]
+#[repr(C)]
 struct RawPointer<T> {
     pointer: *mut T,
 }
 
-#[repr(transparent)]
 #[derive(RustSpec)]
+#[repr(transparent)]
 struct Bytes([u8]);
 
 #[derive(RustSpec)]
@@ -101,6 +108,26 @@ pub struct TuplePacket(pub NonZeroU8, pub [u8]);
 
 #[test]
 fn struct_classification() {
+    assert_impl_all!(SingletonWithNiche:
+        RustSpec<
+            Layout = Unstable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+
+    assert_impl_all!(TransparentWithNiche:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<StableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+
     assert_impl_all!(WithGat<'static, 'static>:
         RustSpec<
             Layout = Unstable<NonRobust>,

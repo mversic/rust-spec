@@ -189,7 +189,12 @@ fn gen_struct_impl(
     };
 
     let size = gen_size_family(generics, &fields);
-    let niche = gen_niche_family(generics, &fields);
+    let niche = if let Some(ReprKind::Transparent) = repr {
+        gen_transparent_niche_family(&fields)
+    } else {
+        gen_niche_family(generics, &fields)
+    };
+
     let mutability = gen_mutability_family(generics, &fields);
     let indirect_layout = gen_indirect_layout_family(generics, &fields);
 
@@ -300,19 +305,18 @@ fn gen_fieldless_enum_impl(
             quote! { #crate_::layout::Stable<#robustness> }
         }
     };
-    let tag_type =
-        (repr.is_some() || variants.len() != 1).then(|| enum_tag_type(repr, variants.len()));
+    let has_tag = !variants.is_empty() && (repr.is_some() || variants.len() != 1);
 
-    let size = if tag_type.is_none() {
-        gen_size_family(generics, &[])
-    } else {
+    let size = if has_tag {
         AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::size::NonZst> })
+    } else {
+        AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::size::Zst> })
     };
 
-    let niche = if tag_type.is_none() {
-        AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
-    } else {
+    let niche = if has_tag {
         gen_enum_niche_family(repr, variants)
+    } else {
+        AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
     };
 
     let mutability = gen_mutability_family(generics, &[]);
@@ -391,6 +395,13 @@ fn gen_niche_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Aggregat
         generics,
         fields,
     )
+}
+
+fn gen_transparent_niche_family(fields: &[&syn::Type]) -> AggregateFamily {
+    let crate_ = crate_path();
+    let field = fields[0];
+
+    AggregateFamily::fixed(quote! { <#field as #crate_::RustSpec>::Niche })
 }
 
 fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
@@ -477,8 +488,10 @@ fn gen_enum_niche_family(
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> AggregateFamily {
     let crate_ = crate_path();
+
     let is_exhaustive = enum_tag_type(repr, variants.len())
         .is_none_or(|tag| is_exhaustive_enum(variants.len(), &tag));
+
     let niche_kind = if is_exhaustive {
         quote! { #crate_::niche::WithoutNiche }
     } else {
