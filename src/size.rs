@@ -1,26 +1,22 @@
 use core::{convert::Infallible, ops::Add};
 
-/// Closed family of size and pointer-metadata classifications.
 #[sealed::sealed]
-pub trait SizeSpec {}
+pub trait SizedKindSpec {}
 
 #[sealed::sealed]
-trait SizedKindSpec {}
-
-#[sealed::sealed]
-trait MetadataKindSpec {}
+pub trait MetadataKindSpec {}
 
 /// Marker for types with a constant size known at compile time.
 ///
 /// See [`core::marker::Sized`].
-pub struct Sized<K>(core::marker::PhantomData<K>, Infallible);
+pub struct Sized<K: SizedKindSpec>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for types with a size that can be determined from pointer metadata.
 ///
 /// Type parameter can be set to either [`SliceLike`] or [`DynTraitLike`] only.
 ///
 /// See [`core::marker::MetaSized`]
-pub struct MetaSized<K>(core::marker::PhantomData<K>, Infallible);
+pub struct MetaSized<K: MetadataKindSpec>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for types that do not contribute storage to an ABI layout.
 pub enum Zst {}
@@ -53,27 +49,18 @@ impl MetadataKindSpec for SliceLike {}
 #[sealed::sealed]
 impl MetadataKindSpec for DynTraitLike {}
 
-#[sealed::sealed]
-impl<K: SizedKindSpec> SizeSpec for Sized<K> {}
-
-#[sealed::sealed]
-impl<K: MetadataKindSpec> SizeSpec for MetaSized<K> {}
-
-#[sealed::sealed]
-impl SizeSpec for ExternTypeLike {}
-
 /// Pointers to types implementing this trait alias are “thin”.
 ///
 /// See [`core::ptr::Thin`]
 pub(crate) trait Thin {}
-impl<K> Thin for Sized<K> {}
+impl<K: SizedKindSpec> Thin for Sized<K> {}
 impl Thin for ExternTypeLike {}
 
 pub(crate) trait Dst {}
 impl Dst for ExternTypeLike {}
-impl<K> Dst for MetaSized<K> {}
+impl<K: MetadataKindSpec> Dst for MetaSized<K> {}
 
-impl<K> Add<Sized<K>> for Sized<Zst> {
+impl<K: SizedKindSpec> Add<Sized<K>> for Sized<Zst> {
     type Output = Sized<K>;
 
     fn add(self, _: Sized<K>) -> Self::Output {
@@ -81,7 +68,7 @@ impl<K> Add<Sized<K>> for Sized<Zst> {
     }
 }
 
-impl<K> Add<Sized<K>> for Sized<NonZst> {
+impl<K: SizedKindSpec> Add<Sized<K>> for Sized<NonZst> {
     type Output = Self;
 
     fn add(self, _: Sized<K>) -> Self::Output {
@@ -89,7 +76,7 @@ impl<K> Add<Sized<K>> for Sized<NonZst> {
     }
 }
 
-impl<K: Dst, U> Add<K> for Sized<U> {
+impl<K: Dst, U: SizedKindSpec> Add<K> for Sized<U> {
     type Output = K;
 
     fn add(self, _: K) -> Self::Output {
@@ -97,7 +84,7 @@ impl<K: Dst, U> Add<K> for Sized<U> {
     }
 }
 
-impl<K, U> Add<Sized<U>> for MetaSized<K> {
+impl<K: MetadataKindSpec, U: SizedKindSpec> Add<Sized<U>> for MetaSized<K> {
     type Output = Self;
 
     fn add(self, _: Sized<U>) -> Self::Output {
@@ -105,7 +92,7 @@ impl<K, U> Add<Sized<U>> for MetaSized<K> {
     }
 }
 
-impl<U> Add<Sized<U>> for ExternTypeLike {
+impl<U: SizedKindSpec> Add<Sized<U>> for ExternTypeLike {
     type Output = Self;
 
     fn add(self, _: Sized<U>) -> Self::Output {

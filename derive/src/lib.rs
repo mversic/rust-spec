@@ -509,26 +509,10 @@ fn gen_type_spec_impl(
     let mutability_kind = mutability.kind;
     let indirect_layout_kind = indirect_layout.kind;
 
-    let spec_bounds = if fields
-        .iter()
-        .any(|ty| is_bound_carrying_field(ty, generics))
-    {
-        vec![
-            quote! { #layout_kind: #crate_::layout::LayoutSpec },
-            quote! { #indirect_layout_kind: #crate_::layout::LayoutSpec },
-            quote! { #size_kind: #crate_::size::SizeSpec },
-            quote! { #niche_kind: #crate_::niche::NicheSpec },
-            quote! { #mutability_kind: #crate_::mutability::MutabilitySpec },
-        ]
-    } else {
-        Vec::new()
-    };
-
     quote! {
         unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
-            #(#spec_bounds,)*
             #predicates
         {
             type Layout = #layout_kind;

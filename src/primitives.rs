@@ -75,7 +75,6 @@ unsafe impl<R> RustSpec for [R]
 where
     R: RustSpec,
     WithoutNiche: Add<R::Niche>,
-    <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
     type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
@@ -89,7 +88,6 @@ unsafe impl<R, const N: usize> RustSpec for [R; N]
 where
     R: RustSpec,
     WithoutNiche: Add<R::Niche>,
-    <WithoutNiche as Add<R::Niche>>::Output: crate::niche::NicheSpec,
 {
     type Layout = R::Layout;
     type Size = R::Size;

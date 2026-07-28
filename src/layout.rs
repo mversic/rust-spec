@@ -6,19 +6,15 @@
 //! require validity care.
 use core::{convert::Infallible, ops::Add};
 
-/// Closed family of representation-layout classifications.
-#[sealed::sealed]
-pub trait LayoutSpec {}
-
 /// Closed family of trap-representation classifications.
 #[sealed::sealed]
 pub trait TrapSpec {}
 
 /// Marker for a type that doesn't have a guaranteed representation and requires explicit conversion.
-pub struct Unstable<K>(core::marker::PhantomData<K>, Infallible);
+pub struct Unstable<K: TrapSpec>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for a type that is transmuted to another type and thus delegates its conversion.
-pub struct Stable<K>(core::marker::PhantomData<K>, Infallible);
+pub struct Stable<K: TrapSpec>(core::marker::PhantomData<K>, Infallible);
 
 /// Marker for a robust type that does not require validity conversion.
 pub enum Robust {}
@@ -31,12 +27,6 @@ impl TrapSpec for Robust {}
 
 #[sealed::sealed]
 impl TrapSpec for NonRobust {}
-
-#[sealed::sealed]
-impl<K: TrapSpec> LayoutSpec for Unstable<K> {}
-
-#[sealed::sealed]
-impl<K: TrapSpec> LayoutSpec for Stable<K> {}
 
 impl Add for Robust {
     type Output = Self;
@@ -70,9 +60,9 @@ impl Add<Robust> for NonRobust {
     }
 }
 
-impl<K, U> Add<Unstable<U>> for Stable<K>
+impl<K: TrapSpec, U: TrapSpec> Add<Unstable<U>> for Stable<K>
 where
-    K: Add<U>,
+    K: Add<U, Output: TrapSpec>,
 {
     type Output = Unstable<<K as Add<U>>::Output>;
 
@@ -81,9 +71,9 @@ where
     }
 }
 
-impl<K, U> Add<Stable<U>> for Unstable<K>
+impl<K: TrapSpec, U: TrapSpec> Add<Stable<U>> for Unstable<K>
 where
-    K: Add<U>,
+    K: Add<U, Output: TrapSpec>,
 {
     type Output = Unstable<<K as Add<U>>::Output>;
 
@@ -92,9 +82,9 @@ where
     }
 }
 
-impl<K, U> Add<Unstable<U>> for Unstable<K>
+impl<K: TrapSpec, U: TrapSpec> Add<Unstable<U>> for Unstable<K>
 where
-    K: Add<U>,
+    K: Add<U, Output: TrapSpec>,
 {
     type Output = Unstable<<K as Add<U>>::Output>;
 
@@ -103,9 +93,9 @@ where
     }
 }
 
-impl<K, U> Add<Stable<U>> for Stable<K>
+impl<K: TrapSpec, U: TrapSpec> Add<Stable<U>> for Stable<K>
 where
-    K: Add<U>,
+    K: Add<U, Output: TrapSpec>,
 {
     type Output = Stable<<K as Add<U>>::Output>;
 

@@ -1,4 +1,5 @@
 use core::{cell::UnsafeCell, num::NonZero, num::NonZeroU8};
+use std::ffi::c_void;
 
 use rust_spec::{
     RustSpec,
@@ -15,7 +16,7 @@ pub trait Projection {
         Self: 'a;
 }
 
-impl Projection for &i8 {
+impl Projection for c_void {
     type Kita<'a>
         = &'a u8
     where
@@ -24,16 +25,35 @@ impl Projection for &i8 {
 
 impl Projection for &u8 {
     type Kita<'a>
-        = &'a u8
+        = Self
     where
         Self: 'a;
 }
 
 #[derive(RustSpec)]
+pub struct ParamReprCZst<T: ?Sized> {
+    pub a: (),
+    pub b: T,
+}
+
+#[derive(RustSpec)]
 pub struct WithGat<'a, 'b>(pub <&'a u8 as Projection>::Kita<'b>)
 where
-    &'a u8: Projection,
+    for<'d> &'a u8: Projection,
     Self: 'b;
+
+#[derive(RustSpec)]
+pub struct WithGat2<'b>(pub <c_void as Projection>::Kita<'b>)
+where
+    for<'d> c_void: Projection,
+    Self: 'b;
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+pub struct Custom2View<'_dšč, 'a>(pub <&'a i8 as Projection>::Kita<'_dšč>)
+where
+    Self: '_dšč,
+    for<'_dummy> &'a i8: Projection;
 
 #[derive(RustSpec)]
 struct Empty;
@@ -108,6 +128,35 @@ pub struct TuplePacket(pub NonZeroU8, pub [u8]);
 
 #[test]
 fn struct_classification() {
+    assert_impl_all!(ParamReprCZst<()>:
+        RustSpec<
+            Layout = Unstable<Robust>,
+            Size = SpecSized<Zst>,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ParamReprCZst<UnsafeCell<NonZeroU8>>:
+        RustSpec<
+            Layout = Unstable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithoutNiche,
+            // FIXME: Should this be Interior?
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ParamReprCZst<u8>:
+        RustSpec<
+            Layout = Unstable<Robust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+
     assert_impl_all!(SingletonWithNiche:
         RustSpec<
             Layout = Unstable<NonRobust>,
