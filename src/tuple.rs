@@ -1,9 +1,6 @@
 use core::ops::Add;
 
-use crate::{
-    RustSpec,
-    layout::{Robust, Unstable},
-};
+use crate::{RustSpec, Unstable, layout::Robust};
 
 macro_rules! impl_tuple_type_spec {
     (@kind $axis:ident; $ty:ident) => {
@@ -18,13 +15,14 @@ macro_rules! impl_tuple_type_spec {
         where
             $($params)*
             $ty: RustSpec,
-            Unstable<Robust>: Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>,
+            Robust: Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>,
         {
-            type Layout = <Unstable<Robust> as Add<impl_tuple_type_spec!(@kind Layout; $($all),+)>>::Output;
+            type Layout = Unstable;
+            type Trap = <Robust as Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>>::Output;
             type Size = impl_tuple_type_spec!(@kind Size; $($all),+);
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
-            type __IndirectLayout = impl_tuple_type_spec!(@kind __IndirectLayout; $($all),+);
+            type __IndirectTrap = impl_tuple_type_spec!(@kind __IndirectTrap; $($all),+);
         }
     };
     (@params for $target:ty [$($all:ident),+] [$($params:tt)*]; $head:ident, $($tail:ident),+) => {
@@ -33,11 +31,11 @@ macro_rules! impl_tuple_type_spec {
             [$($all),+]
             [$($params)*
                 $head: RustSpec<
-                    Layout: Add<impl_tuple_type_spec!(@kind Layout; $($tail),+)>,
+                    Trap: Add<impl_tuple_type_spec!(@kind Trap; $($tail),+)>,
                     Size: Add<impl_tuple_type_spec!(@kind Size; $($tail),+)>,
                     Niche: Add<impl_tuple_type_spec!(@kind Niche; $($tail),+)>,
                     Mutability: Add<impl_tuple_type_spec!(@kind Mutability; $($tail),+)>,
-                    __IndirectLayout: Add<impl_tuple_type_spec!(@kind __IndirectLayout; $($tail),+)>,
+                    __IndirectTrap: Add<impl_tuple_type_spec!(@kind __IndirectTrap; $($tail),+)>,
                 >,
             ]
             ; $($tail),+
@@ -74,9 +72,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        layout::{NonRobust, Stable},
+        Stable,
+        layout::NonRobust,
         mutability::Exclusive,
-        niche::{self, WithNiche, WithoutNiche},
+        niche::{WithNiche, WithoutNiche},
         size::{self, NonZst, Zst},
     };
 
@@ -84,20 +83,22 @@ mod tests {
     fn tuple_size_family_tracks_zst_fields() {
         assert_impl_all!(((), ()):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = size::Sized<Zst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(((), (), ()):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = size::Sized<Zst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -106,29 +107,32 @@ mod tests {
     fn tuple_size_family_tracks_non_zst_fields() {
         assert_impl_all!(((), u8):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!((u8, ()):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(((), u8, ()):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -137,98 +141,108 @@ mod tests {
     fn stored_tuple_3_without_niche() {
         assert_impl_all!((u8, u8, u8):
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
 
         assert_impl_all!(&(u8, u8, u8):
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&mut (u8, u8, u8):
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, u8, u8)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, u8, u8)]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, u8, u8)]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, u8, u8)]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, u8, u8)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = size::Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<(u8, u8, u8)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -237,98 +251,108 @@ mod tests {
     fn stored_tuple_3_with_niche() {
         assert_impl_all!((u8, NonZero<u8>, bool):
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
 
         assert_impl_all!(&(u8, NonZero<u8>, bool):
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut (u8, NonZero<u8>, bool):
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<(u8, NonZero<u8>, bool)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&[(u8, NonZero<u8>, bool)]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [(u8, NonZero<u8>, bool)]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[(u8, NonZero<u8>, bool)]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<(u8, NonZero<u8>, bool)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<(u8, NonZero<u8>, bool)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = size::Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }

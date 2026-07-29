@@ -41,14 +41,14 @@ static_assertions = "1.1.0"
 [[test]]
 name = "struct"
 path = "tests/struct.rs"
-required-features = ["derive"]
+required-features = ["derive", "alloc"]
 
 [[test]]
 name = "enum"
 path = "tests/enum.rs"
-required-features = ["derive"]
+required-features = ["derive", "alloc"]
 
 [[test]]
 name = "union"
 path = "tests/union.rs"
-required-features = ["derive"]
+required-features = ["derive", "alloc"]

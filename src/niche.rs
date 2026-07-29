@@ -2,6 +2,8 @@
 
 use core::{convert::Infallible, ops::Add};
 
+use crate::{Stable, Unstable};
+
 #[sealed::sealed]
 pub trait NicheStabilityKind {}
 
@@ -10,14 +12,6 @@ pub enum WithoutNiche {}
 
 /// Marker for a type that has a niche value.
 pub struct WithNiche<K: NicheStabilityKind>(core::marker::PhantomData<K>, Infallible);
-
-/// Marker for a single stable (compiler guaranteed) niche value (e.g. `&u32`).
-///
-/// Only a handful of Rust types have a stable niche.
-pub enum Stable {}
-
-/// Marker for a niche that exists but is not compiler-guaranteed.
-pub enum Unstable {}
 
 #[sealed::sealed]
 impl NicheStabilityKind for Stable {}
@@ -62,8 +56,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        RustSpec,
-        layout::{NonRobust, Robust, Unstable},
+        RustSpec, Unstable,
+        layout::{NonRobust, Robust},
         mutability::Exclusive,
         size::NonZst,
     };
@@ -72,32 +66,35 @@ mod tests {
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = crate::size::Sized<NonZst>,
-                Niche = WithNiche<crate::niche::Unstable>,
+                Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
 
         assert_impl_all!(Option<Option<bool>>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = crate::size::Sized<NonZst>,
-                Niche = WithNiche<crate::niche::Unstable>,
+                Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
 
         assert_impl_all!(Option<(u8, NonZero<u8>)>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = crate::size::Sized<NonZst>,
                 // FIXME: The type should be WithoutNiche
-                Niche = WithNiche<crate::niche::Unstable>,
+                Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }

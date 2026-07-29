@@ -9,18 +9,17 @@ Compile-time classification of types according to Rust specification.
 ## Classification Axes
 
 `RustSpec` describes a type across the following axes:
-- `Layout`: layout stability and robustness.
+- `Layout`: representation stability.
 - `Size`: statically sized, metadata-sized, or extern-type-like shape.
+- `Trap`: whether the value representation has trap values.
 - `Niche`: stable, unstable, or absent niche value.
 - `Mutability`: whether the whole value can be mutated through shared access.
 
 ### Layout
 
-Describes whether a type has a stable layout or trap/invalid values:
-- `Stable<Robust>`: stable layout with no trap values.
-- `Stable<NonRobust>`: stable layout, but with trap values.
-- `Unstable<Robust>`: unstable layout with no trap values.
-- `Unstable<NonRobust>`: unstable layout, but with trap values.
+Describes total reachable (through pointer indirection) representation stability:
+- `Stable`: compiler-guaranteed representation.
+- `Unstable`: representation is not guaranteed.
 
 ### Size
 
@@ -30,6 +29,12 @@ Describes compile-time size and pointer metadata shape:
 - `MetaSized<SliceLike>`: dynamically sized slice-like type.
 - `MetaSized<DynTraitLike>`: dynamically sized trait-object-like type.
 - `ExternTypeLike`: dynamically sized extern-type-like type.
+
+### Trap
+
+Describes total reachable (through pointer indirection) value-representation validity:
+- `Robust`: every bit pattern is valid.
+- `NonRobust`: some bit patterns are trap/invalid values.
 
 ### Niche
 

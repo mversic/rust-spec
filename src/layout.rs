@@ -1,20 +1,16 @@
-//! Representation stability and robustness classification.
+//! Representation stability and trap/robustness classification.
 //!
 //! This module provides the marker types used by [`crate::RustSpec::Layout`].
 //! Stability describes whether Rust guarantees the representation shape.
 //! Robustness describes whether the represented value space has trap values that
 //! require validity care.
-use core::{convert::Infallible, ops::Add};
+use core::ops::Add;
 
-/// Closed family of trap-representation classifications.
+use crate::{Stable, Unstable};
+
+/// Closed family of representation-stability classifications.
 #[sealed::sealed]
-pub trait TrapKind {}
-
-/// Marker for a type that doesn't have a guaranteed representation and requires explicit conversion.
-pub struct Unstable<K: TrapKind>(core::marker::PhantomData<K>, Infallible);
-
-/// Marker for a type that is transmuted to another type and thus delegates its conversion.
-pub struct Stable<K: TrapKind>(core::marker::PhantomData<K>, Infallible);
+pub trait LayoutKind {}
 
 /// Marker for a robust type that does not require validity conversion.
 pub enum Robust {}
@@ -23,12 +19,12 @@ pub enum Robust {}
 pub enum NonRobust {}
 
 #[sealed::sealed]
-impl TrapKind for Robust {}
+impl LayoutKind for Stable {}
 
 #[sealed::sealed]
-impl TrapKind for NonRobust {}
+impl LayoutKind for Unstable {}
 
-impl<K: TrapKind> Add<K> for NonRobust {
+impl<K> Add<K> for NonRobust {
     type Output = Self;
 
     fn add(self, _: K) -> Self::Output {
@@ -52,46 +48,26 @@ impl Add for Robust {
     }
 }
 
-impl<K: TrapKind, U: TrapKind> Add<Unstable<U>> for Unstable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Unstable<<K as Add<U>>::Output>;
+impl<K> Add<K> for Unstable {
+    type Output = Self;
 
-    fn add(self, _: Unstable<U>) -> Self::Output {
+    fn add(self, _: K) -> Self::Output {
         unreachable!()
     }
 }
 
-impl<K: TrapKind, U: TrapKind> Add<Stable<U>> for Stable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Stable<<K as Add<U>>::Output>;
+impl Add<Unstable> for Stable {
+    type Output = Unstable;
 
-    fn add(self, _: Stable<U>) -> Self::Output {
+    fn add(self, _: Unstable) -> Self::Output {
         unreachable!()
     }
 }
 
-impl<U: TrapKind, K: TrapKind> Add<Stable<U>> for Unstable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Unstable<<K as Add<U>>::Output>;
+impl Add for Stable {
+    type Output = Self;
 
-    fn add(self, _: Stable<U>) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl<K: TrapKind, U: TrapKind> Add<Unstable<U>> for Stable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Unstable<<K as Add<U>>::Output>;
-
-    fn add(self, _: Unstable<U>) -> Self::Output {
+    fn add(self, _: Self) -> Self::Output {
         unreachable!()
     }
 }

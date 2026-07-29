@@ -1,8 +1,8 @@
 use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 use rust_spec::{
-    RustSpec,
-    layout::{Robust, Stable, Unstable},
+    RustSpec, Stable, Unstable,
+    layout::Robust,
     mutability::Exclusive,
     niche::WithoutNiche,
     size::{NonZst, Sized as SpecSized},
@@ -17,6 +17,13 @@ pub union RustUnion {
 
 #[derive(RustSpec)]
 #[repr(C)]
+union ReprCStableUnion {
+    byte: u8,
+    word: u16,
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
 union ReprCUnion {
     cell: ManuallyDrop<UnsafeCell<u8>>,
     value: u8,
@@ -26,20 +33,32 @@ union ReprCUnion {
 fn union_classification() {
     assert_impl_all!(RustUnion:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable,
+            Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCUnion:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable,
+            Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(ReprCStableUnion:
+        RustSpec<
+            Layout = Stable,
+            Trap = Robust,
+            Size = SpecSized<NonZst>,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
         >,
     );
 }

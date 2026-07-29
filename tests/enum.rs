@@ -1,10 +1,10 @@
 use core::num::NonZeroU8;
 
 use rust_spec::{
-    RustSpec,
-    layout::{NonRobust, Robust, Stable, Unstable},
+    RustSpec, Stable, Unstable,
+    layout::{NonRobust, Robust},
     mutability::Exclusive,
-    niche::{Stable as StableNiche, Unstable as UnstableNiche, WithNiche, WithoutNiche},
+    niche::{WithNiche, WithoutNiche},
     size::{NonZst, Sized as SpecSized, Zst},
 };
 use static_assertions::assert_impl_all;
@@ -115,156 +115,173 @@ pub enum TransparentZstEnum {
 fn enum_classification() {
     assert_impl_all!(EmptyEnum:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable,
+            Trap = Robust,
             Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(SingletonEnum:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable,
+            Trap = Robust,
             Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(SingletonWithoutNicheEnum:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable,
+            Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(SingletonWithNicheEnum:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TwoVariantEnum:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TaggedSingletonEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentNoNicheEnum:
         RustSpec<
-            Layout = Stable<Robust>,
+            Layout = Stable,
+            Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentWithNicheEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<StableNiche>,
+            Niche = WithNiche<Stable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentWithMultipleFieldsEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentZstEnum:
         RustSpec<
-            Layout = Stable<Robust>,
+            Layout = Stable,
+            Trap = Robust,
             Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
 
     assert_impl_all!(RustEnum:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(PrimitiveEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(PrimitiveDataEnumWithUnstableField:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCFieldlessEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCDataEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<
-            Layout = Stable<NonRobust>,
+            Layout = Stable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCDataEnumWithUnstableField:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable,
+            Trap = NonRobust,
             Size = SpecSized<NonZst>,
-            Niche = WithNiche<UnstableNiche>,
+            Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectLayout = Stable<Robust>,
+            __IndirectTrap = Robust,
         >,
     );
 }

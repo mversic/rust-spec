@@ -3,22 +3,17 @@
 //! # Classification Axes
 //!
 //! `RustSpec` describes a type across the following axes:
-//! - [`layout`]: layout stability and robustness.
+//! - [`layout`]: representation stability.
 //! - [`size`]: statically sized, metadata-sized, or extern-type-like shape.
+//! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
 //! - [`mutability`]: whether the whole value can be mutated through shared access.
 //!
 //! ## Layout
 //!
-//! Describes whether a type has a stable layout or trap/invalid values:
-//! - [`layout::Stable<Robust>`]: stable layout with no trap values.
-//! - [`layout::Stable<NonRobust>`]: stable layout, but with trap values.
-//! - [`layout::Unstable<Robust>`]: unstable layout with no trap values.
-//! - [`layout::Unstable<NonRobust>`]: unstable layout, but with trap values.
-//!
-//! A supported pointer's layout stability follows its pointee, because a Rust
-//! reference or `Box` requires a valid pointee. Its robustness still describes
-//! the pointer value itself. Raw pointers are not followed.
+//! Describes total reachable (through pointer indirection) representation stability:
+//! - `Stable`: compiler-guaranteed representation.
+//! - `Unstable`: representation is not guaranteed.
 //!
 //! ## Size
 //!
@@ -29,12 +24,18 @@
 //! - [`size::MetaSized<size::DynTraitLike>`]: dynamically sized trait-object-like type.
 //! - [`size::ExternTypeLike`]: dynamically sized extern-type-like type.
 //!
+//! ## Trap
+//!
+//! Describes total reachable (through pointer indirection) value-representation validity:
+//! - [`layout::Robust`]: every bit pattern is valid.
+//! - [`layout::NonRobust`]: some bit patterns are trap/invalid values.
+//!
 //! ## Niche
 //!
 //! Describes whether and what kind of niche is available for the type:
 //! - [`niche::WithoutNiche`]: no niche is available.
-//! - [`niche::WithNiche<niche::Stable>`]: compiler-guaranteed niche.
-//! - [`niche::WithNiche<niche::Unstable>`]: niche exists but is not guaranteed.
+//! - [`niche::WithNiche<Stable>`]: compiler-guaranteed niche.
+//! - [`niche::WithNiche<Unstable>`]: niche exists but is not guaranteed.
 //!
 //! ## Mutability
 //!
@@ -49,8 +50,8 @@
 //! ```rust
 //! use disjoint_impls::disjoint_impls;
 //! use rust_spec::{
-//!     RustSpec,
-//!     niche::{self, WithNiche, WithoutNiche}
+//!     RustSpec, Stable, Unstable,
+//!     niche::{WithNiche, WithoutNiche}
 //! };
 //!
 //! #[derive(RustSpec)]
@@ -68,11 +69,11 @@
 //!         const NEEDS_TAG: bool = true;
 //!     }
 //!
-//!     impl<T: RustSpec<Niche = WithNiche<niche::Stable>>> NullableEncoding for T {
+//!     impl<T: RustSpec<Niche = WithNiche<Stable>>> NullableEncoding for T {
 //!         const NEEDS_TAG: bool = false;
 //!     }
 //!
-//!     impl<T: RustSpec<Niche = WithNiche<niche::Unstable>>> NullableEncoding for T {
+//!     impl<T: RustSpec<Niche = WithNiche<Unstable>>> NullableEncoding for T {
 //!         const NEEDS_TAG: bool = false;
 //!     }
 //! }
@@ -85,22 +86,27 @@
 extern crate alloc;
 extern crate self as rust_spec;
 
-use core::ops::Add;
-
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+use core::ops::Add;
 
 use disjoint_impls::disjoint_impls;
 #[cfg(feature = "derive")]
 pub use rust_spec_derive::RustSpec;
 
 use crate::{
-    layout::{NonRobust, Robust},
     niche::{WithNiche, WithoutNiche},
     size::{MetadataKind, SizedKind},
 };
 
 mod core_impls;
+
+/// Marker for a compiler-guaranteed representation or niche.
+pub enum Stable {}
+
+/// Marker for a representation or niche that is not compiler-guaranteed.
+pub enum Unstable {}
+
 pub mod layout;
 pub mod mutability;
 pub mod niche;
@@ -119,8 +125,11 @@ disjoint_impls! {
     /// Implementors must classify `Self` truthfully. In particular, [`Self::Size`]
     /// carries the same safety requirements documented by the size marker types.
     pub unsafe trait RustSpec {
-        /// Representation stability and robustness classification.
+        /// Representation-stability classification.
         type Layout;
+
+        /// Trap-representation classification.
+        type Trap;
 
         /// Statically known, metadata-sized, or extern-type-like size classification.
         type Size;
@@ -131,297 +140,204 @@ disjoint_impls! {
         /// Shared-access mutability classification.
         type Mutability;
 
-        /// Accumulator for layout reachable through one or more supported pointer indirections.
-        ///
-        /// A supported pointer's indirect layout is its pointee's complete
-        /// layout. Structural types join the indirect layouts of their stored
-        /// fields. Raw pointers are not followed.
+        /// Trap classification reachable through one or more supported pointer indirections.
         #[doc(hidden)]
-        type __IndirectLayout;
+        type __IndirectTrap;
     }
 
-    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &R
+    unsafe impl<R: ?Sized> RustSpec for &R
     where
-        R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
+        R: RustSpec<Size: size::Thin>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = R::Layout;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
+        type Niche = WithNiche<Stable>;
         type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
-    }
-    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &R
-    where
-        R: RustSpec<Layout = layout::Stable<K>, Size: size::Thin>,
-    {
-        type Layout = layout::Stable<layout::NonRobust>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
-        type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &R
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
 
-    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &mut R
+    unsafe impl<R: ?Sized> RustSpec for &mut R
     where
-        R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
+        R: RustSpec<Size: size::Thin>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = R::Layout;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
+        type Niche = WithNiche<Stable>;
         type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
-    }
-    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for &mut R
-    where
-        R: RustSpec<Layout = layout::Stable<K>, Size: size::Thin>,
-    {
-        type Layout = layout::Stable<layout::NonRobust>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
-        type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &mut R
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
 
     #[cfg(feature = "alloc")]
-    unsafe impl<R: ?Sized, K: layout::TrapKind> RustSpec for Box<R>
+    unsafe impl<R, S: SizedKind> RustSpec for Box<R>
     where
-        R: RustSpec<Layout = layout::Unstable<K>, Size: size::Thin>,
+        R: RustSpec<Size = size::Sized<S>>,
     {
-        type Layout = layout::Unstable<NonRobust>;
+        type Layout = R::Layout;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
+        type Niche = WithNiche<Stable>;
         type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
-    }
-    #[cfg(feature = "alloc")]
-    unsafe impl<R, S: SizedKind, K: layout::TrapKind> RustSpec for Box<R>
-    where
-        R: RustSpec<Layout = layout::Stable<K>, Size = size::Sized<S>>,
-    {
-        type Layout = layout::Stable<layout::NonRobust>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Stable>;
-        type Mutability = R::Mutability;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
     #[cfg(feature = "alloc")]
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::Layout;
+        type __IndirectTrap = R::Trap;
     }
 
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithoutNiche>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
-        R: RustSpec<Niche = WithNiche<niche::Unstable>, __IndirectLayout = layout::Stable<Robust>>,
+        R: RustSpec<Niche = WithNiche<Unstable>>,
     {
-        // FIXME: It can also become Stable<Robust> WithoutNiche if R has exactly one trap
-        // The same can happen even if R has a stable niche. The whole Option can be Robust
-        // We would have to support niche counting for this to work
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        // FIXME: This can be Robust but we have to track
+        // the number of available custom/unstable niches.
+        // The same thing happens for all other enums
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
-        R: RustSpec<Niche = WithNiche<niche::Unstable>, __IndirectLayout = layout::Stable<NonRobust>>,
+        R: RustSpec<Niche = WithNiche<Stable>>,
     {
-        // FIXME: It can also become Stable<Robust> WithoutNiche if R has exactly one trap
-        // The same can happen even if R has a stable niche. The whole Option can be Robust
-        type Layout = layout::Unstable<layout::NonRobust>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
-        type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
-    }
-    unsafe impl<R, K> RustSpec for Option<R>
-    where
-        R: RustSpec<
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Unstable<K>
-        >,
-        K: layout::TrapKind,
-    {
-        type Layout = layout::Unstable<K>;
+        type Layout = R::Layout;
+        type Trap = R::__IndirectTrap;
         type Size = size::Sized<size::NonZst>;
         type Niche = WithoutNiche;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
-    }
-    unsafe impl<R, K> RustSpec for Option<R>
-    where
-        R: RustSpec<
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Stable<K>,
-        >,
-        K: layout::TrapKind,
-    {
-        type Layout = layout::Stable<K>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithoutNiche;
-        type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
 
     unsafe impl<R, E, K: SizedKind> RustSpec for Result<R, E>
     where
         R: RustSpec<Size = size::Sized<K>>,
         E: RustSpec<Size = size::Sized<K>>,
-        <R as RustSpec>::__IndirectLayout: Add<<E as RustSpec>::__IndirectLayout>,
+        <R as RustSpec>::__IndirectTrap: Add<<E as RustSpec>::__IndirectTrap>,
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = <R::__IndirectLayout as Add<E::__IndirectLayout>>::Output;
-
+        type __IndirectTrap = <R::__IndirectTrap as Add<E::__IndirectTrap>>::Output;
     }
     unsafe impl<
         R: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithoutNiche>,
         E: RustSpec<Size = size::Sized<size::Zst>>,
     > RustSpec for Result<R, E>
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<
-        R: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<niche::Unstable>>,
+        R: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<Unstable>>,
         E: RustSpec<Size = size::Sized<size::Zst>>,
     > RustSpec for Result<R, E>
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
 
-    unsafe impl<R, E, K> RustSpec for Result<R, E>
+    unsafe impl<R, E> RustSpec for Result<R, E>
     where
-        R: RustSpec<
-            Size = size::Sized<size::NonZst>,
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Unstable<K>,
-            >,
+        R: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<Stable>>,
         E: RustSpec<Size = size::Sized<size::Zst>>,
-        K: layout::TrapKind,
     {
-        type Layout = layout::Unstable<K>;
+        type Layout = R::Layout;
+        type Trap = R::__IndirectTrap;
         type Size = size::Sized<size::NonZst>;
         type Niche = WithoutNiche;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
+        type __IndirectTrap = R::__IndirectTrap;
     }
-    unsafe impl<R, E, K> RustSpec for Result<R, E>
-    where
-        R: RustSpec<
-            Size = size::Sized<size::NonZst>,
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Stable<K>,
-            >,
-        E: RustSpec<Size = size::Sized<size::Zst>>,
-        K: layout::TrapKind,
-    {
-        type Layout = layout::Stable<K>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithoutNiche;
-        type Mutability = mutability::Exclusive;
-        type __IndirectLayout = R::__IndirectLayout;
-    }
-
     unsafe impl<
         R: RustSpec<Size = size::Sized<size::Zst>>,
         E: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithoutNiche>,
     > RustSpec for Result<R, E>
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = E::__IndirectLayout;
+        type __IndirectTrap = E::__IndirectTrap;
     }
     unsafe impl<
         R: RustSpec<Size = size::Sized<size::Zst>>,
-        E: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<niche::Unstable>>,
+        E: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<Unstable>>,
     > RustSpec for Result<R, E>
     {
-        type Layout = layout::Unstable<layout::NonRobust>;
+        type Layout = Unstable;
+        type Trap = layout::NonRobust;
         type Size = size::Sized<size::NonZst>;
-        type Niche = WithNiche<niche::Unstable>;
+        type Niche = WithNiche<Unstable>;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = E::__IndirectLayout;
+        type __IndirectTrap = E::__IndirectTrap;
     }
-    unsafe impl<R, E, K> RustSpec for Result<R, E>
+    unsafe impl<R, E> RustSpec for Result<R, E>
     where
         R: RustSpec<Size = size::Sized<size::Zst>>,
-        E: RustSpec<
-            Size = size::Sized<size::NonZst>,
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Unstable<K>,
-            >,
-        K: layout::TrapKind,
+        E: RustSpec<Size = size::Sized<size::NonZst>, Niche = WithNiche<Stable>>,
     {
-        type Layout = layout::Unstable<K>;
+        type Layout = E::Layout;
+        type Trap = E::__IndirectTrap;
         type Size = size::Sized<size::NonZst>;
         type Niche = WithoutNiche;
         type Mutability = mutability::Exclusive;
-        type __IndirectLayout = E::__IndirectLayout;
-    }
-    unsafe impl<R, E, K> RustSpec for Result<R, E>
-    where
-        R: RustSpec<Size = size::Sized<size::Zst>>,
-        E: RustSpec<
-            Size = size::Sized<size::NonZst>,
-            Niche = WithNiche<niche::Stable>,
-            __IndirectLayout = layout::Stable<K>,
-            >,
-        K: layout::TrapKind,
-    {
-        type Layout = layout::Stable<K>;
-        type Size = size::Sized<size::NonZst>;
-        type Niche = WithoutNiche;
-        type Mutability = mutability::Exclusive;
-        type __IndirectLayout = E::__IndirectLayout;
+        type __IndirectTrap = E::__IndirectTrap;
     }
 }
 
@@ -434,114 +350,124 @@ mod tests {
 
     use super::*;
     use {
-        layout::{Stable, Unstable},
+        layout::{NonRobust, Robust},
         mutability::Exclusive,
         niche::{WithNiche, WithoutNiche},
         size::{NonZst, Sized as Co3Sized},
     };
 
     #[test]
-    fn indirect_layout_follows_supported_pointers_only() {
-        assert_impl_all!(&u8: RustSpec<__IndirectLayout = Stable<Robust>>);
-        assert_impl_all!(&bool: RustSpec<__IndirectLayout = Stable<NonRobust>>);
-        assert_impl_all!(&&u8: RustSpec<__IndirectLayout = Stable<NonRobust>>);
-        assert_impl_all!(Option<&u8>: RustSpec<__IndirectLayout = Stable<Robust>>);
-        assert_impl_all!(*const bool: RustSpec<__IndirectLayout = Stable<Robust>>);
+    fn indirect_trap_follows_supported_pointers_only() {
+        assert_impl_all!(&u8: RustSpec<__IndirectTrap = Robust>);
+        assert_impl_all!(&bool: RustSpec<__IndirectTrap = NonRobust>);
+        assert_impl_all!(&&u8: RustSpec<__IndirectTrap = NonRobust>);
+        assert_impl_all!(Option<&u8>: RustSpec<__IndirectTrap = Robust>);
+        assert_impl_all!(*const bool: RustSpec<__IndirectTrap = Robust>);
     }
 
     #[test]
     fn transparent_type() {
         assert_impl_all!(bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[bool]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<bool>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([bool; 2]:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         // FIXME:
         //assert_impl_all!(Option<bool>:
         //    RustSpec<
-        //        Layout = Unstable<NonRobust>,
+        //        Layout = Unstable,
+        //        Trap = NonRobust,
         //        Size = Co3Sized<NonZst>,
-        //        Niche = WithNiche<niche::Unstable>,
+        //        Niche = WithNiche<Unstable>,
         //        Mutability = Exclusive,
         //    >,
         //);
@@ -553,38 +479,42 @@ mod tests {
 
         assert_impl_all!(Option<NonZeroU8>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&u8>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&(u8, u8, u8)>:
             RustSpec<
-                Layout = Unstable<Robust>,
+                Layout = Unstable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Unstable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&NonZeroU8>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
     }
@@ -595,47 +525,52 @@ mod tests {
 
         assert_impl_all!(Result<NonZeroU8, ()>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Result<&u8, ()>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Result<&NonZeroU8, ()>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Result<(), NonZeroU8>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Result<&mut u8, ()>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -644,86 +579,95 @@ mod tests {
     fn robust_ref() {
         assert_impl_all!(&&u8:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &u8:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&u8]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&u8]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&u8]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&u8>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&u8; 2]:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&u8>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -732,87 +676,96 @@ mod tests {
     fn transparent_ref() {
         assert_impl_all!(&&bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [&bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&bool]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&bool>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&bool; 2]:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Option<&bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
     }
@@ -821,86 +774,95 @@ mod tests {
     fn robust_ref_mut() {
         assert_impl_all!(&&mut u8:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &mut u8:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&mut u8>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&mut u8]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&mut u8]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut u8]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut u8>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&mut u8; 2]:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&mut u8>:
             RustSpec<
-                Layout = Stable<Robust>,
+                Layout = Stable,
+                Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectTrap = Robust,
             >,
         );
     }
@@ -909,86 +871,95 @@ mod tests {
     fn transparent_ref_mut() {
         assert_impl_all!(&&mut bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &mut bool:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&mut bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Stable>,
+                Niche = WithNiche<Stable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&mut bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&mut bool]:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut bool]>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut bool>:
             RustSpec<
-                Layout = Unstable<NonRobust>,
+                Layout = Unstable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&mut bool; 2]:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
-                Niche = WithNiche<niche::Unstable>,
+                Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Option<&mut bool>:
             RustSpec<
-                Layout = Stable<NonRobust>,
+                Layout = Stable,
+                Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<NonRobust>,
+                __IndirectTrap = NonRobust,
             >,
         );
     }

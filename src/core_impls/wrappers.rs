@@ -9,24 +9,23 @@ use core::{
     ptr::NonNull,
 };
 
-#[cfg(feature = "alloc")]
-use crate::layout::Unstable;
 use crate::{
-    RustSpec,
-    layout::{NonRobust, Robust, Stable},
+    RustSpec, Stable, Unstable,
+    layout::{NonRobust, Robust},
     mutability::Exclusive,
-    niche::{self, WithNiche, WithoutNiche},
+    niche::{WithNiche, WithoutNiche},
     size,
 };
 
 macro_rules! non_zero_derive {
     ($($primitive:ty),+ $(,)?) => {$(
         unsafe impl RustSpec for NonZero<$primitive> {
-            type Layout = Stable<NonRobust>;
+            type Layout = Stable;
+            type Trap = NonRobust;
             type Size = size::Sized<size::NonZst>;
-            type Niche = WithNiche<niche::Stable>;
+            type Niche = WithNiche<Stable>;
             type Mutability = Exclusive;
-            type __IndirectLayout = Stable<Robust>;
+            type __IndirectTrap = Robust;
         }
     )+};
 }
@@ -34,11 +33,12 @@ macro_rules! non_zero_derive {
 macro_rules! stable_robust_zst {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty {
-            type Layout = Stable<Robust>;
+            type Layout = Stable;
+            type Trap = Robust;
             type Size = size::Sized<size::Zst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
-            type __IndirectLayout = Stable<Robust>;
+            type __IndirectTrap = Robust;
         }
     };
 }
@@ -47,10 +47,11 @@ macro_rules! transparent_wrapper {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty {
             type Layout = T::Layout;
+            type Trap = T::Trap;
             type Size = T::Size;
             type Niche = T::Niche;
             type Mutability = T::Mutability;
-            type __IndirectLayout = T::__IndirectLayout;
+            type __IndirectTrap = T::__IndirectTrap;
         }
     };
 }
@@ -70,35 +71,39 @@ transparent_wrapper!((T: RustSpec) => Saturating<T>);
 transparent_wrapper!((T: RustSpec + ?Sized) => ManuallyDrop<T>);
 
 unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
-    type Layout = Stable<NonRobust>;
+    type Layout = Stable;
+    type Trap = NonRobust;
     type Size = size::Sized<size::NonZst>;
-    type Niche = WithNiche<niche::Stable>;
+    type Niche = WithNiche<Stable>;
     type Mutability = Exclusive;
-    type __IndirectLayout = Stable<Robust>;
+    type __IndirectTrap = Robust;
 }
 
 unsafe impl RustSpec for str {
-    type Layout = Stable<NonRobust>;
+    type Layout = Stable;
+    type Trap = NonRobust;
     type Size = size::MetaSized<size::SliceLike>;
     // TODO: This should not be set at all
-    type Niche = WithNiche<niche::Unstable>;
+    type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
-    type __IndirectLayout = Stable<Robust>;
+    type __IndirectTrap = Robust;
 }
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for String {
-    type Layout = Unstable<NonRobust>;
+    type Layout = Unstable;
+    type Trap = NonRobust;
     type Size = size::Sized<size::NonZst>;
-    type Niche = WithNiche<niche::Unstable>;
+    type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
-    type __IndirectLayout = Stable<Robust>;
+    type __IndirectTrap = Robust;
 }
 
 #[cfg(feature = "alloc")]
 unsafe impl<T: RustSpec> RustSpec for Vec<T> {
-    type Layout = Unstable<NonRobust>;
+    type Layout = Unstable;
+    type Trap = NonRobust;
     type Size = size::Sized<size::NonZst>;
-    type Niche = WithNiche<niche::Unstable>;
+    type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
-    type __IndirectLayout = T::Layout;
+    type __IndirectTrap = T::Trap;
 }
