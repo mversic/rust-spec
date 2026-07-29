@@ -10,11 +10,11 @@
 //!
 //! ## Layout
 //!
-//! Describes whether a type has a stable layout or trap values:
-//! - [`layout::Stable<Robust>`]: stable layout with no trap/invalid values.
-//! - [`layout::Stable<layout::NonRobust>`]: stable layout, but with trap values.
+//! Describes whether a type has a stable layout or trap/invalid values:
+//! - [`layout::Stable<Robust>`]: stable layout with no trap values.
+//! - [`layout::Stable<NonRobust>`]: stable layout, but with trap values.
 //! - [`layout::Unstable<Robust>`]: unstable layout with no trap values.
-//! - [`layout::Unstable<layout::NonRobust>`]: unstable layout, but with trap values.
+//! - [`layout::Unstable<NonRobust>`]: unstable layout, but with trap values.
 //!
 //! A supported pointer's layout stability follows its pointee, because a Rust
 //! reference or `Box` requires a valid pointee. Its robustness still describes
@@ -100,12 +100,12 @@ use crate::{
     size::{MetadataKind, SizedKind},
 };
 
+mod core_impls;
 pub mod layout;
 pub mod mutability;
 pub mod niche;
 mod primitives;
 pub mod size;
-mod std_impls;
 mod tuple;
 
 disjoint_impls! {
@@ -131,9 +131,7 @@ disjoint_impls! {
         /// Shared-access mutability classification.
         type Mutability;
 
-        /// Internal accumulator for layout reachable through one or more
-        /// supported pointer indirections. This excludes this type's own
-        /// immediate representation.
+        /// Accumulator for layout reachable through one or more supported pointer indirections.
         ///
         /// A supported pointer's indirect layout is its pointee's complete
         /// layout. Structural types join the indirect layouts of their stored
@@ -234,7 +232,6 @@ disjoint_impls! {
         type Layout = layout::Unstable<layout::NonRobust>;
         type Size = size::Sized<size::NonZst>;
         type Niche = WithNiche<niche::Unstable>;
-        // TODO: Why is only this one exclusive
         type Mutability = mutability::Exclusive;
         type __IndirectLayout = R::Layout;
     }
@@ -527,7 +524,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Stable<NonRobust>,
             >,
         );
         assert_impl_all!([bool; 2]:
@@ -708,7 +705,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Stable<NonRobust>,
             >,
         );
         assert_impl_all!([&u8; 2]:
@@ -797,7 +794,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Stable<NonRobust>,
             >,
         );
         assert_impl_all!([&bool; 2]:
@@ -885,7 +882,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Stable<NonRobust>,
             >,
         );
         assert_impl_all!([&mut u8; 2]:
@@ -973,7 +970,7 @@ mod tests {
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Stable<NonRobust>,
             >,
         );
         assert_impl_all!([&mut bool; 2]:

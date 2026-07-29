@@ -105,6 +105,14 @@ pub struct SingletonWithNiche(pub NonZeroU8);
 #[repr(transparent)]
 struct TransparentWithNiche(NonZeroU8);
 
+#[derive(RustSpec)]
+#[repr(transparent)]
+struct TransparentWithMultipleFields((), NonZeroU8);
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+struct TransparentZstStruct;
+
 struct NotRustSpec;
 
 #[derive(RustSpec)]
@@ -172,6 +180,24 @@ fn struct_classification() {
             Layout = Stable<NonRobust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<StableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(TransparentWithMultipleFields:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(TransparentZstStruct:
+        RustSpec<
+            Layout = Stable<Robust>,
+            Size = SpecSized<Zst>,
+            Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectLayout = Stable<Robust>,
         >,
@@ -294,7 +320,6 @@ fn struct_wide_classification() {
         RustSpec<
             Layout = Stable<Robust>,
             Size = MetaSized<SliceLike>,
-            Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectLayout = Stable<Robust>,
         >,

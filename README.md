@@ -16,8 +16,8 @@ Compile-time classification of types according to Rust specification.
 
 ### Layout
 
-Describes whether a type has a stable layout or trap values:
-- `Stable<Robust>`: stable layout with no trap/invalid values.
+Describes whether a type has a stable layout or trap/invalid values:
+- `Stable<Robust>`: stable layout with no trap values.
 - `Stable<NonRobust>`: stable layout, but with trap values.
 - `Unstable<Robust>`: unstable layout with no trap values.
 - `Unstable<NonRobust>`: unstable layout, but with trap values.

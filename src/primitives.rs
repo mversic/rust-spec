@@ -1,6 +1,6 @@
 //! Logic related to the conversion of primitives to and from FFI-compatible representation
 
-use core::ops::Add;
+use core::{cmp::Ordering, ops::Add};
 
 use crate::{
     RustSpec,
@@ -37,12 +37,44 @@ macro_rules! raw_pointer_derive {
 }
 
 macro_rules! impl_fn_types {
-    // FIXME:
-    ( $( ( $( $arg:ident ),* ) ),* $(,)? ) => {};
+    ( $( ( $( $arg:ident ),* ) ),* $(,)? ) => {
+        // FIXME:
+        //unsafe impl<$($arg,)* R> RustSpec for fn($($arg),*) -> R {
+        //    type Layout = Stable<NonRobust>;
+        //    type Size = size::Sized<NonZst>;
+        //    type Niche = WithNiche<niche::Stable>;
+        //    type Mutability = Exclusive;
+        //    type __IndirectLayout = Stable<Robust>;
+        //}
+
+        //unsafe impl<$($arg,)* R> RustSpec for unsafe fn($($arg),*) -> R {
+        //    type Layout = Stable<NonRobust>;
+        //    type Size = size::Sized<NonZst>;
+        //    type Niche = WithNiche<niche::Stable>;
+        //    type Mutability = Exclusive;
+        //    type __IndirectLayout = Stable<Robust>;
+        //}
+
+        //unsafe impl<$($arg,)* R> RustSpec for extern "C" fn($($arg),*) -> R {
+        //    type Layout = Stable<NonRobust>;
+        //    type Size = size::Sized<NonZst>;
+        //    type Niche = WithNiche<niche::Stable>;
+        //    type Mutability = Exclusive;
+        //    type __IndirectLayout = Stable<Robust>;
+        //}
+
+        //unsafe impl<$($arg,)* R> RustSpec for unsafe extern "C" fn($($arg),*) -> R {
+        //    type Layout = Stable<NonRobust>;
+        //    type Size = size::Sized<NonZst>;
+        //    type Niche = WithNiche<niche::Stable>;
+        //    type Mutability = Exclusive;
+        //    type __IndirectLayout = Stable<Robust>;
+        //}
+    };
 }
 
 macro_rules! fieldless_enum_derive {
-    ( $src:ty => $dst:ty: {$niche_val:expr}: $validity_fn:expr ) => {
+    ( $src:ty ) => {
         unsafe impl RustSpec for $src {
             type Layout = Stable<NonRobust>;
             type Size = size::Sized<NonZst>;
@@ -78,6 +110,7 @@ where
 {
     type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
+    // TODO: This should not be set at all
     type Niche = <WithoutNiche as Add<R::Niche>>::Output;
     type Mutability = Exclusive;
     type __IndirectLayout = R::__IndirectLayout;
@@ -112,14 +145,9 @@ impl_fn_types! {
     (A, B, C, D, E, F, G, H, I, J, K, L),
 }
 
-fieldless_enum_derive! {
-    char => u32: {0x110000}:
-    |i: &u32| char::from_u32(*i).is_some()
-}
-fieldless_enum_derive! {
-    bool => u8: {2}:
-    |i: &u8| *i == 0 || *i == 1
-}
+fieldless_enum_derive! { char }
+fieldless_enum_derive! { bool }
+fieldless_enum_derive! { Ordering }
 
 #[cfg(test)]
 mod tests {

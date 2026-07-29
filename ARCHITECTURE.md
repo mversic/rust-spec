@@ -38,32 +38,28 @@ where `RustSpec::Layout` is assigned one of the categories below through a marke
 - Types that can be safely transmuted into a single chosen target type.
 - IR/ABI mapping and value conversion continue through the target type.
 
-3. **`Unstable<Robust>`** (marker type)
-- Types without stable C layout whose explicitly converted value space has no trap representations.
-- Unstable layout still requires explicit conversion, but the converted value does not need robustness validation.
-
-4. **`Unstable<NonRobust>`** (marker type)
-- Types without stable C layout whose converted value space can contain trap representations.
-- Conversion must keep the same validation obligations as `Stable<NonRobust>`.
+3. **`Unstable<()>`** (marker type)
+- Types whose representation Rust does not guarantee.
+- Their raw-representation robustness is unknown.
 
 ### 2.1 Composite Types
 
-Composite types derive `RustSpec::Layout` by combining layout stability and robustness separately:
+Composite types derive `RustSpec::Layout` by combining layout stability and, for stable layouts, robustness:
 
 - `Stable<_> + Stable<_>` remains `Stable<_>`.
-- Any combination containing `Unstable<_>` becomes `Unstable<_>`.
+- Any combination containing `Unstable<_>` becomes `Unstable<()>`.
 - `Robust + Robust` remains `Robust`.
 - Any combination containing `NonRobust` becomes `NonRobust`.
 
-Rust-repr derived structs and enums start from `Unstable<Robust>` and then combine all field families. `#[repr(C)]`, primitive, and transparent derived types start from `Stable<Robust>` unless their tag or fields introduce `NonRobust`.
+Rust-repr derived structs and enums start from `Unstable<()>` and then combine all field families. `#[repr(C)]`, primitive, and transparent derived types start from `Stable<Robust>` unless their tag or fields introduce `NonRobust`.
 
 References and `Box<R>` follow their referent's layout stability, so an
 unstable referent makes their `Layout` unstable. Their robustness remains
 `NonRobust`, because a reference or owning pointer itself has invalid values.
 Stable thin references start from `Stable<NonRobust>`, while stable
-metadata-sized references start from `Unstable<NonRobust>`.
+metadata-sized references start from `Unstable<()>`.
 
-`Option<R>` and niche-shaped `Result<R, E>` preserve the payload family when the ABI is the payload representation. Explicit wrapper forms are `Unstable<NonRobust>`.
+`Option<R>` and niche-shaped `Result<R, E>` preserve the payload family when the ABI is the payload representation. Explicit wrapper forms are `Unstable<()>`.
 
 ### 2.2 Indirect Layout
 

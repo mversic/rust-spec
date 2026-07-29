@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
-use crate::repr::{ReprKind, enum_tag_type, is_exhaustive_enum, parse_repr};
+use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
 
 mod repr;
 
@@ -67,6 +67,34 @@ impl AggregateFamily {
 
         let mut aggregate_bounds = Vec::new();
         for &field in fields {
+            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
+            if is_bound_carrying_field(field, generics) {
+                aggregate_bounds.push(quote! { #kind: core::ops::Add<#field_kind> });
+            }
+            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
+        }
+
+        Self {
+            kind,
+            aggregate_bounds,
+        }
+    }
+
+    fn from_fields(
+        axis: proc_macro2::TokenStream,
+        empty_kind: proc_macro2::TokenStream,
+        generics: &syn::Generics,
+        fields: &[&syn::Type],
+    ) -> Self {
+        let crate_ = crate_path();
+
+        let [first, rest @ ..] = fields else {
+            return Self::fixed(empty_kind);
+        };
+
+        let mut kind = quote! { <#first as #crate_::RustSpec>::#axis };
+        let mut aggregate_bounds = Vec::new();
+        for &field in rest {
             let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
             if is_bound_carrying_field(field, generics) {
                 aggregate_bounds.push(quote! { #kind: core::ops::Add<#field_kind> });
@@ -175,10 +203,8 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let repr = repr.as_ref();
     let name = &input.ident;
     let generics = &input.generics;
-
     let rust_spec_impl = match &input.data {
         syn::Data::Struct(data) => gen_struct_impl(repr, name, generics, &data.fields),
-        syn::Data::Union(data) => gen_union_impl(repr, name, generics, &data.fields),
         syn::Data::Enum(data) if is_fieldless_enum(data) => {
             gen_fieldless_enum_impl(repr, name, generics, &data.variants)
         }
@@ -192,10 +218,20 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             gen_struct_impl(repr, name, generics, &variant.fields)
         }
         syn::Data::Enum(data) => gen_enum_impl(repr, name, generics, &data.variants),
+        syn::Data::Union(data) if matches!(repr, Some(ReprKind::Transparent)) => {
+            let fields = data
+                .fields
+                .named
+                .iter()
+                .map(|field| &field.ty)
+                .collect::<Vec<_>>();
+
+            gen_struct_fields_impl(Some(&ReprKind::Transparent), name, generics, &fields)
+        }
+        syn::Data::Union(data) => gen_union_impl(repr, name, generics, &data.fields),
     };
-    Ok(quote! {
-        #rust_spec_impl
-    })
+
+    Ok(quote! { #rust_spec_impl })
 }
 
 fn is_fieldless_enum(data: &syn::DataEnum) -> bool {
@@ -223,21 +259,30 @@ fn gen_struct_impl(
 ) -> proc_macro2::TokenStream {
     let fields = field_types(fields);
 
+    gen_struct_fields_impl(repr, name, generics, &fields)
+}
+
+fn gen_struct_fields_impl(
+    repr: Option<&ReprKind>,
+    name: &syn::Ident,
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+) -> proc_macro2::TokenStream {
     let layout = if repr.is_some() {
-        gen_stable_layout_family(generics, &fields, false)
+        gen_stable_layout_family(generics, fields, false)
     } else {
-        gen_rust_layout_family(generics, &fields)
+        gen_aggregate_rust_layout_family(generics, fields)
     };
 
-    let size = gen_size_family(generics, &fields);
+    let size = gen_size_family(generics, fields);
     let niche = if let Some(ReprKind::Transparent) = repr {
-        gen_transparent_niche_family(&fields)
+        gen_transparent_niche_family(generics, fields)
     } else {
-        gen_niche_family(generics, &fields)
+        gen_niche_family(generics, fields)
     };
 
-    let mutability = gen_mutability_family(generics, &fields);
-    let indirect_layout = gen_indirect_layout_family(generics, &fields);
+    let mutability = gen_mutability_family(generics, fields);
+    let indirect_layout = gen_indirect_layout_family(generics, fields);
 
     let spec = TypeSpecFamilies {
         layout,
@@ -247,7 +292,7 @@ fn gen_struct_impl(
         indirect_layout,
     };
 
-    gen_type_spec_impl(name, generics, &fields, spec)
+    gen_type_spec_impl(name, generics, fields, spec, quote! {})
 }
 
 fn gen_enum_impl(
@@ -256,22 +301,31 @@ fn gen_enum_impl(
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> proc_macro2::TokenStream {
+    if matches!(repr, Some(ReprKind::C(None))) {
+        return gen_plain_c_enum_impls(name, generics, variants);
+    }
+
     let crate_ = crate_path();
     let fields = variant_field_types(variants);
+    let has_trap_tag_values = match repr {
+        None => rust_tag_has_traps(variants.len()),
+        Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
+            primitive_tag_has_traps(tag, variants.len())
+        }
+        Some(ReprKind::C(None)) => unreachable!("handled by gen_plain_c_enum_impls"),
+        Some(ReprKind::Transparent) => false,
+    };
     let layout = if repr.is_some() {
-        let has_trap_tag_values = enum_tag_type(repr, variants.len())
-            .is_some_and(|tag| !is_exhaustive_enum(variants.len(), &tag));
-
-        gen_stable_layout_family(generics, &fields, has_trap_tag_values)
+        gen_enum_layout_family(generics, &fields, has_trap_tag_values)
     } else {
-        gen_rust_layout_family(generics, &fields)
+        gen_rust_enum_layout_family(generics, &fields, has_trap_tag_values)
     };
 
     let size = AggregateFamily::fixed(quote! {
         #crate_::size::Sized<#crate_::size::NonZst>
     });
 
-    let niche = gen_enum_niche_family(repr, variants);
+    let niche = gen_enum_niche_family(has_trap_tag_values);
     let mutability = gen_mutability_family(generics, &fields);
     let indirect_layout = gen_indirect_layout_family(generics, &fields);
 
@@ -283,11 +337,11 @@ fn gen_enum_impl(
         indirect_layout,
     };
 
-    gen_type_spec_impl(name, generics, &fields, spec)
+    gen_type_spec_impl(name, generics, &fields, spec, quote! {})
 }
 
 fn gen_union_impl(
-    repr: Option<&ReprKind>,
+    _repr: Option<&ReprKind>,
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &syn::FieldsNamed,
@@ -300,11 +354,9 @@ fn gen_union_impl(
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let layout = if repr.is_some() {
-        gen_stable_layout_family(generics, &fields, false)
-    } else {
-        gen_rust_layout_family(generics, &fields)
-    };
+    let layout = AggregateFamily::fixed(quote! {
+        #crate_::layout::Unstable<#crate_::layout::Robust>
+    });
 
     let niche = AggregateFamily::fixed(quote! {
         #crate_::niche::WithoutNiche
@@ -322,7 +374,7 @@ fn gen_union_impl(
         indirect_layout,
     };
 
-    gen_type_spec_impl(name, generics, &fields, spec)
+    gen_type_spec_impl(name, generics, &fields, spec, quote! {})
 }
 
 fn gen_fieldless_enum_impl(
@@ -331,11 +383,24 @@ fn gen_fieldless_enum_impl(
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
 ) -> proc_macro2::TokenStream {
+    if matches!(repr, Some(ReprKind::C(None))) {
+        return gen_plain_c_enum_impls(name, generics, variants);
+    }
+
     let crate_ = crate_path();
     let layout_kind = match repr {
-        None => quote! { #crate_::layout::Unstable<#crate_::layout::Robust> },
-        Some(ReprKind::C(None)) => unreachable!(),
-        Some(ReprKind::Transparent) => quote! { #crate_::layout::Robust },
+        None => {
+            let robustness = if variants.len() > 1 && rust_tag_has_traps(variants.len()) {
+                quote! { #crate_::layout::NonRobust }
+            } else {
+                quote! { #crate_::layout::Robust }
+            };
+            quote! { #crate_::layout::Unstable<#robustness> }
+        }
+        Some(ReprKind::C(None)) => unreachable!("handled by gen_plain_c_enum_impls"),
+        Some(ReprKind::Transparent) => quote! {
+            #crate_::layout::Stable<#crate_::layout::Robust>
+        },
         Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
             let robustness = if is_exhaustive_enum(variants.len(), tag) {
                 quote! { #crate_::layout::Robust }
@@ -346,7 +411,11 @@ fn gen_fieldless_enum_impl(
             quote! { #crate_::layout::Stable<#robustness> }
         }
     };
-    let has_tag = !variants.is_empty() && (repr.is_some() || variants.len() != 1);
+    let has_tag = !variants.is_empty()
+        && match repr {
+            Some(ReprKind::C(_) | ReprKind::Primitive(_)) => true,
+            Some(ReprKind::Transparent) | None => variants.len() > 1,
+        };
 
     let size = if has_tag {
         AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::size::NonZst> })
@@ -355,13 +424,21 @@ fn gen_fieldless_enum_impl(
     };
 
     let niche = if has_tag {
-        gen_enum_niche_family(repr, variants)
+        let has_trap_tag_values = match repr {
+            None => rust_tag_has_traps(variants.len()),
+            Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
+                primitive_tag_has_traps(tag, variants.len())
+            }
+            Some(ReprKind::C(None)) => unreachable!("handled by gen_plain_c_enum_impls"),
+            Some(ReprKind::Transparent) => false,
+        };
+        gen_enum_niche_family(has_trap_tag_values)
     } else {
         AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
     };
 
-    let mutability = gen_mutability_family(generics, &[]);
     let layout = AggregateFamily::fixed(layout_kind);
+    let mutability = gen_mutability_family(generics, &[]);
     let indirect_layout = AggregateFamily::fixed(quote! {
         #crate_::layout::Stable<#crate_::layout::Robust>
     });
@@ -374,14 +451,38 @@ fn gen_fieldless_enum_impl(
         indirect_layout,
     };
 
-    gen_type_spec_impl(name, generics, &[], spec)
+    gen_type_spec_impl(name, generics, &[], spec, quote! {})
 }
 
-fn gen_rust_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+fn gen_aggregate_rust_layout_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+) -> AggregateFamily {
     let crate_ = crate_path();
     AggregateFamily::fold(
         quote! { Layout },
         quote! { #crate_::layout::Unstable<#crate_::layout::Robust> },
+        generics,
+        fields,
+    )
+}
+
+fn gen_rust_enum_layout_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+    has_trap_tag_values: bool,
+) -> AggregateFamily {
+    let crate_ = crate_path();
+
+    let tag = if has_trap_tag_values {
+        quote! { #crate_::layout::NonRobust }
+    } else {
+        quote! { #crate_::layout::Robust }
+    };
+
+    AggregateFamily::fold(
+        quote! { Layout },
+        quote! { #crate_::layout::Unstable<#tag> },
         generics,
         fields,
     )
@@ -408,9 +509,72 @@ fn gen_stable_layout_family(
     )
 }
 
+fn gen_enum_layout_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+    has_trap_tag_values: bool,
+) -> AggregateFamily {
+    gen_stable_layout_family(generics, fields, has_trap_tag_values)
+}
+
+fn gen_plain_c_enum_impls(
+    name: &syn::Ident,
+    generics: &syn::Generics,
+    variants: &Punctuated<syn::Variant, Token![,]>,
+) -> proc_macro2::TokenStream {
+    let crate_ = crate_path();
+    let fields = variant_field_types(variants);
+
+    let eight_bit_targets = quote! {
+        #[cfg(all(
+            target_arch = "arm",
+            any(target_os = "none", target_os = "nuttx", target_os = "rtems"),
+        ))]
+    };
+    let sixteen_bit_targets = quote! {
+        #[cfg(any(target_arch = "avr", target_arch = "msp430"))]
+    };
+    let normal_targets = quote! {
+        #[cfg(not(any(
+            all(
+                target_arch = "arm",
+                any(target_os = "none", target_os = "nuttx", target_os = "rtems"),
+            ),
+            target_arch = "avr",
+            target_arch = "msp430",
+        )))]
+    };
+
+    [
+        (eight_bit_targets, 8),
+        (sixteen_bit_targets, 16),
+        (normal_targets, 32),
+    ]
+    .into_iter()
+    .map(|(cfg, bits)| {
+        let tag = c_tag_type(bits);
+        let has_trap_tag_values = primitive_tag_has_traps(&tag, variants.len());
+        let layout = gen_stable_layout_family(generics, &fields, has_trap_tag_values);
+        let niche = gen_enum_niche_family(has_trap_tag_values);
+        let spec = TypeSpecFamilies {
+            layout,
+            size: AggregateFamily::fixed(quote! {
+                #crate_::size::Sized<#crate_::size::NonZst>
+            }),
+            niche,
+            mutability: gen_mutability_family(generics, &fields),
+            indirect_layout: gen_indirect_layout_family(generics, &fields),
+        };
+
+        gen_type_spec_impl(name, generics, &fields, spec, cfg)
+    })
+    .collect()
+}
+
 fn gen_indirect_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::fold(
+
+    AggregateFamily::from_fields(
         quote! { __IndirectLayout },
         quote! { #crate_::layout::Stable<#crate_::layout::Robust> },
         generics,
@@ -420,7 +584,8 @@ fn gen_indirect_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -
 
 fn gen_size_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::fold(
+
+    AggregateFamily::from_fields(
         quote! { Size },
         quote! { #crate_::size::Sized<#crate_::size::Zst> },
         generics,
@@ -438,26 +603,31 @@ fn gen_niche_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Aggregat
     )
 }
 
-fn gen_transparent_niche_family(fields: &[&syn::Type]) -> AggregateFamily {
-    let crate_ = crate_path();
-
-    let niche = fields.first().map_or_else(
-        || quote! { #crate_::niche::WithoutNiche },
-        |field| quote! { <#field as #crate_::RustSpec>::Niche },
-    );
-
-    AggregateFamily::fixed(niche)
+fn gen_transparent_niche_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+) -> AggregateFamily {
+    match fields {
+        [] => {
+            let crate_ = crate_path();
+            AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
+        }
+        [field] => {
+            let crate_ = crate_path();
+            AggregateFamily::fixed(quote! { <#field as #crate_::RustSpec>::Niche })
+        }
+        _ => gen_niche_family(generics, fields),
+    }
 }
 
 fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    let init_kind = if fields.is_empty() {
-        quote! { #crate_::mutability::Exclusive }
-    } else {
-        quote! { #crate_::mutability::Interior }
-    };
-
-    AggregateFamily::fold(quote! { Mutability }, init_kind, generics, fields)
+    AggregateFamily::from_fields(
+        quote! { Mutability },
+        quote! { #crate_::mutability::Exclusive },
+        generics,
+        fields,
+    )
 }
 
 fn gen_type_spec_impl(
@@ -465,6 +635,7 @@ fn gen_type_spec_impl(
     generics: &syn::Generics,
     fields: &[&syn::Type],
     families: TypeSpecFamilies,
+    attrs: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
 
@@ -503,6 +674,7 @@ fn gen_type_spec_impl(
     let indirect_layout_kind = indirect_layout.kind;
 
     quote! {
+        #attrs
         unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
             #(#aggregate_bounds,)*
@@ -517,20 +689,32 @@ fn gen_type_spec_impl(
     }
 }
 
-fn gen_enum_niche_family(
-    repr: Option<&ReprKind>,
-    variants: &Punctuated<syn::Variant, Token![,]>,
-) -> AggregateFamily {
+fn gen_enum_niche_family(has_trap_tag_values: bool) -> AggregateFamily {
     let crate_ = crate_path();
 
-    let is_exhaustive = enum_tag_type(repr, variants.len())
-        .is_none_or(|tag| is_exhaustive_enum(variants.len(), &tag));
-
-    let niche_kind = if is_exhaustive {
-        quote! { #crate_::niche::WithoutNiche }
-    } else {
+    let niche_kind = if has_trap_tag_values {
         quote! { #crate_::niche::WithNiche<#crate_::niche::Unstable> }
+    } else {
+        quote! { #crate_::niche::WithoutNiche }
     };
 
     AggregateFamily::fixed(niche_kind)
+}
+
+fn primitive_tag_has_traps(tag: &syn::Type, variant_count: usize) -> bool {
+    !is_exhaustive_enum(variant_count, tag)
+}
+
+fn rust_tag_has_traps(variant_count: usize) -> bool {
+    let tag = infer_repr(variant_count);
+    primitive_tag_has_traps(&tag, variant_count)
+}
+
+fn c_tag_type(c_enum_bits: u32) -> syn::Type {
+    match c_enum_bits {
+        8 => syn::parse_quote!(u8),
+        16 => syn::parse_quote!(u16),
+        32 => syn::parse_quote!(u32),
+        _ => unreachable!("unsupported C enum width"),
+    }
 }

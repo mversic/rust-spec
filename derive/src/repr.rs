@@ -118,26 +118,17 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
     Ok(kind)
 }
 
-pub(crate) fn enum_tag_type(repr: Option<&ReprKind>, variants_len: usize) -> Option<syn::Type> {
-    fn infer_repr(num_variants: usize) -> syn::Type {
-        const U8_CAPACITY: usize = u8::MAX as usize + 1;
-        const U16_CAPACITY: usize = u16::MAX as usize + 1;
-        const U32_CAPACITY: usize = u32::MAX as usize + 1;
+pub(crate) fn infer_repr(num_variants: usize) -> syn::Type {
+    const U8_CAPACITY: usize = u8::MAX as usize + 1;
+    const U16_CAPACITY: usize = u16::MAX as usize + 1;
+    const U32_CAPACITY: usize = u32::MAX as usize + 1;
 
-        #[expect(clippy::match_overlapping_arm)]
-        match num_variants {
-            0..=U8_CAPACITY => syn::parse_quote!(u8),
-            0..=U16_CAPACITY => syn::parse_quote!(u16),
-            0..=U32_CAPACITY => syn::parse_quote!(u32),
-            _ => syn::parse_quote!(u64),
-        }
-    }
-
-    match repr {
-        None => Some(infer_repr(variants_len)),
-        Some(ReprKind::Transparent) => None,
-        Some(ReprKind::C(None)) => None,
-        Some(ReprKind::C(Some(repr))) | Some(ReprKind::Primitive(repr)) => Some(*repr.clone()),
+    #[expect(clippy::match_overlapping_arm)]
+    match num_variants {
+        0..=U8_CAPACITY => syn::parse_quote!(u8),
+        0..=U16_CAPACITY => syn::parse_quote!(u16),
+        0..=U32_CAPACITY => syn::parse_quote!(u32),
+        _ => syn::parse_quote!(u64),
     }
 }
 

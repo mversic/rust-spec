@@ -23,6 +23,41 @@ pub enum PrimitiveEnum {
 }
 
 #[derive(RustSpec)]
+#[repr(u8)]
+pub enum PrimitiveDataEnumWithUnstableField {
+    A(String),
+    B,
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
+pub enum ReprCFieldlessEnum {
+    A,
+    B,
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
+pub enum ReprCDataEnum {
+    A(u8),
+    B,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCPrimitiveDataEnum {
+    A(u8),
+    B,
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
+pub enum ReprCDataEnumWithUnstableField {
+    A(String),
+    B,
+}
+
+#[derive(RustSpec)]
 enum EmptyEnum {}
 
 #[derive(RustSpec)]
@@ -62,6 +97,18 @@ pub enum TransparentNoNicheEnum {
 #[repr(transparent)]
 pub enum TransparentWithNicheEnum<'a> {
     Value(&'a u8),
+}
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+pub enum TransparentWithMultipleFieldsEnum {
+    Value((), NonZeroU8),
+}
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+pub enum TransparentZstEnum {
+    Value,
 }
 
 #[test]
@@ -104,7 +151,7 @@ fn enum_classification() {
     );
     assert_impl_all!(TwoVariantEnum:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable<NonRobust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
@@ -138,10 +185,28 @@ fn enum_classification() {
             __IndirectLayout = Stable<Robust>,
         >,
     );
+    assert_impl_all!(TransparentWithMultipleFieldsEnum:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(TransparentZstEnum:
+        RustSpec<
+            Layout = Stable<Robust>,
+            Size = SpecSized<Zst>,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
 
     assert_impl_all!(RustEnum:
         RustSpec<
-            Layout = Unstable<Robust>,
+            Layout = Unstable<NonRobust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,
@@ -151,6 +216,51 @@ fn enum_classification() {
     assert_impl_all!(PrimitiveEnum:
         RustSpec<
             Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(PrimitiveDataEnumWithUnstableField:
+        RustSpec<
+            Layout = Unstable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ReprCFieldlessEnum:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ReprCDataEnum:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ReprCPrimitiveDataEnum:
+        RustSpec<
+            Layout = Stable<NonRobust>,
+            Size = SpecSized<NonZst>,
+            Niche = WithNiche<UnstableNiche>,
+            Mutability = Exclusive,
+            __IndirectLayout = Stable<Robust>,
+        >,
+    );
+    assert_impl_all!(ReprCDataEnumWithUnstableField:
+        RustSpec<
+            Layout = Unstable<NonRobust>,
             Size = SpecSized<NonZst>,
             Niche = WithNiche<UnstableNiche>,
             Mutability = Exclusive,

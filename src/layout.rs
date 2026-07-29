@@ -28,18 +28,10 @@ impl TrapKind for Robust {}
 #[sealed::sealed]
 impl TrapKind for NonRobust {}
 
-impl Add for Robust {
+impl<K: TrapKind> Add<K> for NonRobust {
     type Output = Self;
 
-    fn add(self, _: Self) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl Add for NonRobust {
-    type Output = Self;
-
-    fn add(self, _: Self) -> Self::Output {
+    fn add(self, _: K) -> Self::Output {
         unreachable!()
     }
 }
@@ -52,32 +44,10 @@ impl Add<NonRobust> for Robust {
     }
 }
 
-impl Add<Robust> for NonRobust {
+impl Add for Robust {
     type Output = Self;
 
-    fn add(self, _: Robust) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl<K: TrapKind, U: TrapKind> Add<Unstable<U>> for Stable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Unstable<<K as Add<U>>::Output>;
-
-    fn add(self, _: Unstable<U>) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl<K: TrapKind, U: TrapKind> Add<Stable<U>> for Unstable<K>
-where
-    K: Add<U, Output: TrapKind>,
-{
-    type Output = Unstable<<K as Add<U>>::Output>;
-
-    fn add(self, _: Stable<U>) -> Self::Output {
+    fn add(self, _: Self) -> Self::Output {
         unreachable!()
     }
 }
@@ -100,6 +70,28 @@ where
     type Output = Stable<<K as Add<U>>::Output>;
 
     fn add(self, _: Stable<U>) -> Self::Output {
+        unreachable!()
+    }
+}
+
+impl<U: TrapKind, K: TrapKind> Add<Stable<U>> for Unstable<K>
+where
+    K: Add<U, Output: TrapKind>,
+{
+    type Output = Unstable<<K as Add<U>>::Output>;
+
+    fn add(self, _: Stable<U>) -> Self::Output {
+        unreachable!()
+    }
+}
+
+impl<K: TrapKind, U: TrapKind> Add<Unstable<U>> for Stable<K>
+where
+    K: Add<U, Output: TrapKind>,
+{
+    type Output = Unstable<<K as Add<U>>::Output>;
+
+    fn add(self, _: Unstable<U>) -> Self::Output {
         unreachable!()
     }
 }

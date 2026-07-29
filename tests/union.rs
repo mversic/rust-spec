@@ -2,7 +2,7 @@ use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 use rust_spec::{
     RustSpec,
-    layout::{NonRobust, Robust, Stable, Unstable},
+    layout::{Robust, Stable, Unstable},
     mutability::Exclusive,
     niche::WithoutNiche,
     size::{NonZst, Sized as SpecSized},
@@ -26,7 +26,7 @@ union ReprCUnion {
 fn union_classification() {
     assert_impl_all!(RustUnion:
         RustSpec<
-            Layout = Unstable<NonRobust>,
+            Layout = Unstable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
@@ -35,7 +35,7 @@ fn union_classification() {
     );
     assert_impl_all!(ReprCUnion:
         RustSpec<
-            Layout = Stable<Robust>,
+            Layout = Unstable<Robust>,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,

@@ -210,7 +210,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Unstable<Robust>,
             >,
         );
         assert_impl_all!([(u8, u8, u8); 2]:
@@ -310,7 +310,7 @@ mod tests {
                 Size = size::Sized<NonZst>,
                 Niche = WithNiche<niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = Stable<Robust>,
+                __IndirectLayout = Unstable<NonRobust>,
             >,
         );
         assert_impl_all!([(u8, NonZero<u8>, bool); 2]:

@@ -62,7 +62,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        RustSpec, layout::NonRobust, layout::Unstable, mutability::Exclusive, size::NonZst,
+        RustSpec,
+        layout::{NonRobust, Robust, Unstable},
+        mutability::Exclusive,
+        size::NonZst,
     };
 
     #[test]
@@ -73,7 +76,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
+                __IndirectLayout = crate::layout::Stable<Robust>,
             >,
         );
 
@@ -83,7 +86,7 @@ mod tests {
                 Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
+                __IndirectLayout = crate::layout::Stable<Robust>,
             >,
         );
 
@@ -91,13 +94,11 @@ mod tests {
             RustSpec<
                 Layout = Unstable<NonRobust>,
                 Size = crate::size::Sized<NonZst>,
+                // FIXME: The type should be WithoutNiche
                 Niche = WithNiche<crate::niche::Unstable>,
                 Mutability = Exclusive,
-                __IndirectLayout = crate::layout::Stable<crate::layout::Robust>,
+                __IndirectLayout = crate::layout::Stable<Robust>,
             >,
-            // TODO: Depends on: https://github.com/mversic/co3/issues/33
-            //RustSpec<Niche = WithoutNiche>,
-            //Niche<CType = ReprCTuple2<u8, u8>>,
         );
     }
 }
