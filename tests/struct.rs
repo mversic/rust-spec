@@ -267,7 +267,7 @@ fn struct_classification() {
             Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
-            Mutability = Interior,
+            Mutability = Exclusive,
             __IndirectTrap = Robust,
         >,
     );

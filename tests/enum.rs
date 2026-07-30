@@ -1,9 +1,9 @@
-use core::num::NonZeroU8;
+use core::{cell::UnsafeCell, num::NonZeroU8};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
     layout::{NonRobust, Robust},
-    mutability::Exclusive,
+    mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
     size::{NonZst, Sized as SpecSized, Zst},
 };
@@ -44,6 +44,18 @@ pub enum ReprCDataEnum {
 }
 
 #[derive(RustSpec)]
+#[repr(C)]
+pub enum ReprCSingleInteriorEnum {
+    Value(UnsafeCell<u8>),
+}
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+pub enum TransparentInteriorEnum {
+    Value(UnsafeCell<u8>),
+}
+
+#[derive(RustSpec)]
 #[repr(C, u8)]
 pub enum ReprCPrimitiveDataEnum {
     A(u8),
@@ -73,6 +85,11 @@ pub enum SingletonWithoutNicheEnum {
 #[derive(RustSpec)]
 pub enum SingletonWithNicheEnum {
     Value(NonZeroU8),
+}
+
+#[derive(RustSpec)]
+pub enum SingletonInteriorEnum {
+    Value(UnsafeCell<u8>),
 }
 
 #[derive(RustSpec)]
@@ -150,6 +167,16 @@ fn enum_classification() {
             Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(SingletonInteriorEnum:
+        RustSpec<
+            Layout = Unstable,
+            Trap = Robust,
+            Size = SpecSized<NonZst>,
+            Niche = WithoutNiche,
+            Mutability = Interior,
             __IndirectTrap = Robust,
         >,
     );
@@ -263,6 +290,12 @@ fn enum_classification() {
             Mutability = Exclusive,
             __IndirectTrap = Robust,
         >,
+    );
+    assert_impl_all!(ReprCSingleInteriorEnum:
+        RustSpec<Mutability = Exclusive>,
+    );
+    assert_impl_all!(TransparentInteriorEnum:
+        RustSpec<Mutability = Interior>,
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<

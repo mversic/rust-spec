@@ -167,14 +167,16 @@ where `RustSpec::Mutability` is assigned one of the categories below through a m
 
 ### 5.1 Composite Types
 
-Composite types derive `RustSpec::Mutability` structurally:
+Composite types only propagate `RustSpec::Mutability` through a single payload field:
 
 | Field kinds | Self::Kind |
 | --- | --- |
-| All fields `Interior` | `Interior` |
-| Any `Exclusive` field | `Exclusive` |
+| Exactly one field, `Interior` | `Interior` |
+| Otherwise | `Exclusive` |
 
-Empty composites are `Exclusive`.
+Structs use this rule regardless of representation. Enums use it only with Rust or transparent
+representation and exactly one variant. C and integer-representation enums, unions, and empty
+composites are `Exclusive`.
 References propagate the referent's mutability family.
 `Box<T>` propagates the boxed type's mutability family when `T: Sized`; `Box<T>` for unsized `T` is classified as `Exclusive`.
 Raw pointers, `NonNull<T>`, and `Vec<T>` are classified as `Exclusive` regardless of `T`, because their wrapper state is not wholly mutable through shared access.

@@ -284,7 +284,7 @@ fn gen_struct_fields_impl(
         gen_niche_family(generics, fields)
     };
 
-    let mutability = gen_mutability_family(generics, fields);
+    let mutability = gen_single_field_mutability_family(generics, fields);
     let indirect_trap = gen_indirect_trap_family(generics, fields);
 
     let spec = TypeSpecFamilies {
@@ -331,7 +331,11 @@ fn gen_enum_impl(
     });
 
     let niche = gen_enum_niche_family(has_trap_tag_values);
-    let mutability = gen_mutability_family(generics, &fields);
+    let mutability = if matches!(repr, None | Some(ReprKind::Transparent)) && variants.len() == 1 {
+        gen_single_field_mutability_family(generics, &fields)
+    } else {
+        gen_exclusive_mutability_family()
+    };
     let indirect_trap = gen_indirect_trap_family(generics, &fields);
 
     let spec = TypeSpecFamilies {
@@ -372,7 +376,7 @@ fn gen_union_impl(
     });
 
     let size = gen_size_family(generics, &fields);
-    let mutability = gen_mutability_family(generics, &fields);
+    let mutability = gen_exclusive_mutability_family();
     let indirect_trap = gen_indirect_trap_family(generics, &fields);
 
     let spec = TypeSpecFamilies {
@@ -449,7 +453,7 @@ fn gen_fieldless_enum_impl(
     } else {
         quote! { #crate_::layout::Robust }
     });
-    let mutability = gen_mutability_family(generics, &[]);
+    let mutability = gen_exclusive_mutability_family();
     let indirect_trap = AggregateFamily::fixed(quote! { #crate_::layout::Robust });
 
     let spec = TypeSpecFamilies {
@@ -550,7 +554,7 @@ fn gen_plain_c_enum_impls(
                 #crate_::size::Sized<#crate_::size::NonZst>
             }),
             niche,
-            mutability: gen_mutability_family(generics, &fields),
+            mutability: gen_exclusive_mutability_family(),
             indirect_trap: gen_indirect_trap_family(generics, &fields),
         };
 
@@ -621,14 +625,26 @@ fn gen_transparent_niche_family(
     }
 }
 
-fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+fn gen_single_field_mutability_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+) -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::from_fields(
-        quote! { Mutability },
-        quote! { #crate_::mutability::Exclusive },
-        generics,
-        fields,
-    )
+
+    match fields {
+        [_] => AggregateFamily::from_fields(
+            quote! { Mutability },
+            quote! { #crate_::mutability::Exclusive },
+            generics,
+            fields,
+        ),
+        _ => gen_exclusive_mutability_family(),
+    }
+}
+
+fn gen_exclusive_mutability_family() -> AggregateFamily {
+    let crate_ = crate_path();
+    AggregateFamily::fixed(quote! { #crate_::mutability::Exclusive })
 }
 
 fn gen_type_spec_impl(
