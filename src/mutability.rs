@@ -58,7 +58,7 @@ mod tests {
         );
         assert_impl_all!(UnsafeCell<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
@@ -68,7 +68,7 @@ mod tests {
         );
         assert_impl_all!(Cell<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
@@ -98,7 +98,7 @@ mod tests {
         );
         assert_impl_all!([UnsafeCell<u8>; 2]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = Robust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithoutNiche,
@@ -118,7 +118,7 @@ mod tests {
         );
         assert_impl_all!(&UnsafeCell<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<Stable>,
@@ -128,7 +128,7 @@ mod tests {
         );
         assert_impl_all!(&mut UnsafeCell<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<Stable>,
@@ -180,7 +180,7 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<UnsafeCell<u8>>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Stable,
                 Trap = NonRobust,
                 Size = Co3Sized<NonZst>,
                 Niche = WithNiche<Stable>,

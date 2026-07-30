@@ -43,7 +43,7 @@ fn union_classification() {
     );
     assert_impl_all!(ReprCUnion:
         RustSpec<
-            Layout = Unstable,
+            Layout = Stable,
             Trap = Robust,
             Size = SpecSized<NonZst>,
             Niche = WithoutNiche,

@@ -3,7 +3,7 @@ use core::{
     ops::Add,
 };
 
-use crate::{RustSpec, Unstable, layout::Robust, mutability::Interior, niche::WithoutNiche};
+use crate::{RustSpec, Stable, layout::Robust, mutability::Interior, niche::WithoutNiche};
 
 macro_rules! interior_cell {
     ($($ty:ident),+ $(,)?) => {$(
@@ -11,9 +11,7 @@ macro_rules! interior_cell {
         where
             Robust: Add<T::Trap>,
         {
-            // NOTE: https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html#memory-layout
-            // The documentation says it is never valid to transmute between UnsafeCell<T> and T
-            type Layout = Unstable;
+            type Layout = Stable;
             type Trap = <Robust as Add<T::Trap>>::Output;
             type Size = T::Size;
             type Niche = WithoutNiche;
