@@ -136,6 +136,12 @@ fn is_type_parameterized(ty: &syn::Type, generics: &syn::Generics) -> bool {
 
             syn::visit::visit_type_path(self, type_path);
         }
+
+        fn visit_lifetime(&mut self, lifetime: &syn::Lifetime) {
+            if lifetime.ident != "static" {
+                self.is_generic = true;
+            }
+        }
     }
 
     let type_param_idents = generics
@@ -273,7 +279,7 @@ fn gen_struct_fields_impl(
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, fields)
     } else {
-        gen_aggregate_rust_layout_family(generics, fields)
+        gen_aggregate_rust_layout_family()
     };
     let trap = gen_trap_family(generics, fields, false);
 
@@ -322,7 +328,7 @@ fn gen_enum_impl(
     let layout = if repr.is_some() {
         gen_enum_layout_family(generics, &fields)
     } else {
-        gen_rust_enum_layout_family(generics, &fields)
+        gen_rust_enum_layout_family()
     };
     let trap = gen_trap_family(generics, &fields, has_trap_tag_values);
 
@@ -367,7 +373,7 @@ fn gen_union_impl(
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, &fields)
     } else {
-        gen_aggregate_rust_layout_family(generics, &fields)
+        gen_aggregate_rust_layout_family()
     };
     let trap = AggregateFamily::fixed(quote! { #crate_::layout::Robust });
 
@@ -468,28 +474,14 @@ fn gen_fieldless_enum_impl(
     gen_type_spec_impl(name, generics, &[], spec, quote! {})
 }
 
-fn gen_aggregate_rust_layout_family(
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
+fn gen_aggregate_rust_layout_family() -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::fold(
-        quote! { Layout },
-        quote! { #crate_::Unstable },
-        generics,
-        fields,
-    )
+    AggregateFamily::fixed(quote! { #crate_::Unstable })
 }
 
-fn gen_rust_enum_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+fn gen_rust_enum_layout_family() -> AggregateFamily {
     let crate_ = crate_path();
-
-    AggregateFamily::fold(
-        quote! { Layout },
-        quote! { #crate_::Unstable },
-        generics,
-        fields,
-    )
+    AggregateFamily::fixed(quote! { #crate_::Unstable })
 }
 
 fn gen_stable_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {

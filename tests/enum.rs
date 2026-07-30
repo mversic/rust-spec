@@ -9,6 +9,10 @@ use rust_spec::{
 };
 use static_assertions::assert_impl_all;
 
+pub trait Projection {
+    type Borrowed<'a>;
+}
+
 #[derive(RustSpec)]
 pub enum RustEnum {
     A(u8),
@@ -126,6 +130,20 @@ pub enum TransparentWithMultipleFieldsEnum {
 #[repr(transparent)]
 pub enum TransparentZstEnum {
     Value,
+}
+
+#[derive(RustSpec)]
+pub enum ReprCDataEnumView<'_dšč, 'a, T>
+where
+    Self: '_dšč,
+    for<'_dummy> &'a [u32; 2]: Projection,
+    for<'_dummy> u32: Projection,
+    T: Projection,
+{
+    A(<&'a [u32; 2] as Projection>::Borrowed<'_dšč>),
+    B(<u32 as Projection>::Borrowed<'_dšč>),
+    C(<T as Projection>::Borrowed<'_dšč>),
+    D,
 }
 
 #[test]
