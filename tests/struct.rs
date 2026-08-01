@@ -23,11 +23,16 @@ impl Projection for c_void {
         Self: 'a;
 }
 
-impl Projection for &u8 {
-    type Kita<'a>
-        = Self
-    where
-        Self: 'a;
+pub trait CTypeProjection {
+    type CType;
+}
+
+impl CTypeProjection for u8 {
+    type CType = u8;
+}
+
+impl<T: CTypeProjection> CTypeProjection for UnsafeCell<T> {
+    type CType = T::CType;
 }
 
 #[derive(RustSpec)]
@@ -37,15 +42,16 @@ pub struct ParamReprCZst<T: ?Sized> {
 }
 
 #[derive(RustSpec)]
-pub struct WithGat<'a, 'b>(pub <&'a u8 as Projection>::Kita<'b>)
+pub struct WithGat1<'b>(pub <c_void as Projection>::Kita<'b>)
 where
-    for<'d> &'a u8: Projection,
+    for<'d> c_void: Projection,
     Self: 'b;
 
 #[derive(RustSpec)]
-pub struct WithGat2<'b>(pub <c_void as Projection>::Kita<'b>)
+#[repr(C)]
+pub struct WithGat2<'b>(pub <u8 as Projection>::Kita<'b>)
 where
-    for<'d> c_void: Projection,
+    for<'d> u8: Projection,
     Self: 'b;
 
 #[derive(RustSpec)]
@@ -72,6 +78,13 @@ pub struct NonRobustRustRepr {
 #[repr(C)]
 struct ReprCStruct {
     value: u8,
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
+struct ReprCProjectionCTypeFields {
+    first: <UnsafeCell<u8> as CTypeProjection>::CType,
+    second: <u8 as CTypeProjection>::CType,
 }
 
 #[derive(RustSpec)]
@@ -210,17 +223,6 @@ fn struct_classification() {
         >,
     );
 
-    assert_impl_all!(WithGat<'static, 'static>:
-        RustSpec<
-            Layout = Unstable,
-            Trap = NonRobust,
-            Size = SpecSized<NonZst>,
-            Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
-            __IndirectTrap = Robust,
-        >,
-    );
-
     assert_impl_all!(Empty:
         RustSpec<
             Layout = Unstable,
@@ -252,6 +254,16 @@ fn struct_classification() {
         >,
     );
     assert_impl_all!(ReprCStruct:
+        RustSpec<
+            Layout = Stable,
+            Trap = Robust,
+            Size = SpecSized<NonZst>,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(ReprCProjectionCTypeFields:
         RustSpec<
             Layout = Stable,
             Trap = Robust,

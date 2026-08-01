@@ -9,8 +9,16 @@ use rust_spec::{
 };
 use static_assertions::assert_impl_all;
 
-pub trait Projection {
+pub trait ProjectionWithGat {
     type Borrowed<'a>;
+}
+
+pub trait ProjectionWithoutGat {
+    type Borrowed;
+}
+
+impl ProjectionWithGat for u32 {
+    type Borrowed<'a> = Self;
 }
 
 #[derive(RustSpec)]
@@ -133,16 +141,89 @@ pub enum TransparentZstEnum {
 }
 
 #[derive(RustSpec)]
+#[repr(C, u8)]
 pub enum ReprCDataEnumView<'_dšč, 'a, T>
 where
     Self: '_dšč,
-    for<'_dummy> &'a [u32; 2]: Projection,
-    for<'_dummy> u32: Projection,
-    T: Projection,
+    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
+    for<'_dummy> u32: ProjectionWithGat,
+    T: ProjectionWithGat,
 {
-    A(<&'a [u32; 2] as Projection>::Borrowed<'_dšč>),
-    B(<u32 as Projection>::Borrowed<'_dšč>),
-    C(<T as Projection>::Borrowed<'_dšč>),
+    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
+    B(<u32 as ProjectionWithGat>::Borrowed<'_dšč>),
+    C(<T as ProjectionWithGat>::Borrowed<'_dšč>),
+    D,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCDataEnumViewWithoutGat<'a, T>
+where
+    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
+    for<'_dummy> u32: ProjectionWithoutGat,
+    T: ProjectionWithoutGat,
+{
+    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
+    B(<u32 as ProjectionWithoutGat>::Borrowed),
+    C(<T as ProjectionWithoutGat>::Borrowed),
+    D,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCDataEnumView2<'_dšč, 'a>
+where
+    Self: '_dšč,
+    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
+    for<'_dummy> u32: ProjectionWithGat,
+{
+    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
+    B(<u32 as ProjectionWithGat>::Borrowed<'_dšč>),
+    D,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCDataEnumView2WithoutGat<'a>
+where
+    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
+    for<'_dummy> u32: ProjectionWithoutGat,
+{
+    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
+    B(<u32 as ProjectionWithoutGat>::Borrowed),
+    D,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCDataEnumView3<'_dšč, 'a>
+where
+    Self: '_dšč,
+    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
+    for<'_dummy> i32: ProjectionWithGat,
+{
+    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
+    B(<i32 as ProjectionWithGat>::Borrowed<'_dšč>),
+    D,
+}
+
+#[derive(RustSpec)]
+#[repr(C, u8)]
+pub enum ReprCDataEnumView3WithoutGat<'a>
+where
+    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
+    for<'_dummy> i32: ProjectionWithoutGat,
+{
+    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
+    B(<i32 as ProjectionWithoutGat>::Borrowed),
+    D,
+}
+
+#[derive(RustSpec)]
+pub enum ReprCDataEnum2<'a, T> {
+    A(&'a [u32; 2]),
+    B(&'a u32),
+    C(T),
     D,
 }
 

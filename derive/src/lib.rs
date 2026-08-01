@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{ToTokens, format_ident, quote};
+use quote::{format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
 use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
@@ -63,17 +63,7 @@ impl AggregateFamily {
         generics: &syn::Generics,
         fields: &[&syn::Type],
     ) -> Self {
-        let crate_ = crate_path();
-        let mut kind = init_kind;
-
-        let mut aggregate_bounds = Vec::new();
-        for &field in fields {
-            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
-            if is_bound_carrying_field(field, generics) {
-                aggregate_bounds.push(quote! { #kind: core::ops::Add<#field_kind> });
-            }
-            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
-        }
+        let (kind, aggregate_bounds) = Self::fold_fields(axis, init_kind, generics, false, fields);
 
         Self {
             kind,
@@ -87,122 +77,89 @@ impl AggregateFamily {
         generics: &syn::Generics,
         fields: &[&syn::Type],
     ) -> Self {
-        let crate_ = crate_path();
-
         let [first, rest @ ..] = fields else {
             return Self::fixed(empty_kind);
         };
 
-        let mut kind = quote! { <#first as #crate_::RustSpec>::#axis };
-        let mut aggregate_bounds = Vec::new();
-        for &field in rest {
-            let field_kind = quote! { <#field as #crate_::RustSpec>::#axis };
-            if is_bound_carrying_field(field, generics) {
-                aggregate_bounds.push(quote! { #kind: core::ops::Add<#field_kind> });
-            }
-            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
-        }
+        let kind = field_axis_kind(first, &axis);
+        let (kind, aggregate_bounds) = Self::fold_fields(
+            axis,
+            kind,
+            generics,
+            field_has_type_params(first, generics),
+            rest,
+        );
 
         Self {
             kind,
             aggregate_bounds,
         }
     }
+
+    fn fold_fields(
+        axis: proc_macro2::TokenStream,
+        mut kind: proc_macro2::TokenStream,
+        generics: &syn::Generics,
+        mut accumulated_is_parameterized: bool,
+        fields: &[&syn::Type],
+    ) -> (proc_macro2::TokenStream, Vec<proc_macro2::TokenStream>) {
+        let mut aggregate_bounds = Vec::new();
+        for &field in fields {
+            let field_kind = field_axis_kind(field, &axis);
+            let field_is_parameterized = field_has_type_params(field, generics);
+            if accumulated_is_parameterized || field_is_parameterized {
+                let bound = quote! { #kind: core::ops::Add<#field_kind> };
+                aggregate_bounds.push(bound);
+            }
+            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
+            accumulated_is_parameterized |= field_is_parameterized;
+        }
+
+        (kind, aggregate_bounds)
+    }
 }
 
-fn is_type_parameterized(ty: &syn::Type, generics: &syn::Generics) -> bool {
-    // Raw pointers have a fixed classification and never follow their pointee.
-    // A type parameter inside `*const T` or `*mut T` is therefore not part of
-    // this aggregate's structural classification.
-    if matches!(ty, syn::Type::Ptr(_)) {
-        return false;
-    }
+fn field_axis_kind(field: &syn::Type, axis: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let crate_ = crate_path();
+    quote! { <#field as #crate_::RustSpec>::#axis }
+}
 
+fn field_has_type_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
     use syn::visit::Visit;
 
-    struct TypeParamVisitor<'a> {
-        type_params: &'a [&'a syn::Ident],
-        is_generic: bool,
+    struct Visitor<'a> {
+        type_params: Vec<&'a syn::Ident>,
+        found: bool,
     }
 
-    impl Visit<'_> for TypeParamVisitor<'_> {
+    impl<'a> Visitor<'a> {
+        fn new(generics: &'a syn::Generics) -> Self {
+            Self {
+                type_params: generics.type_params().map(|p| &p.ident).collect(),
+                found: false,
+            }
+        }
+    }
+
+    impl syn::visit::Visit<'_> for Visitor<'_> {
         fn visit_type_path(&mut self, type_path: &syn::TypePath) {
             if type_path.qself.is_none()
                 && let Some(first_segment) = type_path.path.segments.first()
                 && self.type_params.contains(&&first_segment.ident)
             {
-                self.is_generic = true;
+                self.found = true;
             }
 
             syn::visit::visit_type_path(self, type_path);
         }
 
-        fn visit_lifetime(&mut self, lifetime: &syn::Lifetime) {
-            if lifetime.ident != "static" {
-                self.is_generic = true;
-            }
-        }
+        // Raw pointers have fixed classifications and do not follow their pointees.
+        fn visit_type_ptr(&mut self, _: &syn::TypePtr) {}
     }
 
-    let type_param_idents = generics
-        .type_params()
-        .map(|param| &param.ident)
-        .collect::<Vec<_>>();
-    let mut visitor = TypeParamVisitor {
-        type_params: &type_param_idents,
-        is_generic: false,
-    };
-
-    visitor.visit_type(ty);
-    visitor.is_generic
-}
-
-fn contains_lifetime(ty: &syn::Type) -> bool {
-    use syn::visit::Visit;
-
-    struct LifetimeVisitor {
-        found: bool,
-    }
-
-    impl<'ast> Visit<'ast> for LifetimeVisitor {
-        fn visit_lifetime(&mut self, _: &'ast syn::Lifetime) {
-            self.found = true;
-        }
-    }
-
-    let mut visitor = LifetimeVisitor { found: false };
+    let mut visitor = Visitor::new(generics);
     visitor.visit_type(ty);
     visitor.found
-}
-
-fn is_bound_carrying_field(ty: &syn::Type, generics: &syn::Generics) -> bool {
-    if is_type_parameterized(ty, generics) {
-        return true;
-    }
-
-    let field = ty.to_token_stream().to_string();
-    generics
-        .where_clause
-        .iter()
-        .flat_map(|where_clause| where_clause.predicates.iter())
-        .any(|predicate| {
-            let syn::WherePredicate::Type(predicate) = predicate else {
-                return false;
-            };
-            if is_type_parameterized(&predicate.bounded_ty, generics)
-                || !contains_lifetime(&predicate.bounded_ty)
-            {
-                return false;
-            }
-
-            predicate.bounds.iter().any(|bound| {
-                let syn::TypeParamBound::Trait(bound) = bound else {
-                    return false;
-                };
-                field.contains(&predicate.bounded_ty.to_token_stream().to_string())
-                    && field.contains(&format!("as {}", bound.path.to_token_stream()))
-            })
-        })
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -609,10 +566,7 @@ fn gen_transparent_niche_family(
             let crate_ = crate_path();
             AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
         }
-        [field] => {
-            let crate_ = crate_path();
-            AggregateFamily::fixed(quote! { <#field as #crate_::RustSpec>::Niche })
-        }
+        [field] => AggregateFamily::fixed(field_axis_kind(field, &quote! { Niche })),
         _ => gen_niche_family(generics, fields),
     }
 }
@@ -646,8 +600,6 @@ fn gen_type_spec_impl(
     families: TypeSpecFamilies,
     attrs: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let crate_ = crate_path();
-
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let predicates = where_clause
         .as_ref()
@@ -662,9 +614,10 @@ fn gen_type_spec_impl(
         indirect_trap,
     } = families;
 
+    let crate_ = crate_path();
     let field_bounds = fields
         .iter()
-        .filter(|ty| is_bound_carrying_field(ty, generics))
+        .filter(|ty| field_has_type_params(ty, generics))
         .map(|ty| quote! { #ty: #crate_::RustSpec })
         .collect::<Vec<_>>();
 
