@@ -37,12 +37,6 @@
 //! - [`niche::WithNiche<Stable>`]: compiler-guaranteed niche.
 //! - [`niche::WithNiche<Unstable>`]: niche exists but is not guaranteed.
 //!
-//! ## Mutability
-//!
-//! Describes whether shared access (`&R`) can mutate the whole value:
-//! - [`mutability::Interior`]: the whole value may be mutated through shared access.
-//! - [`mutability::Exclusive`]: mutation of the value requires exclusive access.
-//!
 //! ## How to Use
 //!
 //! Derive `RustSpec` for your types, then use its associated marker families as bounds when implementing other traits:
@@ -108,11 +102,24 @@ pub enum Stable {}
 pub enum Unstable {}
 
 pub mod layout;
+#[doc(hidden)]
 pub mod mutability;
 pub mod niche;
 mod primitives;
 pub mod size;
 mod tuple;
+
+/// Opaque, lifetime-indexed field axes emitted by `RustSpec` derives for
+/// projections whose prerequisites are supplied by higher-ranked bounds.
+#[doc(hidden)]
+pub trait __HrtbAxes<const FIELD: usize> {
+    type Layout<'a>;
+    type Trap<'a>;
+    type Size<'a>;
+    type Niche<'a>;
+    type Mutability<'a>;
+    type __IndirectTrap<'a>;
+}
 
 disjoint_impls! {
     /// Joined Rust-spec classification of a type.
@@ -138,6 +145,7 @@ disjoint_impls! {
         type Niche;
 
         /// Shared-access mutability classification.
+        #[doc(hidden)]
         type Mutability;
 
         /// Trap classification reachable through one or more supported pointer indirections.
