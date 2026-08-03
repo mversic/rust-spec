@@ -8,14 +8,23 @@ Rust-specified type properties are joined under one canonical trait:
 unsafe trait RustSpec {
     type Layout;
     type Size;
+    type Alignment;
+    type Trap;
     type Niche;
     type Mutability;
 }
 ```
 
-`RustSpec` combines representation stability/robustness, size shape, niche availability, and shared-access mutability into one Rust-spec classification.
+`RustSpec` combines layout stability, size shape, alignment, trap robustness,
+niche availability, and shared-access mutability into one Rust-spec
+classification.
 
 `RustSpec::Size` carries the safety contract for size classification: implementors must truthfully classify whether the type is statically sized, metadata-sized, or extern-type-like.
+
+`RustSpec::Alignment` carries the ABI alignment in bytes as a `typenum`
+unsigned integer. Its value must be a non-zero power of two. Composite types
+combine field and enum-tag alignments with type-level maximum operations;
+`repr(align)` raises that result. `repr(packed)` is currently unsupported.
 
 ## 2. Representation Axis
 
@@ -93,7 +102,13 @@ The categories are:
 5. **`MetaSized<DynTraitLike>`**
 - DST layout whose last element is a trait object.
 
-## 4. Niche Axis
+## 4. Alignment Axis
+
+Alignment is exposed through `RustSpec::Alignment`. Leaf types declare their
+typenum alignment directly; aggregates combine the alignments of their fields,
+and transparent wrappers preserve their wrapped alignment.
+
+## 5. Niche Axis
 
 Niche categorization is exposed through `RustSpec::Niche`:
 

@@ -14,7 +14,7 @@ pub(crate) enum ReprKind {
 
 enum ReprToken {
     Kind(ReprKind),
-    Align,
+    Align(usize),
 }
 
 impl Parse for ReprToken {
@@ -59,21 +59,29 @@ impl Parse for ReprToken {
                     ReprToken::Kind(ReprKind::Primitive(syn::parse_quote!(i64))),
                     after_token,
                 )),
-                "packed" => Ok((ReprToken::Align, after_token)),
+                "packed" => Err(cursor.error(
+                    "`repr(packed)` is not supported yet; remove `packed` from the repr attribute",
+                )),
                 "align"
-                    if let Some((_inside, _span, after_group)) =
+                    if let Some((inside, _span, after_group)) =
                         after_token.group(Delimiter::Parenthesis) =>
                 {
-                    Ok((ReprToken::Align, after_group))
+                    let literal = syn::parse2::<syn::LitInt>(inside.token_stream())?;
+                    Ok((ReprToken::Align(literal.base10_parse()?), after_group))
                 }
-                "align" => Ok((ReprToken::Align, after_token)),
+                "align" => Err(cursor.error("Expected alignment")),
                 _ => Err(cursor.error("Unrecognized repr kind")),
             }
         })
     }
 }
 
-pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
+pub(crate) struct Repr {
+    pub kind: Option<ReprKind>,
+    pub align: Option<usize>,
+}
+
+pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Repr> {
     let repr_attrs = attrs
         .iter()
         .filter(|attr| attr.path().is_ident("repr"))
@@ -85,16 +93,23 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
     }
 
     let Some(&attr) = repr_attrs.first() else {
-        return Ok(None);
+        return Ok(Repr {
+            kind: None,
+            align: None,
+        });
     };
 
     let Meta::List(list) = &attr.meta else {
-        return Ok(None);
+        return Ok(Repr {
+            kind: None,
+            align: None,
+        });
     };
 
     let tokens =
         Punctuated::<ReprToken, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
     let mut kind = None;
+    let mut align = None;
 
     for token in tokens {
         match token {
@@ -111,11 +126,11 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Option<ReprKind>> {
                 }
                 (None, new_kind) => kind = Some(new_kind),
             },
-            ReprToken::Align => {}
+            ReprToken::Align(value) => align = Some(value),
         }
     }
 
-    Ok(kind)
+    Ok(Repr { kind, align })
 }
 
 pub(crate) fn infer_repr(num_variants: usize) -> syn::Type {

@@ -15,8 +15,9 @@ use crate::{
 
 unsafe impl RustSpec for c_void {
     type Layout = Stable;
+    type Size = size::Sized<crate::Gt<crate::Zero>>;
+    type Alignment = crate::One;
     type Trap = Robust;
-    type Size = size::Sized<size::NonZst>;
     type Niche = WithoutNiche;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
@@ -24,8 +25,9 @@ unsafe impl RustSpec for c_void {
 
 unsafe impl RustSpec for CStr {
     type Layout = Unstable;
-    type Trap = NonRobust;
     type Size = MetaSized<SliceLike>;
+    type Alignment = crate::One;
+    type Trap = NonRobust;
     type Niche = WithoutNiche;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
@@ -34,8 +36,9 @@ unsafe impl RustSpec for CStr {
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for CString {
     type Layout = Unstable;
-    type Trap = NonRobust;
     type Size = MetaSized<SliceLike>;
+    type Alignment = <usize as RustSpec>::Alignment;
+    type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;

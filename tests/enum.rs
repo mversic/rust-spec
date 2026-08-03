@@ -5,7 +5,7 @@ use rust_spec::{
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
-    size::{NonZst, Sized as SpecSized, Zst},
+    size::{Gt, Sized as SpecSized, Zero},
 };
 use static_assertions::assert_impl_all;
 
@@ -232,8 +232,9 @@ fn enum_classification() {
     assert_impl_all!(EmptyEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Zero>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -242,8 +243,9 @@ fn enum_classification() {
     assert_impl_all!(SingletonEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Zero>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -252,8 +254,9 @@ fn enum_classification() {
     assert_impl_all!(SingletonWithoutNicheEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -262,8 +265,9 @@ fn enum_classification() {
     assert_impl_all!(SingletonWithNicheEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -272,8 +276,9 @@ fn enum_classification() {
     assert_impl_all!(SingletonInteriorEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Interior,
             __IndirectTrap = Robust,
@@ -282,8 +287,9 @@ fn enum_classification() {
     assert_impl_all!(TwoVariantEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -292,8 +298,9 @@ fn enum_classification() {
     assert_impl_all!(TaggedSingletonEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -302,8 +309,9 @@ fn enum_classification() {
     assert_impl_all!(TransparentNoNicheEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -312,8 +320,9 @@ fn enum_classification() {
     assert_impl_all!(TransparentWithNicheEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Stable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -322,8 +331,9 @@ fn enum_classification() {
     assert_impl_all!(TransparentWithMultipleFieldsEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -332,8 +342,9 @@ fn enum_classification() {
     assert_impl_all!(TransparentZstEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Zero>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<Zst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -343,8 +354,9 @@ fn enum_classification() {
     assert_impl_all!(RustEnum:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -353,8 +365,9 @@ fn enum_classification() {
     assert_impl_all!(PrimitiveEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -363,8 +376,9 @@ fn enum_classification() {
     assert_impl_all!(PrimitiveDataEnumWithUnstableField:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -373,8 +387,9 @@ fn enum_classification() {
     assert_impl_all!(ReprCFieldlessEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -383,8 +398,9 @@ fn enum_classification() {
     assert_impl_all!(ReprCDataEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -399,8 +415,9 @@ fn enum_classification() {
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -409,8 +426,9 @@ fn enum_classification() {
     assert_impl_all!(ReprCDataEnumWithUnstableField:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
-            Size = SpecSized<NonZst>,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
             __IndirectTrap = Robust,

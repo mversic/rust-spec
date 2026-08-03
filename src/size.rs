@@ -1,5 +1,7 @@
 use core::{convert::Infallible, ops::Add};
 
+pub use crate::{Gt, Zero};
+
 #[sealed::sealed]
 pub trait SizedKind {}
 
@@ -18,12 +20,6 @@ pub struct Sized<K: SizedKind>(core::marker::PhantomData<K>, Infallible);
 /// See [`core::marker::MetaSized`]
 pub struct MetaSized<K: MetadataKind>(core::marker::PhantomData<K>, Infallible);
 
-/// Marker for types that do not contribute storage to an ABI layout.
-pub enum Zst {}
-
-/// Marker for types that contribute storage to an ABI layout.
-pub enum NonZst {}
-
 /// Marker for [Slices](https://doc.rust-lang.org/core/primitive.slice.html) or DSTs whose last field is a slice.
 ///
 /// See [`core::slice`].
@@ -38,10 +34,10 @@ pub enum DynTraitLike {}
 pub enum ExternTypeLike {}
 
 #[sealed::sealed]
-impl SizedKind for Zst {}
+impl SizedKind for Zero {}
 
 #[sealed::sealed]
-impl SizedKind for NonZst {}
+impl SizedKind for crate::Gt<crate::Zero> {}
 
 #[sealed::sealed]
 impl MetadataKind for SliceLike {}
@@ -60,7 +56,7 @@ pub(crate) trait Dst {}
 impl Dst for ExternTypeLike {}
 impl<K: MetadataKind> Dst for MetaSized<K> {}
 
-impl<K: SizedKind> Add<Sized<K>> for Sized<Zst> {
+impl<K: SizedKind> Add<Sized<K>> for Sized<Zero> {
     type Output = Sized<K>;
 
     fn add(self, _: Sized<K>) -> Self::Output {
@@ -68,7 +64,7 @@ impl<K: SizedKind> Add<Sized<K>> for Sized<Zst> {
     }
 }
 
-impl<K: SizedKind> Add<Sized<K>> for Sized<NonZst> {
+impl<K: SizedKind> Add<Sized<K>> for Sized<crate::Gt<crate::Zero>> {
     type Output = Self;
 
     fn add(self, _: Sized<K>) -> Self::Output {

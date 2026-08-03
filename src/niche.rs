@@ -50,7 +50,7 @@ impl<K: NicheStabilityKind, U: NicheStabilityKind> Add<WithNiche<U>> for WithNic
 
 #[cfg(test)]
 mod tests {
-    use core::num::NonZero;
+    use core::num::NonZero as StdNonZero;
 
     use static_assertions::assert_impl_all;
 
@@ -59,7 +59,6 @@ mod tests {
         RustSpec, Unstable,
         layout::{NonRobust, Robust},
         mutability::Exclusive,
-        size::NonZst,
     };
 
     #[test]
@@ -67,8 +66,9 @@ mod tests {
         assert_impl_all!(Option<bool>:
             RustSpec<
                 Layout = Unstable,
+                Size = crate::size::Sized<crate::Gt<crate::Zero>>,
+                Alignment = crate::One,
                 Trap = NonRobust,
-                Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,
                 __IndirectTrap = Robust,
@@ -78,19 +78,21 @@ mod tests {
         assert_impl_all!(Option<Option<bool>>:
             RustSpec<
                 Layout = Unstable,
+                Size = crate::size::Sized<crate::Gt<crate::Zero>>,
+                Alignment = crate::One,
                 Trap = NonRobust,
-                Size = crate::size::Sized<NonZst>,
                 Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,
                 __IndirectTrap = Robust,
             >,
         );
 
-        assert_impl_all!(Option<(u8, NonZero<u8>)>:
+        assert_impl_all!(Option<(u8, StdNonZero<u8>)>:
             RustSpec<
                 Layout = Unstable,
+                Size = crate::size::Sized<crate::Gt<crate::Zero>>,
+                Alignment = crate::One,
                 Trap = NonRobust,
-                Size = crate::size::Sized<NonZst>,
                 // FIXME: The type should be WithoutNiche
                 Niche = WithNiche<crate::Unstable>,
                 Mutability = Exclusive,

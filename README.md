@@ -11,9 +11,9 @@ Compile-time classification of types according to Rust specification.
 `RustSpec` describes a type across the following axes:
 - `Layout`: representation stability.
 - `Size`: statically sized, metadata-sized, or extern-type-like shape.
+- `Alignment`: ABI alignment in bytes as a `typenum` unsigned integer.
 - `Trap`: whether the value representation has trap values.
 - `Niche`: stable, unstable, or absent niche value.
-- `Mutability`: whether the whole value can be mutated through shared access.
 
 ### Layout
 
@@ -30,6 +30,10 @@ Describes compile-time size and pointer metadata shape:
 - `MetaSized<DynTraitLike>`: dynamically sized trait-object-like type.
 - `ExternTypeLike`: dynamically sized extern-type-like type.
 
+### Alignment
+
+The ABI alignment in bytes as a power-of-two `typenum` value.
+
 ### Trap
 
 Describes total reachable (through pointer indirection) value-representation validity:
@@ -42,12 +46,6 @@ Describes whether and what kind of niche is available for the type:
 - `WithoutNiche`: no niche is available.
 - `WithNiche<Stable>`: compiler-guaranteed niche.
 - `WithNiche<Unstable>`: niche exists but is not guaranteed.
-
-### Mutability
-
-Describes whether shared access (`&R`) can mutate the whole value:
-- `Interior`: the whole value may be mutated through shared access.
-- `Exclusive`: mutation of the value requires exclusive access.
 
 ## How to Use
 

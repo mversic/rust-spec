@@ -21,8 +21,9 @@ macro_rules! non_zero_derive {
     ($($primitive:ty),+ $(,)?) => {$(
         unsafe impl RustSpec for NonZero<$primitive> {
             type Layout = Stable;
+            type Size = size::Sized<crate::Gt<crate::Zero>>;
+            type Alignment = <$primitive as RustSpec>::Alignment;
             type Trap = NonRobust;
-            type Size = size::Sized<size::NonZst>;
             type Niche = WithNiche<Stable>;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
@@ -34,8 +35,9 @@ macro_rules! stable_robust_zst {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty {
             type Layout = Stable;
+            type Size = size::Sized<size::Zero>;
+            type Alignment = crate::One;
             type Trap = Robust;
-            type Size = size::Sized<size::Zst>;
             type Niche = WithoutNiche;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
@@ -47,8 +49,9 @@ macro_rules! transparent_wrapper {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty {
             type Layout = T::Layout;
-            type Trap = T::Trap;
             type Size = T::Size;
+            type Alignment = T::Alignment;
+            type Trap = T::Trap;
             type Niche = T::Niche;
             type Mutability = T::Mutability;
             type __IndirectTrap = T::__IndirectTrap;
@@ -72,8 +75,9 @@ transparent_wrapper!((T: RustSpec + ?Sized) => ManuallyDrop<T>);
 
 unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
     type Layout = Stable;
+    type Size = size::Sized<crate::Gt<crate::Zero>>;
+    type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
-    type Size = size::Sized<size::NonZst>;
     type Niche = WithNiche<Stable>;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
@@ -81,8 +85,9 @@ unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
 
 unsafe impl RustSpec for str {
     type Layout = Stable;
-    type Trap = NonRobust;
     type Size = size::MetaSized<size::SliceLike>;
+    type Alignment = crate::One;
+    type Trap = NonRobust;
     // TODO: This should not be set at all
     type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
@@ -91,8 +96,9 @@ unsafe impl RustSpec for str {
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for String {
     type Layout = Unstable;
+    type Size = size::Sized<crate::Gt<crate::Zero>>;
+    type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
-    type Size = size::Sized<size::NonZst>;
     type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
@@ -101,8 +107,9 @@ unsafe impl RustSpec for String {
 #[cfg(feature = "alloc")]
 unsafe impl<T: RustSpec> RustSpec for Vec<T> {
     type Layout = Unstable;
+    type Size = size::Sized<crate::Gt<crate::Zero>>;
+    type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
-    type Size = size::Sized<size::NonZst>;
     type Niche = WithNiche<Unstable>;
     type Mutability = Exclusive;
     type __IndirectTrap = T::Trap;

@@ -12,8 +12,9 @@ macro_rules! interior_cell {
             Robust: Add<T::Trap>,
         {
             type Layout = Stable;
-            type Trap = <Robust as Add<T::Trap>>::Output;
             type Size = T::Size;
+            type Alignment = T::Alignment;
+            type Trap = <Robust as Add<T::Trap>>::Output;
             type Niche = WithoutNiche;
             type Mutability = Interior;
             type __IndirectTrap = T::__IndirectTrap;

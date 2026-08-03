@@ -5,7 +5,7 @@ use rust_spec::{
     layout::Robust,
     mutability::Exclusive,
     niche::WithoutNiche,
-    size::{NonZst, Sized as SpecSized},
+    size::{Gt, Sized as SpecSized, Zero},
 };
 use static_assertions::assert_impl_all;
 
@@ -34,8 +34,9 @@ fn union_classification() {
     assert_impl_all!(RustUnion:
         RustSpec<
             Layout = Unstable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -44,8 +45,9 @@ fn union_classification() {
     assert_impl_all!(ReprCUnion:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::One,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
@@ -54,8 +56,9 @@ fn union_classification() {
     assert_impl_all!(ReprCStableUnion:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
-            Size = SpecSized<NonZst>,
             Niche = WithoutNiche,
             Mutability = Exclusive,
             __IndirectTrap = Robust,
