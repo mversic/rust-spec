@@ -132,7 +132,7 @@ primitive_derive! { isize => <usize as RustSpec>::Alignment }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-unsafe impl<R:RustSpec> RustSpec for [R]
+unsafe impl<R: RustSpec> RustSpec for [R]
 where
     WithoutNiche: Add<R::Niche>,
 {

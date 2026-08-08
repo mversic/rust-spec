@@ -29,6 +29,28 @@ union ReprCUnion {
     value: u8,
 }
 
+#[derive(RustSpec)]
+#[repr(C)]
+union Payload<T>
+where
+    T: Copy,
+{
+    fixed: u64,
+    value: T,
+    unit: (),
+}
+
+#[derive(RustSpec)]
+#[repr(C)]
+pub union Payload2<'a, T>
+where
+    T: Copy,
+{
+    fixed: &'a u64,
+    value: T,
+    item: T,
+}
+
 #[test]
 fn union_classification() {
     assert_impl_all!(RustUnion:
@@ -56,6 +78,28 @@ fn union_classification() {
     assert_impl_all!(ReprCStableUnion:
         RustSpec<
             Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::Gt<rust_spec::One>,
+            Trap = Robust,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(Payload<u8>:
+        RustSpec<
+            Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = rust_spec::Gt<rust_spec::One>,
+            Trap = Robust,
+            Niche = WithoutNiche,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(Payload<(u32,)>:
+        RustSpec<
+            Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,

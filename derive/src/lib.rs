@@ -58,69 +58,109 @@ impl AggregateFamily {
         }
     }
 
-    fn fold(
+    fn aggregate_parts(
+        operator: proc_macro2::TokenStream,
         axis: proc_macro2::TokenStream,
-        init_kind: proc_macro2::TokenStream,
         generics: &syn::Generics,
         fields: &[&syn::Type],
-    ) -> Self {
-        let (kind, aggregate_bounds) =
-            Self::fold_fields(axis, init_kind, generics, false, fields, 0);
+    ) -> (
+        Option<proc_macro2::TokenStream>,
+        Option<proc_macro2::TokenStream>,
+        Vec<proc_macro2::TokenStream>,
+    ) {
+        let mut aggregate_bounds = Vec::new();
 
-        Self {
-            kind,
-            aggregate_bounds,
-        }
+        let (concrete_fields, parameterized_fields): (Vec<_>, Vec<_>) = fields
+            .iter()
+            .enumerate()
+            .map(|(index, &field)| (index, field))
+            .partition(|(_, field)| !field_needs_bounds(field, generics));
+
+        let mut concrete_fields = concrete_fields.into_iter();
+        let concrete_kind = concrete_fields.next().map(|(index, field)| {
+            let mut kind = field_axis_kind(field, index, &axis, generics);
+
+            for (index, field) in concrete_fields {
+                let field_kind = field_axis_kind(field, index, &axis, generics);
+                kind = quote! { <#kind as #operator<#field_kind>>::Output };
+            }
+
+            kind
+        });
+
+        let mut parameterized_fields = parameterized_fields.into_iter();
+        let parameterized_kind = parameterized_fields.next().map(|(index, field)| {
+            let mut kind = field_axis_kind(field, index, &axis, generics);
+
+            for (index, field) in parameterized_fields {
+                let field_kind = field_axis_kind(field, index, &axis, generics);
+
+                aggregate_bounds.push(quote! { #kind: #operator<#field_kind> });
+                kind = quote! { <#kind as #operator<#field_kind>>::Output };
+            }
+
+            kind
+        });
+
+        (concrete_kind, parameterized_kind, aggregate_bounds)
     }
 
-    fn from_fields(
+    fn aggregate(
+        operator: proc_macro2::TokenStream,
         axis: proc_macro2::TokenStream,
-        empty_kind: proc_macro2::TokenStream,
         generics: &syn::Generics,
         fields: &[&syn::Type],
-    ) -> Self {
-        let [first, rest @ ..] = fields else {
-            return Self::fixed(empty_kind);
+    ) -> Option<Self> {
+        let (concrete_kind, parameterized_kind, mut aggregate_bounds) =
+            Self::aggregate_parts(operator.clone(), axis, generics, fields);
+        let kind = match (concrete_kind, parameterized_kind) {
+            (Some(concrete), Some(parameterized)) => {
+                aggregate_bounds.push(quote! { #concrete: #operator<#parameterized> });
+
+                quote! { <#concrete as #operator<#parameterized>>::Output }
+            }
+            (Some(concrete), None) => concrete,
+            (None, Some(parameterized)) => parameterized,
+            (None, None) => return None,
         };
 
-        let kind = field_axis_kind(first, 0, &axis, generics);
-        let (kind, aggregate_bounds) = Self::fold_fields(
-            axis,
+        Some(Self {
             kind,
-            generics,
-            field_needs_bounds(first, generics),
-            rest,
-            1,
-        );
+            aggregate_bounds,
+        })
+    }
+
+    fn aggregate_with_seed(
+        operator: proc_macro2::TokenStream,
+        axis: proc_macro2::TokenStream,
+        seed: proc_macro2::TokenStream,
+        generics: &syn::Generics,
+        fields: &[&syn::Type],
+    ) -> Self {
+        let (concrete_kind, parameterized_kind, mut aggregate_bounds) =
+            Self::aggregate_parts(operator.clone(), axis, generics, fields);
+
+        let kind = match (concrete_kind, parameterized_kind) {
+            (Some(concrete), Some(parameterized)) => {
+                aggregate_bounds.push(
+                    quote! { <#seed as #operator<#concrete>>::Output: #operator<#parameterized> },
+                );
+                quote! {
+                    <<#seed as #operator<#concrete>>::Output as #operator<#parameterized>>::Output
+                }
+            }
+            (Some(concrete), None) => quote! { <#seed as #operator<#concrete>>::Output },
+            (None, Some(parameterized)) => {
+                aggregate_bounds.push(quote! { #seed: #operator<#parameterized> });
+                quote! { <#seed as #operator<#parameterized>>::Output }
+            }
+            (None, None) => return Self::fixed(seed),
+        };
 
         Self {
             kind,
             aggregate_bounds,
         }
-    }
-
-    fn fold_fields(
-        axis: proc_macro2::TokenStream,
-        mut kind: proc_macro2::TokenStream,
-        generics: &syn::Generics,
-        mut accumulated_is_parameterized: bool,
-        fields: &[&syn::Type],
-        field_offset: usize,
-    ) -> (proc_macro2::TokenStream, Vec<proc_macro2::TokenStream>) {
-        let mut aggregate_bounds = Vec::new();
-        for (index, &field) in fields.iter().enumerate() {
-            let index = index + field_offset;
-            let field_kind = field_axis_kind(field, index, &axis, generics);
-            let field_is_parameterized = field_needs_bounds(field, generics);
-            if accumulated_is_parameterized || field_is_parameterized {
-                let bound = quote! { #kind: core::ops::Add<#field_kind> };
-                aggregate_bounds.push(bound);
-            }
-            kind = quote! { <#kind as core::ops::Add<#field_kind>>::Output };
-            accumulated_is_parameterized |= field_is_parameterized;
-        }
-
-        (kind, aggregate_bounds)
     }
 }
 
@@ -345,7 +385,7 @@ fn gen_struct_impl(
 
 fn gen_struct_fields_impl(
     repr: Option<&ReprKind>,
-    repr_alignment: Option<usize>,
+    alignment: Option<usize>,
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
@@ -353,11 +393,10 @@ fn gen_struct_fields_impl(
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, fields)
     } else {
-        gen_aggregate_rust_layout_family()
+        gen_unstable_layout_family()
     };
     let size = gen_size_family(generics, fields);
-    let alignment =
-        apply_repr_alignment(gen_alignment_family(generics, fields, None), repr_alignment);
+    let alignment = apply_repr_alignment(gen_alignment_family(generics, fields, None), alignment);
     let trap = gen_trap_family(generics, fields, false);
     let niche = if let Some(ReprKind::Transparent) = repr {
         gen_transparent_niche_family(generics, fields)
@@ -405,7 +444,7 @@ fn gen_enum_impl(
     let layout = if repr.is_some() {
         gen_enum_layout_family(generics, &fields)
     } else {
-        gen_rust_enum_layout_family()
+        gen_unstable_layout_family()
     };
     let size = AggregateFamily::fixed(quote! {
         #crate_::size::Sized<#crate_::Gt<#crate_::Zero>>
@@ -461,19 +500,24 @@ fn gen_union_impl(
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, &fields)
     } else {
-        gen_aggregate_rust_layout_family()
+        gen_unstable_layout_family()
     };
     let size = gen_size_family(generics, &fields);
     let alignment = apply_repr_alignment(
         gen_alignment_family(generics, &fields, None),
         repr_alignment,
     );
-    let trap = AggregateFamily::fixed(quote! { #crate_::layout::Robust });
+    let trap = AggregateFamily::fixed(quote! {
+        #crate_::layout::Robust
+    });
     let niche = AggregateFamily::fixed(quote! {
         #crate_::niche::WithoutNiche
     });
+
     let mutability = gen_exclusive_mutability_family();
-    let indirect_trap = gen_indirect_trap_family(generics, &fields);
+    let indirect_trap = AggregateFamily::fixed(quote! {
+        #crate_::layout::Robust
+    });
 
     let spec = TypeSpecFamilies {
         layout,
@@ -579,12 +623,7 @@ fn gen_fieldless_enum_impl(
     gen_type_spec_impl(name, generics, &[], spec, quote! {})
 }
 
-fn gen_aggregate_rust_layout_family() -> AggregateFamily {
-    let crate_ = crate_path();
-    AggregateFamily::fixed(quote! { #crate_::Unstable })
-}
-
-fn gen_rust_enum_layout_family() -> AggregateFamily {
+fn gen_unstable_layout_family() -> AggregateFamily {
     let crate_ = crate_path();
     AggregateFamily::fixed(quote! { #crate_::Unstable })
 }
@@ -592,12 +631,13 @@ fn gen_rust_enum_layout_family() -> AggregateFamily {
 fn gen_stable_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
 
-    AggregateFamily::fold(
+    AggregateFamily::aggregate(
+        quote! { core::ops::Add },
         quote! { Layout },
-        quote! { #crate_::Stable },
         generics,
         fields,
     )
+    .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::Stable }))
 }
 
 fn gen_enum_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
@@ -666,12 +706,14 @@ fn gen_plain_c_enum_impls(
 
 fn gen_indirect_trap_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::from_fields(
+
+    AggregateFamily::aggregate(
+        quote! { core::ops::Add },
         quote! { __IndirectTrap },
-        quote! { #crate_::layout::Robust },
         generics,
         fields,
     )
+    .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::layout::Robust }))
 }
 
 fn gen_trap_family(
@@ -680,23 +722,27 @@ fn gen_trap_family(
     has_trap_values: bool,
 ) -> AggregateFamily {
     let crate_ = crate_path();
+
     let init = if has_trap_values {
         quote! { #crate_::layout::NonRobust }
     } else {
         quote! { #crate_::layout::Robust }
     };
-    AggregateFamily::fold(quote! { Trap }, init, generics, fields)
+
+    AggregateFamily::aggregate_with_seed(
+        quote! { core::ops::Add },
+        quote! { Trap },
+        init,
+        generics,
+        fields,
+    )
 }
 
 fn gen_size_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
 
-    AggregateFamily::from_fields(
-        quote! { Size },
-        quote! { #crate_::size::Sized<#crate_::Zero> },
-        generics,
-        fields,
-    )
+    AggregateFamily::aggregate(quote! { core::ops::Add }, quote! { Size }, generics, fields)
+        .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::Zero> }))
 }
 
 fn gen_alignment_family(
@@ -705,38 +751,23 @@ fn gen_alignment_family(
     tag: Option<&syn::Type>,
 ) -> AggregateFamily {
     let crate_ = crate_path();
-    let Some((&first, rest)) = fields.split_first() else {
-        return AggregateFamily::fixed(tag.map_or_else(
-            || quote! { #crate_::One },
-            |tag| quote! { <#tag as #crate_::RustSpec>::Alignment },
-        ));
-    };
 
-    let mut kind = field_axis_kind(first, 0, &quote! { Alignment }, generics);
-    let mut aggregate_bounds = Vec::new();
-    let mut accumulated_is_parameterized = field_needs_bounds(first, generics);
-    for (index, &field) in rest.iter().enumerate() {
-        let index = index + 1;
-        let field_kind = field_axis_kind(field, index, &quote! { Alignment }, generics);
-        let field_is_parameterized = field_needs_bounds(field, generics);
-        if accumulated_is_parameterized || field_is_parameterized {
-            aggregate_bounds.push(quote! {
-                #kind: #crate_::Max<#field_kind>
-            });
-        }
-        kind = quote! { <#kind as #crate_::Max<#field_kind>>::Output };
-        accumulated_is_parameterized |= field_is_parameterized;
-    }
+    let mut family = AggregateFamily::aggregate(
+        quote! { #crate_::Max },
+        quote! { Alignment },
+        generics,
+        fields,
+    )
+    .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::One }));
 
     if let Some(tag) = tag {
+        let kind = family.kind;
+
         let tag_kind = quote! { <#tag as #crate_::RustSpec>::Alignment };
-        kind = quote! { <#tag_kind as #crate_::Max<#kind>>::Output };
+        family.kind = quote! { <#tag_kind as #crate_::Max<#kind>>::Output };
     }
 
-    AggregateFamily {
-        kind,
-        aggregate_bounds,
-    }
+    family
 }
 
 fn apply_repr_alignment(mut family: AggregateFamily, align: Option<usize>) -> AggregateFamily {
@@ -753,7 +784,9 @@ fn apply_repr_alignment(mut family: AggregateFamily, align: Option<usize>) -> Ag
 
 fn gen_niche_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::fold(
+
+    AggregateFamily::aggregate_with_seed(
+        quote! { core::ops::Add },
         quote! { Niche },
         quote! { #crate_::niche::WithoutNiche },
         generics,
@@ -779,15 +812,10 @@ fn gen_single_field_mutability_family(
     generics: &syn::Generics,
     fields: &[&syn::Type],
 ) -> AggregateFamily {
-    let crate_ = crate_path();
-
     match fields {
-        [_] => AggregateFamily::from_fields(
-            quote! { Mutability },
-            quote! { #crate_::mutability::Exclusive },
-            generics,
-            fields,
-        ),
+        [field] => {
+            AggregateFamily::fixed(field_axis_kind(field, 0, &quote! { Mutability }, generics))
+        }
         _ => gen_exclusive_mutability_family(),
     }
 }
