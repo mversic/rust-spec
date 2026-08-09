@@ -164,44 +164,91 @@ impl AggregateFamily {
     }
 }
 
-fn hrtb_projection(field: &syn::Type, generics: &syn::Generics) -> Option<syn::Lifetime> {
-    let syn::Type::Path(type_path) = field else {
-        return None;
-    };
-    let qself = type_path.qself.as_ref()?;
-    let trait_path = syn::Path {
-        leading_colon: type_path.path.leading_colon,
-        segments: type_path
-            .path
-            .segments
-            .iter()
-            .take(qself.position)
-            .cloned()
-            .collect(),
-    };
-    let has_prerequisite = generics.where_clause.iter().flat_map(|clause| &clause.predicates).any(|predicate| {
-        let syn::WherePredicate::Type(predicate) = predicate else { return false };
-        predicate.lifetimes.is_some()
-            && predicate.bounded_ty.to_token_stream().to_string() == qself.ty.to_token_stream().to_string()
-            && predicate.bounds.iter().any(|bound| matches!(bound, syn::TypeParamBound::Trait(bound) if bound.path.to_token_stream().to_string() == trait_path.to_token_stream().to_string()))
-    });
-    has_prerequisite.then(|| {
-        type_path
-            .path
-            .segments
-            .iter()
-            .skip(qself.position)
-            .find_map(|segment| match &segment.arguments {
-                syn::PathArguments::AngleBracketed(arguments) => {
-                    arguments.args.iter().find_map(|argument| match argument {
-                        syn::GenericArgument::Lifetime(lifetime) => Some(lifetime.clone()),
-                        _ => None,
-                    })
+fn hrtb_projection_bound(field: &syn::Type, generics: &syn::Generics) -> Vec<syn::WherePredicate> {
+    use syn::visit::Visit;
+
+    #[derive(Default)]
+    struct ProjectionVisitor<'a> {
+        projections: Vec<&'a syn::TypePath>,
+    }
+
+    impl<'ast> Visit<'ast> for ProjectionVisitor<'ast> {
+        fn visit_type_path(&mut self, type_path: &'ast syn::TypePath) {
+            if type_path.qself.is_some() {
+                self.projections.push(type_path);
+                for segment in &type_path.path.segments {
+                    self.visit_path_arguments(&segment.arguments);
                 }
-                _ => None,
-            })
-            .unwrap_or_else(|| syn::Lifetime::new("'static", proc_macro2::Span::call_site()))
-    })
+                return;
+            }
+            syn::visit::visit_type_path(self, type_path);
+        }
+    }
+
+    let mut visitor = ProjectionVisitor::default();
+    visitor.visit_type(field);
+    let crate_ = crate_path();
+
+    let mut bounds = Vec::new();
+    for projection in &visitor.projections {
+        let Some(qself) = projection.qself.as_ref() else {
+            continue;
+        };
+        let trait_path = syn::Path {
+            leading_colon: projection.path.leading_colon,
+            segments: projection
+                .path
+                .segments
+                .iter()
+                .take(qself.position)
+                .cloned()
+                .collect(),
+        };
+
+        for predicate in generics
+            .where_clause
+            .iter()
+            .flat_map(|where_clause| &where_clause.predicates)
+        {
+            let syn::WherePredicate::Type(predicate) = predicate else {
+                continue;
+            };
+            if predicate.lifetimes.is_none()
+                || predicate.bounded_ty.to_token_stream().to_string()
+                    != qself.ty.to_token_stream().to_string()
+            {
+                continue;
+            }
+
+            let Some(bound_index) = predicate.bounds.iter().position(|bound| {
+                matches!(bound, syn::TypeParamBound::Trait(bound) if bound.path.to_token_stream().to_string() == trait_path.to_token_stream().to_string())
+            }) else {
+                continue;
+            };
+            let Some(associated_type) = projection.path.segments.iter().nth(qself.position) else {
+                continue;
+            };
+            let mut predicate = predicate.clone();
+            let syn::TypeParamBound::Trait(bound) = &mut predicate.bounds[bound_index] else {
+                unreachable!("matched a trait bound");
+            };
+            *bound = syn::parse_quote! { #trait_path<#associated_type: #crate_::RustSpec> };
+
+            bounds.push(syn::WherePredicate::Type(predicate));
+        }
+    }
+
+    bounds
+}
+
+fn hrtb_lifetimes(field: &syn::Type, generics: &syn::Generics) -> Vec<syn::BoundLifetimes> {
+    hrtb_projection_bound(field, generics)
+        .into_iter()
+        .filter_map(|predicate| match predicate {
+            syn::WherePredicate::Type(predicate) => predicate.lifetimes,
+            _ => None,
+        })
+        .collect()
 }
 
 fn field_axis_kind(
@@ -212,8 +259,8 @@ fn field_axis_kind(
 ) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
 
-    if let Some(lifetime) = hrtb_projection(field, generics) {
-        return quote! { <Self as #crate_::__HrtbAxes<#index>>::#axis<#lifetime> };
+    if !hrtb_projection_bound(field, generics).is_empty() {
+        return quote! { <Self as #crate_::__HrtbAxes<#index>>::#axis<'static> };
     }
 
     quote! { <#field as #crate_::RustSpec>::#axis }
@@ -225,45 +272,30 @@ fn hrtb_axes_impl(
     field: &syn::Type,
     index: usize,
 ) -> Option<proc_macro2::TokenStream> {
-    hrtb_projection(field, generics)?;
-    let syn::Type::Path(type_path) = field else {
-        return None;
-    };
-    let qself = type_path.qself.as_ref()?;
-    let projection_input = &qself.ty;
-    let projection_trait = syn::Path {
-        leading_colon: type_path.path.leading_colon,
-        segments: type_path
-            .path
-            .segments
-            .iter()
-            .take(qself.position)
-            .cloned()
-            .collect(),
-    };
+    let hrtb_bounds = hrtb_projection_bound(field, generics);
 
-    let field_for_lifetime = field;
+    let crate_ = crate_path();
+    if hrtb_bounds.is_empty() {
+        return None;
+    }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause
-        .map(|where_clause| where_clause.predicates.iter().collect::<Vec<_>>())
-        .unwrap_or_default();
-    let crate_ = crate_path();
+    let predicates = where_clause.map(|w| &w.predicates);
+
     Some(quote! {
         #[doc(hidden)]
         impl #impl_generics #crate_::__HrtbAxes<#index> for #name #ty_generics
         where
-            #(#predicates,)*
-            for<'__rust_spec> #projection_input: #projection_trait,
-            for<'__rust_spec> #field_for_lifetime: #crate_::RustSpec,
+            #(#hrtb_bounds,)*
+            #predicates
         {
-            type Layout<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Layout;
-            type Size<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Size;
-            type Alignment<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Alignment;
-            type Trap<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Trap;
-            type Niche<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Niche;
-            type Mutability<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::Mutability;
-            type __IndirectTrap<'__rust_spec> = <#field_for_lifetime as #crate_::RustSpec>::__IndirectTrap;
+            type Layout<'__rust_spec> = <#field as #crate_::RustSpec>::Layout;
+            type Size<'__rust_spec> = <#field as #crate_::RustSpec>::Size;
+            type Alignment<'__rust_spec> = <#field as #crate_::RustSpec>::Alignment;
+            type Trap<'__rust_spec> = <#field as #crate_::RustSpec>::Trap;
+            type Niche<'__rust_spec> = <#field as #crate_::RustSpec>::Niche;
+            type Mutability<'__rust_spec> = <#field as #crate_::RustSpec>::Mutability;
+            type __IndirectTrap<'__rust_spec> = <#field as #crate_::RustSpec>::__IndirectTrap;
         }
     })
 }
@@ -307,7 +339,7 @@ fn field_has_type_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
 }
 
 fn field_needs_bounds(field: &syn::Type, generics: &syn::Generics) -> bool {
-    field_has_type_params(field, generics) || hrtb_projection(field, generics).is_some()
+    field_has_type_params(field, generics) || !hrtb_projection_bound(field, generics).is_empty()
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -848,23 +880,29 @@ fn gen_type_spec_impl(
         .map(|where_clause| &where_clause.predicates);
 
     let crate_ = crate_path();
-    let field_bounds = fields
+    let hrtb_axes = fields
         .iter()
-        .enumerate()
-        .filter_map(|(index, field)| {
-            let type_bound = field_has_type_params(field, generics)
-                .then(|| quote! { #field: #crate_::RustSpec });
-            let hrtb_bound = hrtb_projection(field, generics)
-                .map(|_| quote! { Self: #crate_::__HrtbAxes<#index> });
-            type_bound.or(hrtb_bound)
+        .filter_map(|field| {
+            let lifetimes = hrtb_lifetimes(field, generics);
+            (!lifetimes.is_empty()).then_some(lifetimes)
         })
         .collect::<Vec<_>>();
+
+    let field_bounds = fields.iter().enumerate().flat_map(|(index, field)| {
+        if field_has_type_params(field, generics) {
+            vec![quote! { #field: #crate_::RustSpec }]
+        } else {
+            hrtb_lifetimes(field, generics)
+                .into_iter()
+                .map(|lifetimes| quote! { #lifetimes Self: #crate_::__HrtbAxes<#index> })
+                .collect()
+        }
+    });
 
     let hrtb_axes_impls = fields
         .iter()
         .enumerate()
-        .filter_map(|(index, field)| hrtb_axes_impl(name, generics, field, index))
-        .collect::<Vec<_>>();
+        .filter_map(|(index, field)| hrtb_axes_impl(name, generics, field, index));
 
     let aggregate_bounds = layout
         .aggregate_bounds
@@ -875,7 +913,17 @@ fn gen_type_spec_impl(
         .chain(niche.aggregate_bounds)
         .chain(mutability.aggregate_bounds)
         .chain(indirect_trap.aggregate_bounds)
-        .collect::<Vec<_>>();
+        .flat_map(|bound| {
+            if !bound.to_string().contains("__HrtbAxes") {
+                return vec![bound.clone()];
+            }
+
+            hrtb_axes
+                .iter()
+                .flatten()
+                .map(|lifetimes| quote! { #lifetimes #bound })
+                .collect()
+        });
 
     let layout_kind = layout.kind;
     let size_kind = size.kind;

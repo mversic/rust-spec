@@ -62,6 +62,18 @@ where
     for<'_dummy> &'a i8: Projection;
 
 #[derive(RustSpec)]
+#[repr(transparent)]
+pub struct CounterData(<usize as CTypeProjection>::CType)
+where
+    for<'__dummy> usize: CTypeProjection;
+
+#[derive(RustSpec)]
+#[repr(C)]
+pub struct OpaqueData(<usize as CTypeProjection>::CType)
+where
+    for<'__dummy> usize: CTypeProjection;
+
+#[derive(RustSpec)]
 struct Empty;
 
 #[derive(RustSpec)]
