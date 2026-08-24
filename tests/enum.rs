@@ -35,6 +35,20 @@ pub enum PrimitiveEnum {
 }
 
 #[derive(RustSpec)]
+#[repr(usize)]
+pub enum PrimitiveUsizeEnum {
+    A,
+    B,
+}
+
+#[derive(RustSpec)]
+#[repr(usize)]
+pub enum PrimitiveUsizeDataEnum {
+    A(u8),
+    B,
+}
+
+#[derive(RustSpec)]
 #[repr(u8)]
 pub enum PrimitiveDataEnumWithUnstableField {
     A(String),
@@ -367,6 +381,28 @@ fn enum_classification() {
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
             Alignment = rust_spec::One,
+            Trap = NonRobust,
+            Niche = WithNiche<Unstable>,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(PrimitiveUsizeEnum:
+        RustSpec<
+            Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = <usize as RustSpec>::Alignment,
+            Trap = NonRobust,
+            Niche = WithNiche<Unstable>,
+            Mutability = Exclusive,
+            __IndirectTrap = Robust,
+        >,
+    );
+    assert_impl_all!(PrimitiveUsizeDataEnum:
+        RustSpec<
+            Layout = Stable,
+            Size = SpecSized<Gt<Zero>>,
+            Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
