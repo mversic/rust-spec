@@ -8,7 +8,11 @@ mod wrappers;
 mod tests {
     #[cfg(feature = "alloc")]
     use alloc::{boxed::Box, string::String, vec::Vec};
-    use core::{cell::UnsafeCell, mem::ManuallyDrop, num::NonZero as StdNonZero};
+    use core::{
+        cell::UnsafeCell,
+        mem::{ManuallyDrop, MaybeUninit},
+        num::NonZero as StdNonZero,
+    };
 
     use static_assertions::assert_impl_all;
 
@@ -181,6 +185,21 @@ mod tests {
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
+                __IndirectTrap = Robust,
+            >,
+        );
+    }
+
+    #[test]
+    fn maybe_uninit_accepts_every_bit_pattern() {
+        assert_impl_all!(MaybeUninit<UnsafeCell<bool>>:
+            RustSpec<
+                Layout = Stable,
+                Size = Co3Sized<crate::Gt<crate::Zero>>,
+                Alignment = crate::One,
+                Trap = Robust,
+                Niche = WithoutNiche,
+                Mutability = Interior,
                 __IndirectTrap = Robust,
             >,
         );

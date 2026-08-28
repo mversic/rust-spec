@@ -4,7 +4,7 @@ use core::{
     cmp::Reverse,
     convert::Infallible,
     marker::{PhantomData, PhantomPinned},
-    mem::ManuallyDrop,
+    mem::{ManuallyDrop, MaybeUninit},
     num::{NonZero, Saturating, Wrapping},
     ptr::NonNull,
 };
@@ -72,6 +72,16 @@ transparent_wrapper!((T: RustSpec) => Reverse<T>);
 transparent_wrapper!((T: RustSpec) => Wrapping<T>);
 transparent_wrapper!((T: RustSpec) => Saturating<T>);
 transparent_wrapper!((T: RustSpec + ?Sized) => ManuallyDrop<T>);
+
+unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
+    type Layout = T::Layout;
+    type Size = T::Size;
+    type Alignment = T::Alignment;
+    type Trap = Robust;
+    type Niche = WithoutNiche;
+    type Mutability = T::Mutability;
+    type __IndirectTrap = Robust;
+}
 
 unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
     type Layout = Stable;
