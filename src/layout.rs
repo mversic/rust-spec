@@ -32,18 +32,10 @@ impl<K> Add<K> for NonRobust {
     }
 }
 
-impl Add<NonRobust> for Robust {
-    type Output = NonRobust;
+impl<K> Add<K> for Robust {
+    type Output = K;
 
-    fn add(self, _: NonRobust) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl Add for Robust {
-    type Output = Self;
-
-    fn add(self, _: Self) -> Self::Output {
+    fn add(self, _: K) -> Self::Output {
         unreachable!()
     }
 }

@@ -132,16 +132,14 @@ primitive_derive! { isize => <usize as RustSpec>::Alignment }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-unsafe impl<R: RustSpec> RustSpec for [R]
-where
-    WithoutNiche: Add<R::Niche>,
-{
+unsafe impl<R: RustSpec> RustSpec for [R] {
     type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
     type Alignment = R::Alignment;
     type Trap = R::Trap;
     // TODO: This should not be set at all
-    type Niche = <WithoutNiche as Add<R::Niche>>::Output;
+    // however we set it to help some impls
+    type Niche = WithoutNiche;
     type Mutability = Exclusive;
     type __IndirectTrap = R::__IndirectTrap;
 }
