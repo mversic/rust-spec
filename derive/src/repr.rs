@@ -5,7 +5,7 @@ use syn::{
     punctuated::Punctuated,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) enum ReprKind {
     Transparent,
     C(Option<Box<syn::Type>>),
@@ -15,6 +15,7 @@ pub(crate) enum ReprKind {
 enum ReprToken {
     Kind(ReprKind),
     Align(usize),
+    Packed,
 }
 
 impl Parse for ReprToken {
@@ -67,9 +68,13 @@ impl Parse for ReprToken {
                     ReprToken::Kind(ReprKind::Primitive(syn::parse_quote!(isize))),
                     after_token,
                 )),
-                "packed" => Err(cursor.error(
-                    "`repr(packed)` is not supported yet; remove `packed` from the repr attribute",
-                )),
+                "packed"
+                    if let Some((_inside, _span, after_group)) =
+                        after_token.group(Delimiter::Parenthesis) =>
+                {
+                    Ok((ReprToken::Packed, after_group))
+                }
+                "packed" => Ok((ReprToken::Packed, after_token)),
                 "align"
                     if let Some((inside, _span, after_group)) =
                         after_token.group(Delimiter::Parenthesis) =>
@@ -95,46 +100,48 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Repr> {
         .filter(|attr| attr.path().is_ident("repr"))
         .collect::<Vec<_>>();
 
-    if repr_attrs.len() > 1 {
-        let err = "Multiple repr attributes";
-        return Err(syn::Error::new_spanned(repr_attrs[1], err));
+    if repr_attrs.is_empty() {
+        return Ok(Repr {
+            kind: None,
+            align: None,
+        });
     }
 
-    let Some(&attr) = repr_attrs.first() else {
-        return Ok(Repr {
-            kind: None,
-            align: None,
-        });
-    };
-
-    let Meta::List(list) = &attr.meta else {
-        return Ok(Repr {
-            kind: None,
-            align: None,
-        });
-    };
-
-    let tokens =
-        Punctuated::<ReprToken, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
     let mut kind = None;
     let mut align = None;
 
-    for token in tokens {
-        match token {
-            ReprToken::Kind(new_kind) => match (&mut kind, new_kind) {
-                (Some(ReprKind::C(None)), ReprKind::Primitive(prim)) => {
-                    kind = Some(ReprKind::C(Some(prim)));
+    for attr in repr_attrs {
+        let Meta::List(list) = &attr.meta else {
+            continue;
+        };
+
+        let tokens =
+            Punctuated::<ReprToken, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+        for token in tokens {
+            match token {
+                ReprToken::Kind(new_kind) => match (&mut kind, new_kind) {
+                    (Some(ReprKind::C(None)), ReprKind::Primitive(prim)) => {
+                        kind = Some(ReprKind::C(Some(prim)));
+                    }
+                    (Some(ReprKind::Primitive(prim)), ReprKind::C(None)) => {
+                        kind = Some(ReprKind::C(Some(prim.clone())));
+                    }
+                    (Some(existing), new_kind) if *existing == new_kind => {}
+                    (Some(_), _) => {
+                        return Err(syn::Error::new_spanned(attr, "Duplicate repr kind"));
+                    }
+                    (None, new_kind) => kind = Some(new_kind),
+                },
+                ReprToken::Align(value) => {
+                    align = Some(align.map_or(value, |existing: usize| existing.max(value)));
                 }
-                (Some(ReprKind::Primitive(prim)), ReprKind::C(None)) => {
-                    kind = Some(ReprKind::C(Some(prim.clone())));
+                ReprToken::Packed => {
+                    return Err(syn::Error::new_spanned(
+                        attr,
+                        "`repr(packed)` is not supported yet; remove `packed` from the repr attribute",
+                    ));
                 }
-                (Some(_), _) => {
-                    let err = "Duplicate repr kind within attribute";
-                    return Err(syn::Error::new_spanned(attr, err));
-                }
-                (None, new_kind) => kind = Some(new_kind),
-            },
-            ReprToken::Align(value) => align = Some(value),
+            }
         }
     }
 
@@ -179,4 +186,52 @@ pub(crate) fn is_exhaustive_enum(num_variants: usize, repr: &syn::Type) -> bool 
     };
 
     num_variants as u64 == max_values
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_repr_parts_in_separate_attributes() {
+        let attrs = [
+            syn::parse_quote!(#[repr(C)]),
+            syn::parse_quote!(#[repr(align(16))]),
+        ];
+
+        let repr = parse_repr(&attrs).unwrap();
+        assert!(matches!(repr.kind, Some(ReprKind::C(None))));
+        assert_eq!(repr.align, Some(16));
+    }
+
+    #[test]
+    fn rejects_duplicate_repr_kinds() {
+        let attrs = [
+            syn::parse_quote!(#[repr(C)]),
+            syn::parse_quote!(#[repr(transparent)]),
+        ];
+
+        assert!(parse_repr(&attrs).is_err());
+    }
+
+    #[test]
+    fn accepts_matching_duplicate_repr_parts() {
+        let attrs = [
+            syn::parse_quote!(#[repr(C, align(16))]),
+            syn::parse_quote!(#[repr(C, align(16))]),
+        ];
+
+        assert!(parse_repr(&attrs).is_ok());
+    }
+
+    #[test]
+    fn keeps_the_largest_alignment() {
+        let attrs = [
+            syn::parse_quote!(#[repr(align(8))]),
+            syn::parse_quote!(#[repr(align(16))]),
+            syn::parse_quote!(#[repr(align(4))]),
+        ];
+
+        assert_eq!(parse_repr(&attrs).unwrap().align, Some(16));
+    }
 }
