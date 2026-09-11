@@ -6,7 +6,7 @@ use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
 
 mod repr;
 
-#[proc_macro_derive(RustSpec)]
+#[proc_macro_derive(RustSpec, attributes(rust_spec))]
 pub fn rust_spec(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     expand(&input)
@@ -343,13 +343,16 @@ fn field_needs_bounds(field: &syn::Type, generics: &syn::Generics) -> bool {
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let custom_niche = parse_custom_niche_attr(&input.attrs)?;
     let repr = parse_repr(&input.attrs)?;
     let alignment = repr.align;
     let repr = repr.kind.as_ref();
     let name = &input.ident;
     let generics = &input.generics;
     let rust_spec_impl = match &input.data {
-        syn::Data::Struct(data) => gen_struct_impl(repr, alignment, name, generics, &data.fields),
+        syn::Data::Struct(data) => {
+            gen_struct_impl(repr, alignment, name, generics, &data.fields, custom_niche)
+        }
         syn::Data::Enum(data) if is_fieldless_enum(data) => {
             gen_fieldless_enum_impl(repr, alignment, name, generics, &data.variants)
         }
@@ -361,7 +364,14 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 return Ok(quote! {});
             };
 
-            gen_struct_impl(repr, alignment, name, generics, &variant.fields)
+            gen_struct_impl(
+                repr,
+                alignment,
+                name,
+                generics,
+                &variant.fields,
+                custom_niche,
+            )
         }
         syn::Data::Enum(data) => gen_enum_impl(repr, alignment, name, generics, &data.variants),
         syn::Data::Union(data) if matches!(repr, Some(ReprKind::Transparent)) => {
@@ -378,12 +388,36 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 name,
                 generics,
                 &fields,
+                custom_niche,
             )
         }
         syn::Data::Union(data) => gen_union_impl(repr, alignment, name, generics, &data.fields),
     };
 
     Ok(quote! { #rust_spec_impl })
+}
+
+fn parse_custom_niche_attr(attrs: &[syn::Attribute]) -> syn::Result<bool> {
+    let mut has_niche = false;
+
+    for attr in attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("rust_spec"))
+    {
+        attr.parse_nested_meta(|meta| {
+            if !meta.path.is_ident("with_custom_niche") {
+                return Err(meta.error("unknown rust_spec attribute"));
+            }
+
+            if has_niche {
+                return Err(meta.error("duplicate `with_custom_niche` within attribute"));
+            }
+            has_niche = true;
+            Ok(())
+        })?;
+    }
+
+    Ok(has_niche)
 }
 
 fn is_fieldless_enum(data: &syn::DataEnum) -> bool {
@@ -409,10 +443,11 @@ fn gen_struct_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &syn::Fields,
+    custom_niche: bool,
 ) -> proc_macro2::TokenStream {
     let fields = field_types(fields);
 
-    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields)
+    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, custom_niche)
 }
 
 fn gen_struct_fields_impl(
@@ -421,6 +456,7 @@ fn gen_struct_fields_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
+    custom_niche: bool,
 ) -> proc_macro2::TokenStream {
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, fields)
@@ -430,7 +466,10 @@ fn gen_struct_fields_impl(
     let size = gen_size_family(generics, fields);
     let alignment = apply_repr_alignment(gen_alignment_family(generics, fields, None), alignment);
     let trap = gen_trap_family(generics, fields, false);
-    let niche = if let Some(ReprKind::Transparent) = repr {
+    let niche = if custom_niche {
+        let crate_ = crate_path();
+        AggregateFamily::fixed(quote! { #crate_::niche::WithNiche<#crate_::Unstable> })
+    } else if let Some(ReprKind::Transparent) = repr {
         gen_transparent_niche_family(generics, fields)
     } else {
         gen_niche_family(generics, fields)

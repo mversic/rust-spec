@@ -1,4 +1,4 @@
-use core::{cell::UnsafeCell, num::NonZero as StdNonZero, num::NonZeroU8};
+use core::{cell::UnsafeCell, num::NonZero as StdNonZero, num::NonZeroU8, ops::Add};
 use std::ffi::c_void;
 
 use rust_spec::{
@@ -158,6 +158,29 @@ pub struct Packet {
 
 #[derive(RustSpec)]
 pub struct TuplePacket(pub NonZeroU8, pub [u8]);
+
+#[derive(RustSpec)]
+#[repr(transparent)]
+pub struct TransparentSlice<T>([T]);
+
+fn assert_rust_spec<T: RustSpec + ?Sized>() {}
+
+fn a_slice_of_any_rust_spec_type_is_rust_spec<T: RustSpec>() {
+    assert_rust_spec::<[T]>();
+}
+
+fn a_transparent_slice_wrapper_of_any_rust_spec_type_is_rust_spec<T: RustSpec>()
+where
+    WithoutNiche: Add<T::Niche>,
+{
+    assert_rust_spec::<TransparentSlice<T>>();
+}
+
+#[test]
+fn generic_slice_classification() {
+    a_slice_of_any_rust_spec_type_is_rust_spec::<u8>();
+    a_transparent_slice_wrapper_of_any_rust_spec_type_is_rust_spec::<u8>();
+}
 
 #[test]
 fn struct_classification() {
