@@ -42,6 +42,13 @@ pub enum PrimitiveUsizeEnum {
 }
 
 #[derive(RustSpec)]
+#[repr(isize)]
+pub enum PrimitiveIsizeEnum {
+    A,
+    B,
+}
+
+#[derive(RustSpec)]
 #[repr(usize)]
 pub enum PrimitiveUsizeDataEnum {
     A(u8),

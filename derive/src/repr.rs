@@ -63,6 +63,10 @@ impl Parse for ReprToken {
                     ReprToken::Kind(ReprKind::Primitive(syn::parse_quote!(usize))),
                     after_token,
                 )),
+                "isize" => Ok((
+                    ReprToken::Kind(ReprKind::Primitive(syn::parse_quote!(isize))),
+                    after_token,
+                )),
                 "packed" => Err(cursor.error(
                     "`repr(packed)` is not supported yet; remove `packed` from the repr attribute",
                 )),
