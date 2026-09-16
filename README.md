@@ -1,7 +1,7 @@
 # Rust Specification
 
 [<img alt="crates.io" src="https://img.shields.io/crates/v/rust-spec.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/rust-spec)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-rust-spec-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/rust-spec)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-rust--spec-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/rust-spec)
 [<img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mversic/rust-spec/main.yaml?style=for-the-badge&label=CI" height="20">](https://github.com/mversic/rust-spec/actions/workflows/main.yaml)
 
 Compile-time classification of types according to Rust specification.
