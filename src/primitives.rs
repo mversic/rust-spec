@@ -58,38 +58,74 @@ macro_rules! impl_nonempty_array {
 
 macro_rules! impl_fn_types {
     ( $( ( $( $arg:ident ),* ) ),* $(,)? ) => {
-        // FIXME:
-        //unsafe impl<$($arg,)* R> RustSpec for fn($($arg),*) -> R {
-        //    type Layout = Stable<NonRobust>;
-        //    type Size = size::Sized<crate::Gt<Zero>>;
-        //    type Niche = WithNiche<Stable>;
-        //    type Mutability = Exclusive;
-        //    type __IndirectLayout = Stable<Robust>;
-        //}
-
-        //unsafe impl<$($arg,)* R> RustSpec for unsafe fn($($arg),*) -> R {
-        //    type Layout = Stable<NonRobust>;
-        //    type Size = size::Sized<crate::Gt<Zero>>;
-        //    type Niche = WithNiche<Stable>;
-        //    type Mutability = Exclusive;
-        //    type __IndirectLayout = Stable<Robust>;
-        //}
-
-        //unsafe impl<$($arg,)* R> RustSpec for extern "C" fn($($arg),*) -> R {
-        //    type Layout = Stable<NonRobust>;
-        //    type Size = size::Sized<crate::Gt<Zero>>;
-        //    type Niche = WithNiche<Stable>;
-        //    type Mutability = Exclusive;
-        //    type __IndirectLayout = Stable<Robust>;
-        //}
-
-        //unsafe impl<$($arg,)* R> RustSpec for unsafe extern "C" fn($($arg),*) -> R {
-        //    type Layout = Stable<NonRobust>;
-        //    type Size = size::Sized<crate::Gt<Zero>>;
-        //    type Niche = WithNiche<Stable>;
-        //    type Mutability = Exclusive;
-        //    type __IndirectLayout = Stable<Robust>;
-        //}
+        $(
+            impl_fn_types!(@rust fn($($arg),*) -> R; $($arg),*);
+            impl_fn_types!(@rust unsafe fn($($arg),*) -> R; $($arg),*);
+            impl_fn_types!(@abi "C"; $($arg),*);
+            impl_fn_types!(@abi "C-unwind"; $($arg),*);
+            impl_fn_types!(@abi "system"; $($arg),*);
+            impl_fn_types!(@abi "system-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "cdecl"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "cdecl-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "stdcall"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "stdcall-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "fastcall"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "fastcall-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "thiscall"; $($arg),*);
+            #[cfg(target_arch = "x86")]
+            impl_fn_types!(@abi "thiscall-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86_64")]
+            impl_fn_types!(@abi "sysv64"; $($arg),*);
+            #[cfg(target_arch = "x86_64")]
+            impl_fn_types!(@abi "sysv64-unwind"; $($arg),*);
+            #[cfg(target_arch = "x86_64")]
+            impl_fn_types!(@abi "win64"; $($arg),*);
+            #[cfg(target_arch = "x86_64")]
+            impl_fn_types!(@abi "win64-unwind"; $($arg),*);
+            #[cfg(target_arch = "arm")]
+            impl_fn_types!(@abi "aapcs"; $($arg),*);
+            #[cfg(target_arch = "arm")]
+            impl_fn_types!(@abi "aapcs-unwind"; $($arg),*);
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm", target_arch = "aarch64"))]
+            impl_fn_types!(@abi "efiapi"; $($arg),*);
+        )*
+    };
+    (@abi $abi:literal; $($arg:ident),*) => {
+        impl_fn_types!(@c extern $abi fn($($arg),*) -> R; [] [<R as RustSpec>::Layout]; $($arg),*);
+        impl_fn_types!(@c unsafe extern $abi fn($($arg),*) -> R; [] [<R as RustSpec>::Layout]; $($arg),*);
+        const _: () = {
+            assert!(core::mem::align_of::<extern $abi fn()>() > 1);
+            assert!(core::mem::align_of::<unsafe extern $abi fn()>() > 1);
+        };
+    };
+    (@rust $fn_type:ty; $($arg:ident),*) => {
+        impl_fn_types!(@impl $fn_type; [$($arg,)* R] [Unstable]);
+    };
+    (@c $fn_type:ty; [$($params:tt)*] [$layout:ty]; $next:ident $(, $rest:ident)*) => {
+        impl_fn_types!(@c $fn_type;
+            [$($params)* $next: RustSpec<Layout: Add<$layout>>,]
+            [<<$next as RustSpec>::Layout as Add<$layout>>::Output]; $($rest),*);
+    };
+    (@c $fn_type:ty; [$($params:tt)*] [$layout:ty];) => {
+        impl_fn_types!(@impl $fn_type; [$($params)* R: RustSpec] [$layout]);
+    };
+    (@impl $fn_type:ty; [$($params:tt)*] [$layout:ty]) => {
+        unsafe impl<$($params)*> RustSpec for $fn_type {
+            type Layout = $layout;
+            type Size = size::Sized<crate::Gt<Zero>>;
+            type Alignment = <usize as RustSpec>::Alignment;
+            type Trap = NonRobust;
+            type Niche = WithNiche<Stable>;
+            type Mutability = Exclusive;
+            type __IndirectTrap = Robust;
+        }
     };
 }
 
@@ -175,6 +211,13 @@ impl_fn_types! {
     (A, B, C, D, E, F, G, H, I, J, K, L),
 }
 
+// The alignment marker is Gt<One> on the supported targets. Check only that
+// category; function and data pointers need not have identical alignment.
+const _: () = {
+    assert!(core::mem::align_of::<fn()>() > 1);
+    assert!(core::mem::align_of::<unsafe fn()>() > 1);
+};
+
 fieldless_enum_derive! { char => crate::Gt<crate::One> }
 fieldless_enum_derive! { bool => crate::One }
 fieldless_enum_derive! { Ordering => crate::One }
@@ -191,6 +234,49 @@ mod tests {
         layout::{NonRobust, Robust},
         niche::WithNiche,
     };
+
+    #[test]
+    fn function_pointer_classification() {
+        type RustFn = fn();
+        type CFn12 = extern "C" fn(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+
+        assert_impl_all!(RustFn: RustSpec<Layout = Unstable, Niche = WithNiche<Stable>>);
+        assert_impl_all!(unsafe fn(u8) -> u16: RustSpec<Layout = Unstable>);
+        assert_impl_all!(extern "Rust" fn(u8) -> u16: RustSpec<Layout = Unstable>);
+        assert_impl_all!(extern "C" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(unsafe extern "C" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "C-unwind" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "system" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "system-unwind" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        #[cfg(target_arch = "x86_64")]
+        assert_impl_all!(extern "sysv64" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        #[cfg(target_arch = "x86_64")]
+        assert_impl_all!(extern "win64" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "C" fn((u8,)) -> u16: RustSpec<Layout = Unstable>);
+        assert_impl_all!(extern "C" fn(u8) -> (u16,): RustSpec<Layout = Unstable>);
+        assert_impl_all!(CFn12: RustSpec<Layout = Stable>);
+    }
+
+    #[test]
+    fn function_pointer_option_has_pointer_size() {
+        macro_rules! assert_option_pointer_size {
+            ($pointer:ty) => {
+                assert_eq!(
+                    core::mem::size_of::<Option<$pointer>>(),
+                    core::mem::size_of::<$pointer>()
+                );
+            };
+        }
+
+        fn named() {}
+        let _: fn() = named;
+
+        assert_option_pointer_size!(fn());
+        assert_option_pointer_size!(unsafe fn(u8) -> u16);
+        assert_option_pointer_size!(extern "C" fn(u8) -> u16);
+        assert_option_pointer_size!(unsafe extern "C-unwind" fn(u8) -> u16);
+        assert_option_pointer_size!(extern "system" fn());
+    }
 
     #[test]
     fn robust_u8() {
