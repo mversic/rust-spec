@@ -13,7 +13,7 @@ repository = "https://github.com/mversic/rust-spec"
 proc-macro = true
 
 [dependencies]
-syn = { version = "3.0.2", features = ["visit", "extra-traits"] }
+syn = { version = "3.0.6", features = ["visit", "extra-traits"] }
 proc-macro-crate = "3.5.0"
 proc-macro2 = "1.0.107"
 quote = "1.0.47"

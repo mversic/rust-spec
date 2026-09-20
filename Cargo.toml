@@ -2,7 +2,7 @@
 members = ["derive"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Marin Veršić <marin.versic101@gmail.com>"]
@@ -31,7 +31,7 @@ derive = ["rust-spec-derive"]
 default = ["alloc", "derive"]
 
 [dependencies]
-rust-spec-derive = { version = "0.1.0", path = "derive", optional = true }
+rust-spec-derive = { version = "0.2.0", path = "derive", optional = true }
 
 disjoint_impls = "1.3.9"
 sealed = "0.7.0"

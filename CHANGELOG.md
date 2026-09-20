@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## 0.1.0 - 16.09.2026
+## [0.2.0] - 2026-09-20
+
+- categorize `CString` as `Sized`
+
+### Fixed
+
+## [0.1.0] - 2026-09-16
 
 ### Added
 

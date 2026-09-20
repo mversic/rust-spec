@@ -36,7 +36,7 @@ unsafe impl RustSpec for CStr {
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for CString {
     type Layout = Unstable;
-    type Size = MetaSized<SliceLike>;
+    type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
