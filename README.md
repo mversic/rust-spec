@@ -84,3 +84,5 @@ disjoint_impls! {
 
 const HEADER_OPTION_NEEDS_TAG: bool = Header::NEEDS_TAG;
 ```
+
+Check out [CO3](https://github.com/mversic/co3) to see how this crate allows for building higher zero-cost abstractions.
