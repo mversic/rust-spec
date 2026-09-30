@@ -1,12 +1,12 @@
 use core::{cell::UnsafeCell, num::NonZero as StdNonZero, num::NonZeroU8, ops::Add};
-use std::ffi::c_void;
+use std::ffi::{CStr, c_void};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
-    size::{self, Gt, MetaSized, Sized as SpecSized, SliceLike, Zero},
+    size::{self, Gt, MetaSized, NulTerminated, Sized as SpecSized, SliceLike, Zero},
 };
 use static_assertions::assert_impl_all;
 
@@ -39,6 +39,17 @@ impl<T: CTypeProjection> CTypeProjection for UnsafeCell<T> {
 pub struct ParamReprCZst<T: ?Sized> {
     pub a: (),
     pub b: T,
+}
+
+#[derive(RustSpec)]
+pub struct NulTerminatedTail {
+    pub prefix: u32,
+    pub tail: CStr,
+}
+
+#[test]
+fn nul_terminated_tail_classification() {
+    assert_impl_all!(NulTerminatedTail: RustSpec<Size = NulTerminated>);
 }
 
 #[derive(RustSpec)]

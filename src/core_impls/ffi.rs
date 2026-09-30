@@ -10,7 +10,7 @@ use crate::{
     layout::{NonRobust, Robust},
     mutability::Exclusive,
     niche::WithoutNiche,
-    size::{self, MetaSized, SliceLike},
+    size::{self, NulTerminated},
 };
 
 unsafe impl RustSpec for c_void {
@@ -25,7 +25,7 @@ unsafe impl RustSpec for c_void {
 
 unsafe impl RustSpec for CStr {
     type Layout = Unstable;
-    type Size = MetaSized<SliceLike>;
+    type Size = NulTerminated;
     type Alignment = crate::One;
     type Trap = NonRobust;
     type Niche = WithoutNiche;

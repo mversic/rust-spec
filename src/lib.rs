@@ -23,6 +23,7 @@
 //! - [`size::MetaSized<size::SliceLike>`]: dynamically sized slice-like type.
 //! - [`size::MetaSized<size::DynTraitLike>`]: dynamically sized trait-object-like type.
 //! - [`size::ExternTypeLike`]: dynamically sized extern-type-like type.
+//! - [`size::NulTerminated`]: unsized nul-terminated data.
 //!
 //! ## Alignment
 //!
@@ -210,6 +211,18 @@ disjoint_impls! {
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
+    unsafe impl<R: ?Sized> RustSpec for &R
+    where
+        R: RustSpec<Size = size::NulTerminated>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = layout::NonRobust;
+        type Niche = WithNiche<Unstable>;
+        type Mutability = R::Mutability;
+        type __IndirectTrap = R::Trap;
+    }
 
     unsafe impl<R: ?Sized> RustSpec for &mut R
     where
@@ -226,6 +239,18 @@ disjoint_impls! {
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &mut R
     where
         R: RustSpec<Size = size::MetaSized<U>>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = layout::NonRobust;
+        type Niche = WithNiche<Unstable>;
+        type Mutability = R::Mutability;
+        type __IndirectTrap = R::Trap;
+    }
+    unsafe impl<R: ?Sized> RustSpec for &mut R
+    where
+        R: RustSpec<Size = size::NulTerminated>,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
@@ -253,6 +278,19 @@ disjoint_impls! {
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = layout::NonRobust;
+        type Niche = WithNiche<Unstable>;
+        type Mutability = mutability::Exclusive;
+        type __IndirectTrap = R::Trap;
+    }
+    #[cfg(feature = "alloc")]
+    unsafe impl<R: ?Sized> RustSpec for Box<R>
+    where
+        R: RustSpec<Size = size::NulTerminated>,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;

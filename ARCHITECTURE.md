@@ -102,6 +102,9 @@ The categories are:
 5. **`MetaSized<DynTraitLike>`**
 - DST layout whose last element is a trait object.
 
+6. **`NulTerminated`**
+- Unsized data whose length is found from a nul terminator (e.g. `CStr`).
+
 ## 4. Alignment Axis
 
 Alignment is exposed through `RustSpec::Alignment`. Leaf types declare their

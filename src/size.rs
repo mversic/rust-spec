@@ -33,6 +33,9 @@ pub enum DynTraitLike {}
 /// Pointers to extern types are thin.
 pub enum ExternTypeLike {}
 
+/// Unsized data whose length can be found from a nul terminator.
+pub enum NulTerminated {}
+
 #[sealed::sealed]
 impl SizedKind for Zero {}
 
@@ -54,6 +57,7 @@ impl Thin for ExternTypeLike {}
 
 pub(crate) trait Dst {}
 impl Dst for ExternTypeLike {}
+impl Dst for NulTerminated {}
 impl<K: MetadataKind> Dst for MetaSized<K> {}
 
 impl<K: SizedKind> Add<Sized<K>> for Sized<Zero> {
@@ -89,6 +93,14 @@ impl<K: MetadataKind, U: SizedKind> Add<Sized<U>> for MetaSized<K> {
 }
 
 impl<U: SizedKind> Add<Sized<U>> for ExternTypeLike {
+    type Output = Self;
+
+    fn add(self, _: Sized<U>) -> Self::Output {
+        unreachable!()
+    }
+}
+
+impl<U: SizedKind> Add<Sized<U>> for NulTerminated {
     type Output = Self;
 
     fn add(self, _: Sized<U>) -> Self::Output {
