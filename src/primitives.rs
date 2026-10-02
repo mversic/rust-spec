@@ -176,7 +176,7 @@ unsafe impl<R: RustSpec> RustSpec for [R] {
     // TODO: This should not be set at all
     // however we set it to help some impls
     type Niche = WithoutNiche;
-    type Mutability = Exclusive;
+    type Mutability = R::Mutability;
     type __IndirectTrap = R::__IndirectTrap;
 }
 

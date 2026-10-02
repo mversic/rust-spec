@@ -374,7 +374,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Interior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -385,7 +385,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Interior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -491,7 +491,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Interior,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -502,7 +502,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Interior,
                 __IndirectTrap = NonRobust,
             >,
         );
