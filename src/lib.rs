@@ -215,7 +215,7 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::NulTerminated>,
     {
-        type Layout = Unstable;
+        type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
@@ -252,7 +252,7 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::NulTerminated>,
     {
-        type Layout = Unstable;
+        type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
@@ -292,7 +292,7 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::NulTerminated>,
     {
-        type Layout = Unstable;
+        type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;

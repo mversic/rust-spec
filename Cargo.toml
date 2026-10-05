@@ -33,7 +33,7 @@ default = ["alloc", "derive"]
 [dependencies]
 rust-spec-derive = { version = "0.4.1", path = "derive", optional = true }
 
-disjoint_impls = "1.4.1"
+disjoint_impls = "1.4.2"
 sealed = "0.7.0"
 
 [dev-dependencies]
