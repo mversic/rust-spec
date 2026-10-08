@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use rust_spec::{RustSpec, drop::{CustomDrop, InnerDrop}};
+use rust_spec::{RustSpec, drop::{Custom, Inner, WithDrop}};
 use static_assertions::assert_impl_all;
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 struct Generic<T: RustSpec>(T);
 
 impl<T: RustSpec> Drop for Generic<T> {
@@ -12,7 +12,7 @@ impl<T: RustSpec> Drop for Generic<T> {
 }
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 #[repr(transparent)]
 struct Transparent(u8);
 
@@ -21,7 +21,7 @@ impl Drop for Transparent {
 }
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 #[repr(C)]
 enum DataEnum {
     Value(u8),
@@ -32,7 +32,7 @@ impl Drop for DataEnum {
 }
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 #[repr(u8)]
 enum FieldlessEnum {
     Value,
@@ -43,7 +43,7 @@ impl Drop for FieldlessEnum {
 }
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 union ValueUnion {
     value: u8,
 }
@@ -53,10 +53,10 @@ impl Drop for ValueUnion {
 }
 
 fn main() {
-    assert_impl_all!(Generic<u8>: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(Generic<Transparent>: RustSpec<Drop = InnerDrop>);
-    assert_impl_all!(Transparent: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(DataEnum: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(FieldlessEnum: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(ValueUnion: RustSpec<Drop = CustomDrop>);
+    assert_impl_all!(Generic<u8>: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(Generic<Transparent>: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(Transparent: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(DataEnum: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(FieldlessEnum: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(ValueUnion: RustSpec<Drop = WithDrop<Custom>>);
 }

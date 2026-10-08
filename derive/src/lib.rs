@@ -8,8 +8,8 @@ mod repr;
 
 /// Derives `RustSpec` for a struct, enum, or union.
 ///
-/// Add `#[rust_spec(with_custom_drop)]` if the type itself implements [`Drop`].
-/// Add `#[rust_spec(with_custom_niche)]` if the type has a custom niche.
+/// Add `#[rust_spec(custom_drop)]` if the type itself implements [`Drop`].
+/// Add `#[rust_spec(custom_niche)]` if a struct has a custom niche.
 #[proc_macro_derive(RustSpec, attributes(rust_spec))]
 pub fn rust_spec(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
@@ -358,7 +358,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     if attrs.custom_niche && !matches!(&input.data, syn::Data::Struct(_)) {
         return Err(syn::Error::new_spanned(
             name,
-            "`with_custom_niche` is only supported on structs",
+            "`custom_niche` is only supported on structs",
         ));
     }
     let rust_spec_impl = match &input.data {
@@ -431,11 +431,11 @@ fn gen_drop_assert(
                 trait AssertNoDrop { fn check(); }
                 impl #impl_generics AssertNoDrop for #name #ty_generics #where_clause {
                     fn check() {
-                        trait CustomDropIsNotSupported<A> { fn check() {} }
-                        impl<T: ?Sized> CustomDropIsNotSupported<()> for T {}
+                        trait DropImplIsNotSupported<A> { fn check() {} }
+                        impl<T: ?Sized> DropImplIsNotSupported<()> for T {}
                         struct DropDetected;
-                        impl<T: ?Sized + core::ops::Drop> CustomDropIsNotSupported<DropDetected> for T {}
-                        let _ = <#name #ty_generics as CustomDropIsNotSupported<_>>::check;
+                        impl<T: ?Sized + core::ops::Drop> DropImplIsNotSupported<DropDetected> for T {}
+                        let _ = <#name #ty_generics as DropImplIsNotSupported<_>>::check;
                     }
                 }
             };
@@ -457,16 +457,16 @@ fn parse_rust_spec_attrs(attrs: &[syn::Attribute]) -> syn::Result<RustSpecAttrs>
         .filter(|attr| attr.path().is_ident("rust_spec"))
     {
         attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("with_custom_niche") {
+            if meta.path.is_ident("custom_niche") {
                 if result.custom_niche {
-                    return Err(meta.error("duplicate `with_custom_niche` within attribute"));
+                    return Err(meta.error("duplicate `custom_niche` within attribute"));
                 }
                 result.custom_niche = true;
                 return Ok(());
             }
-            if meta.path.is_ident("with_custom_drop") {
+            if meta.path.is_ident("custom_drop") {
                 if result.custom_drop {
-                    return Err(meta.error("duplicate `with_custom_drop` within attribute"));
+                    return Err(meta.error("duplicate `custom_drop` within attribute"));
                 }
                 result.custom_drop = true;
                 return Ok(());
@@ -865,7 +865,7 @@ fn gen_drop_family(
 ) -> AggregateFamily {
     let crate_ = crate_path();
     let seed = if custom_drop {
-        quote! { #crate_::drop::CustomDrop }
+        quote! { #crate_::drop::WithDrop<#crate_::drop::Custom> }
     } else {
         quote! { #crate_::drop::NoDrop }
     };

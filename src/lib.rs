@@ -1,4 +1,4 @@
-//! Compile-time classification of Rust types according to Rust-specified type properties.
+//! **Compile-time classification of types** according to the Rust specification.
 //!
 //! # Classification Axes
 //!
@@ -8,7 +8,7 @@
 //! - `Alignment`: whether ABI alignment is one or greater than one.
 //! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
-//! - [`drop`]: whether the type declares `Drop` or has inner drop glue.
+//! - [`drop`](mod@drop): whether no code runs on drop, custom code or inner field's.
 //!
 //! ## Layout
 //!
@@ -28,7 +28,8 @@
 //!
 //! ## Alignment
 //!
-//! Whether ABI alignment is exactly one or greater than one.
+//! - [`One`] means ABI alignment is exactly one;
+//! - [`Gt<One>`] means it is greater than one.
 //!
 //! ## Trap
 //!
@@ -43,16 +44,16 @@
 //! - [`niche::WithNiche<Stable>`]: compiler-guaranteed niche.
 //! - [`niche::WithNiche<Unstable>`]: niche exists but is not guaranteed.
 //!
-//! Use `#[rust_spec(with_custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`
+//! **Use `#[rust_spec(custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
 //!
 //! ## Drop
 //!
 //! Describes the type's behavior when dropped:
 //! - [`drop::NoDrop`]: dropping the type runs no drop glue.
-//! - [`drop::InnerDrop`]: a field or other owned content has drop behavior.
-//! - [`drop::CustomDrop`]: the type implements [`Drop`] without inner drop requirements.
+//! - [`drop::WithDrop<drop::Inner>`]: a field or other owned content has drop behavior.
+//! - [`drop::WithDrop<drop::Custom>`]: the type implements [`Drop`] without inner drop requirements.
 //!
-//! Use `#[rust_spec(with_custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`.
+//! **Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
 //!
 //! ## How to Use
 //!
@@ -62,10 +63,7 @@
 //! # #[cfg(feature = "derive")]
 //! # {
 //! use disjoint_impls::disjoint_impls;
-//! use rust_spec::{
-//!     RustSpec, Stable, Unstable,
-//!     niche::{WithNiche, WithoutNiche}
-//! };
+//! use rust_spec::{RustSpec, Stable, Unstable, niche::{WithNiche, WithoutNiche}};
 //!
 //! #[derive(RustSpec)]
 //! struct Header {
@@ -94,6 +92,8 @@
 //! const HEADER_OPTION_NEEDS_TAG: bool = Header::NEEDS_TAG;
 //! # }
 //! ```
+//!
+//! Check out [CO3](https://github.com/mversic/co3) to see how this crate allows for building higher zero-cost abstractions.
 #![no_std]
 
 #[cfg(feature = "alloc")]
@@ -291,7 +291,7 @@ disjoint_impls! {
     unsafe impl<R, S: SizedKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::Sized<S>>,
-        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
@@ -299,7 +299,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
-        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
+        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -307,7 +307,7 @@ disjoint_impls! {
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
-        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
@@ -315,7 +315,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
+        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
@@ -323,7 +323,7 @@ disjoint_impls! {
     unsafe impl<R: ?Sized> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::NulTerminated>,
-        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
@@ -331,7 +331,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
+        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }

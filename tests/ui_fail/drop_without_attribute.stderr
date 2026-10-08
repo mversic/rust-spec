@@ -4,7 +4,7 @@ error[E0283]: type annotations needed
 6 | struct RustStruct(u8);
   |        ^^^^^^^^^^ cannot infer type
   |
-note: multiple `impl`s satisfying `RustStruct: <RustStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `RustStruct: <RustStruct as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
  --> tests/ui_fail/drop_without_attribute.rs:5:10
   |
 5 | #[derive(RustSpec)]
@@ -17,7 +17,7 @@ error[E0283]: type annotations needed
 14 | struct ReprCStruct(u8);
    |        ^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `ReprCStruct: <ReprCStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `ReprCStruct: <ReprCStruct as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:12:10
    |
 12 | #[derive(RustSpec)]
@@ -30,7 +30,7 @@ error[E0283]: type annotations needed
 22 | struct TransparentStruct(u8);
    |        ^^^^^^^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `TransparentStruct: <TransparentStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `TransparentStruct: <TransparentStruct as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:20:10
    |
 20 | #[derive(RustSpec)]
@@ -43,7 +43,7 @@ error[E0283]: type annotations needed
 29 | struct Generic<T>(core::marker::PhantomData<T>);
    |        ^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `Generic<T>: <Generic<T> as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `Generic<T>: <Generic<T> as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:28:10
    |
 28 | #[derive(RustSpec)]
@@ -56,7 +56,7 @@ error[E0283]: type annotations needed
 37 | enum TransparentEnum {
    |      ^^^^^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `TransparentEnum: <TransparentEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `TransparentEnum: <TransparentEnum as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:35:10
    |
 35 | #[derive(RustSpec)]
@@ -69,7 +69,7 @@ error[E0283]: type annotations needed
 46 | enum RustDataEnum {
    |      ^^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `RustDataEnum: <RustDataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `RustDataEnum: <RustDataEnum as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:45:10
    |
 45 | #[derive(RustSpec)]
@@ -82,7 +82,7 @@ error[E0283]: type annotations needed
 57 | enum PrimitiveDataEnum {
    |      ^^^^^^^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `PrimitiveDataEnum: <PrimitiveDataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `PrimitiveDataEnum: <PrimitiveDataEnum as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:55:10
    |
 55 | #[derive(RustSpec)]
@@ -95,7 +95,7 @@ error[E0283]: type annotations needed
 68 | enum FieldlessEnum {
    |      ^^^^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `FieldlessEnum: <FieldlessEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `FieldlessEnum: <FieldlessEnum as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:66:10
    |
 66 | #[derive(RustSpec)]
@@ -108,7 +108,7 @@ error[E0283]: type annotations needed
 79 | enum DataEnum {
    |      ^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `DataEnum: <DataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `DataEnum: <DataEnum as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:77:10
    |
 77 | #[derive(RustSpec)]
@@ -121,7 +121,7 @@ error[E0283]: type annotations needed
 89 | union ValueUnion {
    |       ^^^^^^^^^^ cannot infer type
    |
-note: multiple `impl`s satisfying `ValueUnion: <ValueUnion as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+note: multiple `impl`s satisfying `ValueUnion: <ValueUnion as _::AssertNoDrop>::check::DropImplIsNotSupported<_>` found
   --> tests/ui_fail/drop_without_attribute.rs:88:10
    |
 88 | #[derive(RustSpec)]

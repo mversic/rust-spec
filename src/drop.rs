@@ -1,30 +1,27 @@
-//! Drop classification markers:
+//! Drop behavior classification.
 //!
-//! - [`NoDrop`]: dropping the type runs no drop glue.
-//! - [`CustomDrop`]: the type implements [`core::ops::Drop`] without inner drop requirements.
-//! - [`InnerDrop`]: a field or other owned content has drop behavior; the outer type may also implement `Drop`.
-
-use core::ops::Add;
+//! Drop behavior specifies whether drop glue runs when the type is dropped and what kind, if any.
+use core::{convert::Infallible, ops::Add};
 
 /// Dropping this type does not run drop glue.
 pub enum NoDrop {}
 
-/// Dropping this type runs drop glue for a field or owned content at any depth.
-pub enum InnerDrop {}
+/// The type owns a field or content that needs drop glue.
+pub enum Inner {}
 
-/// This type declares `core::ops::Drop` and has no inner drop requirements.
-pub enum CustomDrop {}
+/// This type declares [`Drop`] and has no inner drop requirements.
+pub enum Custom {}
 
-/// Closed family of drop classifications.
-#[sealed::sealed]
-pub trait DropKind: Sized {}
+/// A type whose drop glue is required, classified by its source.
+pub struct WithDrop<K: DropKind>(core::marker::PhantomData<K>, Infallible);
 
 #[sealed::sealed]
-impl DropKind for NoDrop {}
+pub trait DropKind {}
+
 #[sealed::sealed]
-impl DropKind for InnerDrop {}
+impl DropKind for Inner {}
 #[sealed::sealed]
-impl DropKind for CustomDrop {}
+impl DropKind for Custom {}
 
 impl Add<Self> for NoDrop {
     type Output = Self;
@@ -34,15 +31,23 @@ impl Add<Self> for NoDrop {
     }
 }
 
-impl Add<InnerDrop> for NoDrop {
-    type Output = InnerDrop;
+impl Add<WithDrop<Custom>> for NoDrop {
+    type Output = WithDrop<Inner>;
 
-    fn add(self, _: InnerDrop) -> Self::Output {
+    fn add(self, _: WithDrop<Custom>) -> Self::Output {
         unreachable!()
     }
 }
 
-impl<Rhs: DropKind> Add<Rhs> for InnerDrop {
+impl Add<WithDrop<Inner>> for NoDrop {
+    type Output = WithDrop<Inner>;
+
+    fn add(self, _: WithDrop<Inner>) -> Self::Output {
+        unreachable!()
+    }
+}
+
+impl<Rhs> Add<Rhs> for WithDrop<Inner> {
     type Output = Self;
 
     fn add(self, _: Rhs) -> Self::Output {
@@ -50,15 +55,7 @@ impl<Rhs: DropKind> Add<Rhs> for InnerDrop {
     }
 }
 
-impl Add<CustomDrop> for NoDrop {
-    type Output = InnerDrop;
-
-    fn add(self, _: CustomDrop) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl Add<NoDrop> for CustomDrop {
+impl Add<NoDrop> for WithDrop<Custom> {
     type Output = Self;
 
     fn add(self, _: NoDrop) -> Self::Output {
@@ -66,18 +63,18 @@ impl Add<NoDrop> for CustomDrop {
     }
 }
 
-impl Add<InnerDrop> for CustomDrop {
-    type Output = InnerDrop;
+impl Add<Self> for WithDrop<Custom> {
+    type Output = WithDrop<Inner>;
 
-    fn add(self, _: InnerDrop) -> Self::Output {
+    fn add(self, _: Self) -> Self::Output {
         unreachable!()
     }
 }
 
-impl Add<Self> for CustomDrop {
-    type Output = InnerDrop;
+impl Add<WithDrop<Inner>> for WithDrop<Custom> {
+    type Output = WithDrop<Inner>;
 
-    fn add(self, _: Self) -> Self::Output {
+    fn add(self, _: WithDrop<Inner>) -> Self::Output {
         unreachable!()
     }
 }

@@ -3,7 +3,7 @@
 use rust_spec::RustSpec;
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_niche, with_custom_niche)]
+#[rust_spec(custom_niche, custom_niche)]
 struct Duplicate(u8);
 
 fn main() {}

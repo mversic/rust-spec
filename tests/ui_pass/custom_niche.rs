@@ -5,12 +5,12 @@ use rust_spec::{RustSpec, Unstable, niche::WithNiche};
 use static_assertions::assert_impl_all;
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_niche)]
+#[rust_spec(custom_niche)]
 struct Struct(NonZeroU8);
 
 #[derive(RustSpec)]
 #[repr(transparent)]
-#[rust_spec(with_custom_niche)]
+#[rust_spec(custom_niche)]
 struct TransparentStruct(NonZeroU8);
 
 fn main() {

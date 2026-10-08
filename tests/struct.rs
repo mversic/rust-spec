@@ -3,7 +3,7 @@ use std::ffi::{CStr, c_void};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
-    drop::{CustomDrop, InnerDrop, NoDrop},
+    drop::{Custom, Inner, NoDrop, WithDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
@@ -179,7 +179,7 @@ pub struct TransparentSlice<T>([T]);
 pub struct NoDropStruct(pub u8);
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 pub struct CustomDropStruct(pub u8);
 
 impl Drop for CustomDropStruct {
@@ -190,7 +190,7 @@ impl Drop for CustomDropStruct {
 pub struct InnerDropStruct(pub CustomDropStruct);
 
 #[derive(RustSpec)]
-#[rust_spec(with_custom_drop)]
+#[rust_spec(custom_drop)]
 pub struct CustomAndInnerDropStruct(pub CustomDropStruct);
 
 impl Drop for CustomAndInnerDropStruct {
@@ -200,13 +200,13 @@ impl Drop for CustomAndInnerDropStruct {
 #[test]
 fn struct_drop_classification() {
     assert_impl_all!(NoDropStruct: RustSpec<Drop = NoDrop>);
-    assert_impl_all!(CustomDropStruct: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(InnerDropStruct: RustSpec<Drop = InnerDrop>);
-    assert_impl_all!(CustomAndInnerDropStruct: RustSpec<Drop = InnerDrop>);
-    assert_impl_all!(Box<u8>: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = InnerDrop>);
-    assert_impl_all!(Vec<u8>: RustSpec<Drop = CustomDrop>);
-    assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = InnerDrop>);
+    assert_impl_all!(CustomDropStruct: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(InnerDropStruct: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(CustomAndInnerDropStruct: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(Box<u8>: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(Vec<u8>: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = WithDrop<Inner>>);
 }
 
 fn assert_rust_spec<T: RustSpec + ?Sized>() {}
@@ -222,8 +222,7 @@ fn a_transparent_slice_wrapper_of_any_rust_spec_type_is_rust_spec<T: RustSpec>()
 where
     WithoutNiche: Add<T::Niche>,
     rust_spec::drop::NoDrop: Add<T::Drop>,
-    rust_spec::drop::NoDrop:
-        Add<<rust_spec::drop::NoDrop as Add<T::Drop>>::Output>,
+    rust_spec::drop::NoDrop: Add<<rust_spec::drop::NoDrop as Add<T::Drop>>::Output>,
 {
     assert_rust_spec::<TransparentSlice<T>>();
 }

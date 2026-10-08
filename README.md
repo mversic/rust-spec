@@ -4,7 +4,7 @@
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-rust--spec-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/rust-spec)
 [<img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mversic/rust-spec/main.yaml?style=for-the-badge&label=CI" height="20">](https://github.com/mversic/rust-spec/actions/workflows/main.yaml)
 
-Compile-time classification of types according to Rust specification.
+**Compile-time classification of types** according to the Rust specification.
 
 ## Classification Axes
 
@@ -13,8 +13,8 @@ Compile-time classification of types according to Rust specification.
 - `Size`: statically sized, metadata-sized, or extern-type-like shape.
 - `Alignment`: whether ABI alignment is one or greater than one.
 - `Trap`: whether the value representation has trap values.
-- `Niche`: stable, unstable, or absent niche value.
-- `Drop`: whether a type has its own `Drop` implementation or drop glue for owned contents.
+- `Niche`: whether a type has a stable, unstable, or no niche value.
+- `Drop`: whether no code runs on drop, custom code or inner field's.
 
 ### Layout
 
@@ -34,7 +34,8 @@ Describes compile-time size and pointer metadata shape:
 
 ### Alignment
 
-`One` means ABI alignment is exactly one; `Gt<One>` means it is greater than one.
+- `One` means ABI alignment is exactly one;
+- `Gt<One>` means it is greater than one.
 
 ### Trap
 
@@ -49,16 +50,16 @@ Describes whether and what kind of niche is available for the type:
 - `WithNiche<Stable>`: compiler-guaranteed niche.
 - `WithNiche<Unstable>`: niche exists but is not guaranteed.
 
-Use `#[rust_spec(with_custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`
+**Use `#[rust_spec(with_custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
 
 ### Drop
 
 Describes the type's behavior when dropped:
 - `NoDrop`: dropping the type runs no drop glue.
-- `InnerDrop`: a field or other owned content has drop behavior.
-- `CustomDrop`: the type implements [`Drop`] without inner drop requirements.
+- `WithDrop<Inner>`: a field or other owned content has drop behavior.
+- `WithDrop<Custom>`: the type implements [`Drop`] without inner drop requirements.
 
-Use `#[rust_spec(with_custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`.
+**Use `#[rust_spec(with_custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
 
 
 ## How to Use
