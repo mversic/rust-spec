@@ -6,6 +6,10 @@ use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
 
 mod repr;
 
+/// Derives `RustSpec` for a struct, enum, or union.
+///
+/// Add `#[rust_spec(with_custom_drop)]` if the type itself implements [`Drop`].
+/// Add `#[rust_spec(with_custom_niche)]` if the type has a custom niche.
 #[proc_macro_derive(RustSpec, attributes(rust_spec))]
 pub fn rust_spec(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
@@ -46,6 +50,7 @@ struct TypeSpecFamilies {
     alignment: AggregateFamily,
     trap: AggregateFamily,
     niche: AggregateFamily,
+    drop: AggregateFamily,
     mutability: AggregateFamily,
     indirect_trap: AggregateFamily,
 }
@@ -294,6 +299,7 @@ fn hrtb_axes_impl(
             type Alignment<'__rust_spec> = <#field as #crate_::RustSpec>::Alignment;
             type Trap<'__rust_spec> = <#field as #crate_::RustSpec>::Trap;
             type Niche<'__rust_spec> = <#field as #crate_::RustSpec>::Niche;
+            type Drop<'__rust_spec> = <#field as #crate_::RustSpec>::Drop;
             type Mutability<'__rust_spec> = <#field as #crate_::RustSpec>::Mutability;
             type __IndirectTrap<'__rust_spec> = <#field as #crate_::RustSpec>::__IndirectTrap;
         }
@@ -343,18 +349,24 @@ fn field_needs_bounds(field: &syn::Type, generics: &syn::Generics) -> bool {
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
-    let custom_niche = parse_custom_niche_attr(&input.attrs)?;
+    let attrs = parse_rust_spec_attrs(&input.attrs)?;
     let repr = parse_repr(&input.attrs)?;
     let alignment = repr.align;
     let repr = repr.kind.as_ref();
     let name = &input.ident;
     let generics = &input.generics;
+    if attrs.custom_niche && !matches!(&input.data, syn::Data::Struct(_)) {
+        return Err(syn::Error::new_spanned(
+            name,
+            "`with_custom_niche` is only supported on structs",
+        ));
+    }
     let rust_spec_impl = match &input.data {
         syn::Data::Struct(data) => {
-            gen_struct_impl(repr, alignment, name, generics, &data.fields, custom_niche)
+            gen_struct_impl(repr, alignment, name, generics, &data.fields, attrs)
         }
         syn::Data::Enum(data) if is_fieldless_enum(data) => {
-            gen_fieldless_enum_impl(repr, alignment, name, generics, &data.variants)
+            gen_fieldless_enum_impl(repr, alignment, name, generics, &data.variants, attrs)
         }
         syn::Data::Enum(data)
             if matches!(repr, Some(ReprKind::Transparent))
@@ -364,16 +376,11 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 return Ok(quote! {});
             };
 
-            gen_struct_impl(
-                repr,
-                alignment,
-                name,
-                generics,
-                &variant.fields,
-                custom_niche,
-            )
+            gen_struct_impl(repr, alignment, name, generics, &variant.fields, attrs)
         }
-        syn::Data::Enum(data) => gen_enum_impl(repr, alignment, name, generics, &data.variants),
+        syn::Data::Enum(data) => {
+            gen_enum_impl(repr, alignment, name, generics, &data.variants, attrs)
+        }
         syn::Data::Union(data) if matches!(repr, Some(ReprKind::Transparent)) => {
             let fields = data
                 .fields
@@ -388,36 +395,87 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 name,
                 generics,
                 &fields,
-                custom_niche,
+                attrs,
             )
         }
-        syn::Data::Union(data) => gen_union_impl(repr, alignment, name, generics, &data.fields),
+        syn::Data::Union(data) => {
+            gen_union_impl(repr, alignment, name, generics, &data.fields, attrs)
+        }
     };
 
-    Ok(quote! { #rust_spec_impl })
+    let drop_assert = gen_drop_assert(name, generics, attrs.custom_drop);
+    Ok(quote! { #drop_assert #rust_spec_impl })
 }
 
-fn parse_custom_niche_attr(attrs: &[syn::Attribute]) -> syn::Result<bool> {
-    let mut has_niche = false;
+fn gen_drop_assert(
+    name: &syn::Ident,
+    generics: &syn::Generics,
+    custom_drop: bool,
+) -> proc_macro2::TokenStream {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    if custom_drop {
+        quote! {
+            const _: () = {
+                trait AssertHasDrop { fn check(); }
+                impl #impl_generics AssertHasDrop for #name #ty_generics #where_clause {
+                    fn check() {
+                        fn require_drop<T: core::ops::Drop>() {}
+                        let _ = require_drop::<#name #ty_generics>;
+                    }
+                }
+            };
+        }
+    } else {
+        quote! {
+            const _: () = {
+                trait AssertNoDrop { fn check(); }
+                impl #impl_generics AssertNoDrop for #name #ty_generics #where_clause {
+                    fn check() {
+                        trait CustomDropIsNotSupported<A> { fn check() {} }
+                        impl<T: ?Sized> CustomDropIsNotSupported<()> for T {}
+                        struct DropDetected;
+                        impl<T: ?Sized + core::ops::Drop> CustomDropIsNotSupported<DropDetected> for T {}
+                        let _ = <#name #ty_generics as CustomDropIsNotSupported<_>>::check;
+                    }
+                }
+            };
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+struct RustSpecAttrs {
+    custom_niche: bool,
+    custom_drop: bool,
+}
+
+fn parse_rust_spec_attrs(attrs: &[syn::Attribute]) -> syn::Result<RustSpecAttrs> {
+    let mut result = RustSpecAttrs::default();
 
     for attr in attrs
         .iter()
         .filter(|attr| attr.path().is_ident("rust_spec"))
     {
         attr.parse_nested_meta(|meta| {
-            if !meta.path.is_ident("with_custom_niche") {
-                return Err(meta.error("unknown rust_spec attribute"));
+            if meta.path.is_ident("with_custom_niche") {
+                if result.custom_niche {
+                    return Err(meta.error("duplicate `with_custom_niche` within attribute"));
+                }
+                result.custom_niche = true;
+                return Ok(());
             }
-
-            if has_niche {
-                return Err(meta.error("duplicate `with_custom_niche` within attribute"));
+            if meta.path.is_ident("with_custom_drop") {
+                if result.custom_drop {
+                    return Err(meta.error("duplicate `with_custom_drop` within attribute"));
+                }
+                result.custom_drop = true;
+                return Ok(());
             }
-            has_niche = true;
-            Ok(())
+            Err(meta.error("unknown rust_spec attribute"))
         })?;
     }
 
-    Ok(has_niche)
+    Ok(result)
 }
 
 fn is_fieldless_enum(data: &syn::DataEnum) -> bool {
@@ -443,11 +501,11 @@ fn gen_struct_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &syn::Fields,
-    custom_niche: bool,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     let fields = field_types(fields);
 
-    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, custom_niche)
+    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, attrs)
 }
 
 fn gen_struct_fields_impl(
@@ -456,7 +514,7 @@ fn gen_struct_fields_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &[&syn::Type],
-    custom_niche: bool,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, fields)
@@ -466,7 +524,7 @@ fn gen_struct_fields_impl(
     let size = gen_size_family(generics, fields);
     let alignment = apply_repr_alignment(gen_alignment_family(generics, fields, None), alignment);
     let trap = gen_trap_family(generics, fields, false);
-    let niche = if custom_niche {
+    let niche = if attrs.custom_niche {
         let crate_ = crate_path();
         AggregateFamily::fixed(quote! { #crate_::niche::WithNiche<#crate_::Unstable> })
     } else if let Some(ReprKind::Transparent) = repr {
@@ -475,6 +533,7 @@ fn gen_struct_fields_impl(
         gen_niche_family(generics, fields)
     };
 
+    let drop = gen_drop_family(generics, fields, attrs.custom_drop);
     let mutability = gen_single_field_mutability_family(generics, fields);
     let indirect_trap = gen_indirect_trap_family(generics, fields);
 
@@ -484,6 +543,7 @@ fn gen_struct_fields_impl(
         alignment,
         trap,
         niche,
+        drop,
         mutability,
         indirect_trap,
     };
@@ -497,9 +557,10 @@ fn gen_enum_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     if matches!(repr, Some(ReprKind::C(None))) {
-        return gen_plain_c_enum_impls(repr_alignment, name, generics, variants);
+        return gen_plain_c_enum_impls(repr_alignment, name, generics, variants, attrs);
     }
 
     let crate_ = crate_path();
@@ -533,6 +594,7 @@ fn gen_enum_impl(
     let trap = gen_trap_family(generics, &fields, has_trap_tag_values);
 
     let niche = gen_enum_niche_family(has_trap_tag_values);
+    let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
     let mutability = if matches!(repr, None | Some(ReprKind::Transparent)) && variants.len() == 1 {
         gen_single_field_mutability_family(generics, &fields)
     } else {
@@ -546,6 +608,7 @@ fn gen_enum_impl(
         alignment,
         trap,
         niche,
+        drop,
         mutability,
         indirect_trap,
     };
@@ -559,6 +622,7 @@ fn gen_union_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     fields: &syn::FieldsNamed,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
 
@@ -584,6 +648,7 @@ fn gen_union_impl(
     let niche = AggregateFamily::fixed(quote! {
         #crate_::niche::WithoutNiche
     });
+    let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
 
     let mutability = gen_exclusive_mutability_family();
     let indirect_trap = AggregateFamily::fixed(quote! {
@@ -596,6 +661,7 @@ fn gen_union_impl(
         alignment,
         trap,
         niche,
+        drop,
         mutability,
         indirect_trap,
     };
@@ -609,9 +675,10 @@ fn gen_fieldless_enum_impl(
     name: &syn::Ident,
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     if matches!(repr, Some(ReprKind::C(None))) {
-        return gen_plain_c_enum_impls(repr_alignment, name, generics, variants);
+        return gen_plain_c_enum_impls(repr_alignment, name, generics, variants, attrs);
     }
 
     let crate_ = crate_path();
@@ -679,6 +746,7 @@ fn gen_fieldless_enum_impl(
         quote! { #crate_::layout::Robust }
     });
     let mutability = gen_exclusive_mutability_family();
+    let drop = gen_drop_family(generics, &[], attrs.custom_drop);
     let indirect_trap = AggregateFamily::fixed(quote! { #crate_::layout::Robust });
 
     let spec = TypeSpecFamilies {
@@ -687,6 +755,7 @@ fn gen_fieldless_enum_impl(
         alignment,
         trap,
         niche,
+        drop,
         mutability,
         indirect_trap,
     };
@@ -720,6 +789,7 @@ fn gen_plain_c_enum_impls(
     name: &syn::Ident,
     generics: &syn::Generics,
     variants: &Punctuated<syn::Variant, Token![,]>,
+    attrs: RustSpecAttrs,
 ) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
     let fields = variant_field_types(variants);
@@ -766,6 +836,7 @@ fn gen_plain_c_enum_impls(
             ),
             trap: gen_trap_family(generics, &fields, has_trap_tag_values),
             niche,
+            drop: gen_drop_family(generics, &fields, attrs.custom_drop),
             mutability: gen_exclusive_mutability_family(),
             indirect_trap: gen_indirect_trap_family(generics, &fields),
         };
@@ -785,6 +856,26 @@ fn gen_indirect_trap_family(generics: &syn::Generics, fields: &[&syn::Type]) -> 
         fields,
     )
     .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::layout::Robust }))
+}
+
+fn gen_drop_family(
+    generics: &syn::Generics,
+    fields: &[&syn::Type],
+    custom_drop: bool,
+) -> AggregateFamily {
+    let crate_ = crate_path();
+    let seed = if custom_drop {
+        quote! { #crate_::drop::CustomDrop }
+    } else {
+        quote! { #crate_::drop::NoDrop }
+    };
+    AggregateFamily::aggregate_with_seed(
+        quote! { core::ops::Add },
+        quote! { Drop },
+        seed,
+        generics,
+        fields,
+    )
 }
 
 fn gen_trap_family(
@@ -909,6 +1000,7 @@ fn gen_type_spec_impl(
         alignment,
         trap,
         niche,
+        drop,
         mutability,
         indirect_trap,
     } = families;
@@ -950,6 +1042,7 @@ fn gen_type_spec_impl(
         .chain(alignment.aggregate_bounds)
         .chain(trap.aggregate_bounds)
         .chain(niche.aggregate_bounds)
+        .chain(drop.aggregate_bounds)
         .chain(mutability.aggregate_bounds)
         .chain(indirect_trap.aggregate_bounds)
         .flat_map(|bound| {
@@ -969,6 +1062,7 @@ fn gen_type_spec_impl(
     let alignment_kind = alignment.kind;
     let trap_kind = trap.kind;
     let niche_kind = niche.kind;
+    let drop_kind = drop.kind;
     let mutability_kind = mutability.kind;
     let indirect_trap_kind = indirect_trap.kind;
 
@@ -986,6 +1080,7 @@ fn gen_type_spec_impl(
             type Alignment = #alignment_kind;
             type Trap = #trap_kind;
             type Niche = #niche_kind;
+            type Drop = #drop_kind;
             type Mutability = #mutability_kind;
             type __IndirectTrap = #indirect_trap_kind;
         }

@@ -1,0 +1,29 @@
+error: `with_custom_niche` is only supported on structs
+ --> tests/ui_fail/custom_niche_unsupported.rs:7:6
+  |
+7 | enum FieldlessEnum {
+  |      ^^^^^^^^^^^^^
+
+error: `with_custom_niche` is only supported on structs
+  --> tests/ui_fail/custom_niche_unsupported.rs:14:6
+   |
+14 | enum DataEnum {
+   |      ^^^^^^^^
+
+error: `with_custom_niche` is only supported on structs
+  --> tests/ui_fail/custom_niche_unsupported.rs:22:6
+   |
+22 | enum TransparentEnum {
+   |      ^^^^^^^^^^^^^^^
+
+error: `with_custom_niche` is only supported on structs
+  --> tests/ui_fail/custom_niche_unsupported.rs:29:6
+   |
+29 | enum ReprCEnum {
+   |      ^^^^^^^^^
+
+error: `with_custom_niche` is only supported on structs
+  --> tests/ui_fail/custom_niche_unsupported.rs:35:7
+   |
+35 | union PlainUnion {
+   |       ^^^^^^^^^^

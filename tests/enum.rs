@@ -2,6 +2,7 @@ use core::{cell::UnsafeCell, num::NonZeroU8};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
+    drop::{CustomDrop, InnerDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
@@ -159,6 +160,44 @@ pub enum TransparentWithMultipleFieldsEnum {
 #[repr(transparent)]
 pub enum TransparentZstEnum {
     Value,
+}
+
+#[derive(RustSpec)]
+pub enum NoDropEnum {
+    Value,
+}
+
+#[derive(RustSpec)]
+#[rust_spec(with_custom_drop)]
+pub enum CustomDropEnum {
+    Value,
+}
+
+impl Drop for CustomDropEnum {
+    fn drop(&mut self) {}
+}
+
+#[derive(RustSpec)]
+pub enum InnerDropEnum {
+    Value(CustomDropEnum),
+}
+
+#[derive(RustSpec)]
+#[rust_spec(with_custom_drop)]
+pub enum CustomAndInnerDropEnum {
+    Value(CustomDropEnum),
+}
+
+impl Drop for CustomAndInnerDropEnum {
+    fn drop(&mut self) {}
+}
+
+#[test]
+fn enum_drop_classification() {
+    assert_impl_all!(NoDropEnum: RustSpec<Drop = NoDrop>);
+    assert_impl_all!(CustomDropEnum: RustSpec<Drop = CustomDrop>);
+    assert_impl_all!(InnerDropEnum: RustSpec<Drop = InnerDrop>);
+    assert_impl_all!(CustomAndInnerDropEnum: RustSpec<Drop = InnerDrop>);
 }
 
 #[derive(RustSpec)]

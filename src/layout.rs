@@ -1,9 +1,9 @@
 //! Representation stability and trap/robustness classification.
 //!
-//! This module provides the marker types used by [`crate::RustSpec::Layout`].
-//! Stability describes whether Rust guarantees the representation shape.
-//! Robustness describes whether the represented value space has trap values that
-//! require validity care.
+//! Stability describes whether Rust guarantees a type's layout whereas robustness describes
+//! whether the represented value space has invalid bit patterns (i.e. trap values).
+//!
+//! This module provides the marker types used by [`crate::RustSpec::Layout`] and [`crate::RustSpec::Trap`].
 use core::ops::Add;
 
 use crate::{Stable, Unstable};

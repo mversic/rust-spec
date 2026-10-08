@@ -3,6 +3,7 @@ use std::ffi::{CStr, c_void};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
+    drop::{CustomDrop, InnerDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
@@ -174,15 +175,55 @@ pub struct TuplePacket(pub NonZeroU8, pub [u8]);
 #[repr(transparent)]
 pub struct TransparentSlice<T>([T]);
 
+#[derive(RustSpec)]
+pub struct NoDropStruct(pub u8);
+
+#[derive(RustSpec)]
+#[rust_spec(with_custom_drop)]
+pub struct CustomDropStruct(pub u8);
+
+impl Drop for CustomDropStruct {
+    fn drop(&mut self) {}
+}
+
+#[derive(RustSpec)]
+pub struct InnerDropStruct(pub CustomDropStruct);
+
+#[derive(RustSpec)]
+#[rust_spec(with_custom_drop)]
+pub struct CustomAndInnerDropStruct(pub CustomDropStruct);
+
+impl Drop for CustomAndInnerDropStruct {
+    fn drop(&mut self) {}
+}
+
+#[test]
+fn struct_drop_classification() {
+    assert_impl_all!(NoDropStruct: RustSpec<Drop = NoDrop>);
+    assert_impl_all!(CustomDropStruct: RustSpec<Drop = CustomDrop>);
+    assert_impl_all!(InnerDropStruct: RustSpec<Drop = InnerDrop>);
+    assert_impl_all!(CustomAndInnerDropStruct: RustSpec<Drop = InnerDrop>);
+    assert_impl_all!(Box<u8>: RustSpec<Drop = CustomDrop>);
+    assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = InnerDrop>);
+    assert_impl_all!(Vec<u8>: RustSpec<Drop = CustomDrop>);
+    assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = InnerDrop>);
+}
+
 fn assert_rust_spec<T: RustSpec + ?Sized>() {}
 
-fn a_slice_of_any_rust_spec_type_is_rust_spec<T: RustSpec>() {
+fn a_slice_of_any_rust_spec_type_is_rust_spec<T: RustSpec>()
+where
+    rust_spec::drop::NoDrop: Add<T::Drop>,
+{
     assert_rust_spec::<[T]>();
 }
 
 fn a_transparent_slice_wrapper_of_any_rust_spec_type_is_rust_spec<T: RustSpec>()
 where
     WithoutNiche: Add<T::Niche>,
+    rust_spec::drop::NoDrop: Add<T::Drop>,
+    rust_spec::drop::NoDrop:
+        Add<<rust_spec::drop::NoDrop as Add<T::Drop>>::Output>,
 {
     assert_rust_spec::<TransparentSlice<T>>();
 }

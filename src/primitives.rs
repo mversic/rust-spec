@@ -4,6 +4,7 @@ use core::{cmp::Ordering, ops::Add};
 
 use crate::{
     RustSpec, Stable, Unstable, Zero,
+    drop::NoDrop,
     layout::{NonRobust, Robust},
     mutability::Exclusive,
     niche::{WithNiche, WithoutNiche},
@@ -18,6 +19,7 @@ macro_rules! primitive_derive {
             type Alignment = $alignment;
             type Trap = Robust;
             type Niche = WithoutNiche;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
         }
@@ -32,6 +34,7 @@ macro_rules! raw_pointer_derive {
             type Alignment = <usize as RustSpec>::Alignment;
             type Trap = Robust;
             type Niche = WithoutNiche;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
 
@@ -44,12 +47,14 @@ macro_rules! impl_nonempty_array {
         unsafe impl<R: RustSpec> RustSpec for [R; $n]
         where
             WithoutNiche: Add<R::Niche>,
+            NoDrop: Add<R::Drop>,
         {
             type Layout = R::Layout;
             type Size = R::Size;
             type Alignment = R::Alignment;
             type Trap = R::Trap;
             type Niche = <WithoutNiche as Add<R::Niche>>::Output;
+            type Drop = <NoDrop as Add<R::Drop>>::Output;
             type Mutability = R::Mutability;
             type __IndirectTrap = R::__IndirectTrap;
         })*
@@ -123,6 +128,7 @@ macro_rules! impl_fn_types {
             type Alignment = <usize as RustSpec>::Alignment;
             type Trap = NonRobust;
             type Niche = WithNiche<Stable>;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
         }
@@ -137,6 +143,7 @@ macro_rules! fieldless_enum_derive {
             type Alignment = $alignment;
             type Trap = NonRobust;
             type Niche = WithNiche<Unstable>;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
         }
@@ -168,7 +175,10 @@ primitive_derive! { isize => <usize as RustSpec>::Alignment }
 raw_pointer_derive! { const }
 raw_pointer_derive! { mut }
 
-unsafe impl<R: RustSpec> RustSpec for [R] {
+unsafe impl<R: RustSpec> RustSpec for [R]
+where
+    NoDrop: Add<R::Drop>,
+{
     type Layout = R::Layout;
     type Size = MetaSized<SliceLike>;
     type Alignment = R::Alignment;
@@ -176,6 +186,7 @@ unsafe impl<R: RustSpec> RustSpec for [R] {
     // TODO: This should not be set at all
     // however we set it to help some impls
     type Niche = WithoutNiche;
+    type Drop = <NoDrop as Add<R::Drop>>::Output;
     type Mutability = R::Mutability;
     type __IndirectTrap = R::__IndirectTrap;
 }
@@ -186,6 +197,7 @@ unsafe impl<R: RustSpec> RustSpec for [R; 0] {
     type Alignment = R::Alignment;
     type Trap = Robust;
     type Niche = WithoutNiche;
+    type Drop = NoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }

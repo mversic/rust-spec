@@ -2,6 +2,7 @@ use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
+    drop::{CustomDrop, NoDrop},
     layout::Robust,
     mutability::Exclusive,
     niche::WithoutNiche,
@@ -49,6 +50,22 @@ where
     fixed: &'a u64,
     value: T,
     item: T,
+}
+
+#[derive(RustSpec)]
+#[rust_spec(with_custom_drop)]
+pub union CustomDropUnion {
+    pub value: u8,
+}
+
+impl Drop for CustomDropUnion {
+    fn drop(&mut self) {}
+}
+
+#[test]
+fn union_drop_classification() {
+    assert_impl_all!(RustUnion: RustSpec<Drop = NoDrop>);
+    assert_impl_all!(CustomDropUnion: RustSpec<Drop = CustomDrop>);
 }
 
 #[test]

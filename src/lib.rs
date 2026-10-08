@@ -8,6 +8,7 @@
 //! - `Alignment`: whether ABI alignment is one or greater than one.
 //! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
+//! - [`drop`]: whether the type declares `Drop` or has inner drop glue.
 //!
 //! ## Layout
 //!
@@ -42,11 +43,24 @@
 //! - [`niche::WithNiche<Stable>`]: compiler-guaranteed niche.
 //! - [`niche::WithNiche<Unstable>`]: niche exists but is not guaranteed.
 //!
+//! Use `#[rust_spec(with_custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`
+//!
+//! ## Drop
+//!
+//! Describes the type's behavior when dropped:
+//! - [`drop::NoDrop`]: dropping the type runs no drop glue.
+//! - [`drop::InnerDrop`]: a field or other owned content has drop behavior.
+//! - [`drop::CustomDrop`]: the type implements [`Drop`] without inner drop requirements.
+//!
+//! Use `#[rust_spec(with_custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`.
+//!
 //! ## How to Use
 //!
 //! Derive `RustSpec` for your types, then use its associated marker families as bounds when implementing other traits:
 //!
 //! ```rust
+//! # #[cfg(feature = "derive")]
+//! # {
 //! use disjoint_impls::disjoint_impls;
 //! use rust_spec::{
 //!     RustSpec, Stable, Unstable,
@@ -78,6 +92,7 @@
 //! }
 //!
 //! const HEADER_OPTION_NEEDS_TAG: bool = Header::NEEDS_TAG;
+//! # }
 //! ```
 #![no_std]
 
@@ -131,6 +146,7 @@ trait WithoutOrUnstableNiche {}
 impl WithoutOrUnstableNiche for WithoutNiche {}
 impl WithoutOrUnstableNiche for WithNiche<Stable> {}
 
+pub mod drop;
 pub mod layout;
 #[doc(hidden)]
 pub mod mutability;
@@ -148,6 +164,7 @@ pub trait __HrtbAxes<const FIELD: usize> {
     type Alignment<'a>;
     type Trap<'a>;
     type Niche<'a>;
+    type Drop<'a>;
     type Mutability<'a>;
     type __IndirectTrap<'a>;
 }
@@ -178,6 +195,9 @@ disjoint_impls! {
         /// Niche availability classification.
         type Niche;
 
+        /// Whether `Self` declares `Drop`, has inner drop glue, or has no drop glue.
+        type Drop;
+
         /// Shared-access mutability classification.
         #[doc(hidden)]
         type Mutability;
@@ -196,6 +216,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -208,6 +229,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -220,6 +242,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -233,6 +256,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -245,6 +269,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -257,6 +282,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = drop::NoDrop;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -265,12 +291,15 @@ disjoint_impls! {
     unsafe impl<R, S: SizedKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::Sized<S>>,
+        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
+        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -278,12 +307,15 @@ disjoint_impls! {
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
+        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
@@ -291,12 +323,15 @@ disjoint_impls! {
     unsafe impl<R: ?Sized> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::NulTerminated>,
+        drop::CustomDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <drop::CustomDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
@@ -304,18 +339,23 @@ disjoint_impls! {
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithoutNiche>,
+        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = R::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithNiche<Unstable>>,
+        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         // FIXME: This can be Robust but we have to track
@@ -325,18 +365,22 @@ disjoint_impls! {
         type Alignment = R::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithNiche<Stable>>,
+        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = R::Alignment;
         type Trap = R::__IndirectTrap;
         type Niche = WithoutNiche;
+        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
@@ -350,12 +394,15 @@ disjoint_impls! {
         <R as RustSpec>::__IndirectTrap: Add<<E as RustSpec>::__IndirectTrap>,
         <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = <R::__IndirectTrap as Add<E::__IndirectTrap>>::Output;
     }
@@ -365,14 +412,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithoutNiche>,
         E: RustSpec<Size = size::Sized<Zero>>,
-        <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
+        <E as RustSpec>::Alignment: Sized,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
@@ -380,14 +430,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithNiche<Unstable>>,
         E: RustSpec<Size = size::Sized<Zero>>,
-        <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
+        <E as RustSpec>::Alignment: Sized,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
@@ -397,12 +450,15 @@ disjoint_impls! {
         E: RustSpec<Size = size::Sized<Zero>, Alignment = Gt<One>>,
         <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
@@ -410,14 +466,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithNiche<Stable>>,
         E: RustSpec<Size = size::Sized<Zero>, Alignment = One>,
-        <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
+        <E as RustSpec>::Alignment: Sized,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = R::__IndirectTrap;
         type Niche = WithoutNiche;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
@@ -427,15 +486,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Zero>>,
         E: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithoutNiche>,
-        <R as RustSpec>::Alignment: Sized,
+        <R as RustSpec>::Alignment: Sized + Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
         <E as RustSpec>::Alignment: Sized,
-        <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = E::__IndirectTrap;
     }
@@ -443,15 +504,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Zero>, Niche: WithoutOrUnstableNiche>,
         E: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithNiche<Unstable>>,
-        <R as RustSpec>::Alignment: Sized,
+        <R as RustSpec>::Alignment: Sized + Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
         <E as RustSpec>::Alignment: Sized,
-        <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = E::__IndirectTrap;
     }
@@ -459,15 +522,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Zero>, Alignment = Gt<One>>,
         E: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithNiche<Stable>>,
-        <R as RustSpec>::Alignment: Sized,
+        <R as RustSpec>::Alignment: Sized + Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
         <E as RustSpec>::Alignment: Sized,
-        <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = E::__IndirectTrap;
     }
@@ -475,15 +540,17 @@ disjoint_impls! {
     where
         R: RustSpec<Size = size::Sized<Zero>, Alignment = One>,
         E: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithNiche<Stable>>,
-        <R as RustSpec>::Alignment: Sized,
+        <R as RustSpec>::Alignment: Sized + Max<<E as RustSpec>::Alignment>,
+        <R as RustSpec>::Drop: Sized + Add<<E as RustSpec>::Drop>,
         <E as RustSpec>::Alignment: Sized,
-        <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
+        <E as RustSpec>::Drop: Sized,
     {
         type Layout = E::Layout;
         type Size = size::Sized<Gt<Zero>>;
         type Alignment = <R::Alignment as Max<E::Alignment>>::Output;
         type Trap = E::__IndirectTrap;
         type Niche = WithoutNiche;
+        type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = E::__IndirectTrap;
     }

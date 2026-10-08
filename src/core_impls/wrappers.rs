@@ -6,11 +6,15 @@ use core::{
     marker::{PhantomData, PhantomPinned},
     mem::{ManuallyDrop, MaybeUninit},
     num::{NonZero, Saturating, Wrapping},
+    ops::Add,
     ptr::NonNull,
 };
 
+#[cfg(feature = "alloc")]
+use crate::drop::{CustomDrop, InnerDrop};
 use crate::{
     RustSpec, Stable, Unstable,
+    drop::NoDrop,
     layout::{NonRobust, Robust},
     mutability::Exclusive,
     niche::{WithNiche, WithoutNiche},
@@ -25,6 +29,7 @@ macro_rules! non_zero_derive {
             type Alignment = <$primitive as RustSpec>::Alignment;
             type Trap = NonRobust;
             type Niche = WithNiche<Stable>;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
         }
@@ -39,6 +44,7 @@ macro_rules! stable_robust_zst {
             type Alignment = crate::One;
             type Trap = Robust;
             type Niche = WithoutNiche;
+            type Drop = NoDrop;
             type Mutability = Exclusive;
             type __IndirectTrap = Robust;
         }
@@ -47,12 +53,16 @@ macro_rules! stable_robust_zst {
 
 macro_rules! transparent_wrapper {
     (($($generics:tt)*) => $ty:ty) => {
-        unsafe impl<$($generics)*> RustSpec for $ty {
+        unsafe impl<$($generics)*> RustSpec for $ty
+        where
+            NoDrop: Add<T::Drop>,
+        {
             type Layout = T::Layout;
             type Size = T::Size;
             type Alignment = T::Alignment;
             type Trap = T::Trap;
             type Niche = T::Niche;
+            type Drop = <NoDrop as Add<T::Drop>>::Output;
             type Mutability = T::Mutability;
             type __IndirectTrap = T::__IndirectTrap;
         }
@@ -71,7 +81,17 @@ stable_robust_zst!((T: ?Sized) => PhantomData<T>);
 transparent_wrapper!((T: RustSpec) => Reverse<T>);
 transparent_wrapper!((T: RustSpec) => Wrapping<T>);
 transparent_wrapper!((T: RustSpec) => Saturating<T>);
-transparent_wrapper!((T: RustSpec + ?Sized) => ManuallyDrop<T>);
+
+unsafe impl<T: RustSpec + ?Sized> RustSpec for ManuallyDrop<T> {
+    type Layout = T::Layout;
+    type Size = T::Size;
+    type Alignment = T::Alignment;
+    type Trap = T::Trap;
+    type Niche = T::Niche;
+    type Drop = NoDrop;
+    type Mutability = T::Mutability;
+    type __IndirectTrap = T::__IndirectTrap;
+}
 
 unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
     type Layout = T::Layout;
@@ -79,6 +99,7 @@ unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
     type Alignment = T::Alignment;
     type Trap = Robust;
     type Niche = WithoutNiche;
+    type Drop = NoDrop;
     type Mutability = T::Mutability;
     type __IndirectTrap = Robust;
 }
@@ -89,6 +110,7 @@ unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Stable>;
+    type Drop = NoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
@@ -100,6 +122,7 @@ unsafe impl RustSpec for str {
     type Trap = NonRobust;
     // TODO: This should not be set at all
     type Niche = WithNiche<Unstable>;
+    type Drop = NoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
@@ -110,17 +133,23 @@ unsafe impl RustSpec for String {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
+    type Drop = InnerDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
 
 #[cfg(feature = "alloc")]
-unsafe impl<T: RustSpec> RustSpec for Vec<T> {
+unsafe impl<T: RustSpec> RustSpec for Vec<T>
+where
+    NoDrop: Add<T::Drop>,
+    CustomDrop: Add<T::Drop>,
+{
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
+    type Drop = <CustomDrop as Add<T::Drop>>::Output;
     type Mutability = Exclusive;
     type __IndirectTrap = T::Trap;
 }

@@ -1,0 +1,129 @@
+error[E0283]: type annotations needed
+ --> tests/ui_fail/drop_without_attribute.rs:6:8
+  |
+6 | struct RustStruct(u8);
+  |        ^^^^^^^^^^ cannot infer type
+  |
+note: multiple `impl`s satisfying `RustStruct: <RustStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+ --> tests/ui_fail/drop_without_attribute.rs:5:10
+  |
+5 | #[derive(RustSpec)]
+  |          ^^^^^^^^
+  = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:14:8
+   |
+14 | struct ReprCStruct(u8);
+   |        ^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `ReprCStruct: <ReprCStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:12:10
+   |
+12 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:22:8
+   |
+22 | struct TransparentStruct(u8);
+   |        ^^^^^^^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `TransparentStruct: <TransparentStruct as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:20:10
+   |
+20 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:29:8
+   |
+29 | struct Generic<T>(core::marker::PhantomData<T>);
+   |        ^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `Generic<T>: <Generic<T> as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:28:10
+   |
+28 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:37:6
+   |
+37 | enum TransparentEnum {
+   |      ^^^^^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `TransparentEnum: <TransparentEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:35:10
+   |
+35 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:46:6
+   |
+46 | enum RustDataEnum {
+   |      ^^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `RustDataEnum: <RustDataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:45:10
+   |
+45 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:57:6
+   |
+57 | enum PrimitiveDataEnum {
+   |      ^^^^^^^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `PrimitiveDataEnum: <PrimitiveDataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:55:10
+   |
+55 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:68:6
+   |
+68 | enum FieldlessEnum {
+   |      ^^^^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `FieldlessEnum: <FieldlessEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:66:10
+   |
+66 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:79:6
+   |
+79 | enum DataEnum {
+   |      ^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `DataEnum: <DataEnum as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:77:10
+   |
+77 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0283]: type annotations needed
+  --> tests/ui_fail/drop_without_attribute.rs:89:7
+   |
+89 | union ValueUnion {
+   |       ^^^^^^^^^^ cannot infer type
+   |
+note: multiple `impl`s satisfying `ValueUnion: <ValueUnion as _::AssertNoDrop>::check::CustomDropIsNotSupported<_>` found
+  --> tests/ui_fail/drop_without_attribute.rs:88:10
+   |
+88 | #[derive(RustSpec)]
+   |          ^^^^^^^^
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)

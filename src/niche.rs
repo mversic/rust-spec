@@ -7,7 +7,7 @@ use crate::{Stable, Unstable};
 #[sealed::sealed]
 pub trait NicheStabilityKind {}
 
-/// Marker for a type that has no trap representations and therefore no niche value
+/// Marker for a type with no classified niche value.
 pub enum WithoutNiche {}
 
 /// Marker for a type that has a niche value.

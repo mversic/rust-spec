@@ -1,0 +1,89 @@
+error[E0277]: the trait bound `NoDrop: Drop` is not satisfied
+ --> tests/ui_fail/attribute_without_drop.rs:7:8
+  |
+7 | struct NoDrop(u8);
+  |        ^^^^^^ unsatisfied trait bound
+  |
+help: the trait `Drop` is not implemented for `NoDrop`
+ --> tests/ui_fail/attribute_without_drop.rs:7:1
+  |
+7 | struct NoDrop(u8);
+  | ^^^^^^^^^^^^^
+note: required by a bound in `<NoDrop as _::AssertHasDrop>::check::require_drop`
+ --> tests/ui_fail/attribute_without_drop.rs:5:10
+  |
+5 | #[derive(RustSpec)]
+  |          ^^^^^^^^ required by this bound in `require_drop`
+  = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `FieldNeedsDrop: Drop` is not satisfied
+  --> tests/ui_fail/attribute_without_drop.rs:11:8
+   |
+11 | struct FieldNeedsDrop(String);
+   |        ^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `Drop` is not implemented for `FieldNeedsDrop`
+  --> tests/ui_fail/attribute_without_drop.rs:11:1
+   |
+11 | struct FieldNeedsDrop(String);
+   | ^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `<FieldNeedsDrop as _::AssertHasDrop>::check::require_drop`
+  --> tests/ui_fail/attribute_without_drop.rs:9:10
+   |
+ 9 | #[derive(RustSpec)]
+   |          ^^^^^^^^ required by this bound in `require_drop`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Generic<T>: Drop` is not satisfied
+  --> tests/ui_fail/attribute_without_drop.rs:15:8
+   |
+15 | struct Generic<T: RustSpec>(T);
+   |        ^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `Drop` is not implemented for `Generic<T>`
+  --> tests/ui_fail/attribute_without_drop.rs:15:1
+   |
+15 | struct Generic<T: RustSpec>(T);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `<Generic<T> as _::AssertHasDrop>::check::require_drop`
+  --> tests/ui_fail/attribute_without_drop.rs:13:10
+   |
+13 | #[derive(RustSpec)]
+   |          ^^^^^^^^ required by this bound in `require_drop`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `FieldlessEnum: Drop` is not satisfied
+  --> tests/ui_fail/attribute_without_drop.rs:19:6
+   |
+19 | enum FieldlessEnum {
+   |      ^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `Drop` is not implemented for `FieldlessEnum`
+  --> tests/ui_fail/attribute_without_drop.rs:19:1
+   |
+19 | enum FieldlessEnum {
+   | ^^^^^^^^^^^^^^^^^^
+note: required by a bound in `<FieldlessEnum as _::AssertHasDrop>::check::require_drop`
+  --> tests/ui_fail/attribute_without_drop.rs:17:10
+   |
+17 | #[derive(RustSpec)]
+   |          ^^^^^^^^ required by this bound in `require_drop`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `ValueUnion: Drop` is not satisfied
+  --> tests/ui_fail/attribute_without_drop.rs:25:7
+   |
+25 | union ValueUnion {
+   |       ^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `Drop` is not implemented for `ValueUnion`
+  --> tests/ui_fail/attribute_without_drop.rs:25:1
+   |
+25 | union ValueUnion {
+   | ^^^^^^^^^^^^^^^^
+note: required by a bound in `<ValueUnion as _::AssertHasDrop>::check::require_drop`
+  --> tests/ui_fail/attribute_without_drop.rs:23:10
+   |
+23 | #[derive(RustSpec)]
+   |          ^^^^^^^^ required by this bound in `require_drop`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)

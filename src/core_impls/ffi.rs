@@ -19,6 +19,7 @@ unsafe impl RustSpec for c_void {
     type Alignment = crate::One;
     type Trap = Robust;
     type Niche = WithoutNiche;
+    type Drop = crate::drop::NoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
@@ -29,6 +30,7 @@ unsafe impl RustSpec for CStr {
     type Alignment = crate::One;
     type Trap = NonRobust;
     type Niche = WithoutNiche;
+    type Drop = crate::drop::NoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
@@ -40,6 +42,7 @@ unsafe impl RustSpec for CString {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
+    type Drop = crate::drop::InnerDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }

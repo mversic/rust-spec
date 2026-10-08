@@ -1,6 +1,6 @@
 use core::ops::Add;
 
-use crate::{Max, RustSpec, Unstable, layout::Robust};
+use crate::{Max, RustSpec, Unstable, drop::NoDrop, layout::Robust};
 
 macro_rules! impl_tuple_type_spec {
     (@alignment $ty:ident) => {
@@ -22,12 +22,14 @@ macro_rules! impl_tuple_type_spec {
             $($params)*
             $ty: RustSpec,
             Robust: Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>,
+            NoDrop: Add<impl_tuple_type_spec!(@kind Drop; $($all),+)>,
         {
             type Layout = Unstable;
             type Size = impl_tuple_type_spec!(@kind Size; $($all),+);
             type Alignment = impl_tuple_type_spec!(@alignment $($all),+);
             type Trap = <Robust as Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>>::Output;
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
+            type Drop = <NoDrop as Add<impl_tuple_type_spec!(@kind Drop; $($all),+)>>::Output;
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
             type __IndirectTrap = impl_tuple_type_spec!(@kind __IndirectTrap; $($all),+);
         }
@@ -44,6 +46,7 @@ macro_rules! impl_tuple_type_spec {
                     >,
                     Trap: Add<impl_tuple_type_spec!(@kind Trap; $($tail),+)>,
                     Niche: Add<impl_tuple_type_spec!(@kind Niche; $($tail),+)>,
+                    Drop: Add<impl_tuple_type_spec!(@kind Drop; $($tail),+)>,
                     Mutability: Add<impl_tuple_type_spec!(@kind Mutability; $($tail),+)>,
                     __IndirectTrap: Add<impl_tuple_type_spec!(@kind __IndirectTrap; $($tail),+)>,
                 >,

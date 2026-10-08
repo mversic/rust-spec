@@ -1,0 +1,5 @@
+error: duplicate `with_custom_niche` within attribute
+ --> tests/ui_fail/custom_niche_duplicate.rs:6:32
+  |
+6 | #[rust_spec(with_custom_niche, with_custom_niche)]
+  |                                ^^^^^^^^^^^^^^^^^
