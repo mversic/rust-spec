@@ -105,8 +105,10 @@ extern crate self as rust_spec;
 use alloc::boxed::Box;
 use core::ops::Add;
 
+#[cfg(feature = "alloc")]
+use crate::drop::CustomDrop;
 use crate::{
-    drop::{CustomDrop, NoDrop},
+    drop::NoDrop,
     niche::{WithNiche, WithoutNiche},
     size::{MetadataKind, SizedKind},
 };

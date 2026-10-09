@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-09
+
+### Added
+
+- Categorize types with custom `Drop` based on drop behavior of their contents
+
+### Changed
+
+- Flatten the `Drop` classification markers by removing `WithDrop` wrapper
+
 ## [0.5.0] - 2026-10-09
 
 ### Added

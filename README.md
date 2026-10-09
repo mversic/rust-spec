@@ -57,8 +57,8 @@ Describes whether and what kind of niche is available for the type:
 Describes the type's behavior when dropped:
 - `NoDrop`: dropping the type runs no drop glue.
 - `AutoDrop`: a field or other owned content has drop behavior.
-- `CustomDrop<NoDrop>`: the type implements [`Drop`] without any compiler-generated "drop glue".
-- `CustomDrop<AutoDrop>`: the type implements [`Drop`] and owns content that needs drop glue.
+- `CustomDrop<NoDrop>`: the type implements `Drop` without any compiler-generated "drop glue".
+- `CustomDrop<AutoDrop>`: the type implements `Drop` and owns content that needs drop glue.
 
 **Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
 
