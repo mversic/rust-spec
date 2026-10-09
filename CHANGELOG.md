@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+
+### Added
+
+- Classify custom and inner drop behavior through `RustSpec::Drop`.
+- Support `#[rust_spec(custom_drop)]` with compile-time checks.
+
+### Fixed
+
+- Reject `#[rust_spec(with_custom_niche)` on enums and unions.
+
+### Changed
+
+- Rename `#[rust_spec(with_custom_niche)]` to `#[rust_spec(custom_niche)]`.
+
 ## [0.4.1] - 2026-10-03
 
 ### Fixed

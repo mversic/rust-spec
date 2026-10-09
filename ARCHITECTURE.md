@@ -18,7 +18,7 @@
 
 Implementations for built-in wrappers, pointers, tuples, `Option`, and `Result` live in `src/`. The derive macro covers structs, enums, and unions. It combines field classifications with type-level operations, taking account of the representation and enum tag where applicable. For generic fields, it adds the bounds required by those combinations.
 
-The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for owned contents. The derive starts at `NoDrop` unless the type has `#[rust_spec(with_custom_drop)]`, in which case it starts at `WithDrop<Custom>`. It then combines the `Drop` classifications of all fields:
+The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for owned contents. The derive starts at `NoDrop` unless the type has `#[rust_spec(custom_drop)]`, in which case it starts at `WithDrop<Custom>`. It then combines the `Drop` classifications of all fields:
 
 | Outer type implements `Drop` | Field or owned content needs dropping | Result |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for 
 
 A field classified as `WithDrop<Custom>` or `WithDrop<Inner>` counts as inner drop behavior in its container. Owned contents of types such as `Box<T>` and `Vec<T>` follow the same rule. Borrowed references do not own their referents; `ManuallyDrop<T>` and `MaybeUninit<T>` suppress dropping their contents.
 
-`with_custom_drop` is required exactly when the derived type itself implements `core::ops::Drop`. The derive emits compile-time checks for both a missing annotation and an annotation without a `Drop` implementation. These checks apply to generic types as well. For structs, the separate `#[rust_spec(with_custom_niche)]` attribute selects `WithNiche<Unstable>`. The derive cannot verify the niche. Enums classify niches using unused discriminant values, and enums and unions reject the annotation.
+`custom_drop` is required exactly when the derived type itself implements `core::ops::Drop`. The derive emits compile-time checks for both a missing annotation and an annotation without a `Drop` implementation. These checks apply to generic types as well. For structs, the separate `#[rust_spec(custom_niche)]` attribute selects `WithNiche<Unstable>`. The derive cannot verify the niche. Enums classify niches using unused discriminant values, and enums and unions reject the annotation.
 
 ## Safety and guarantees
 

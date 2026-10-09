@@ -50,7 +50,7 @@ Describes whether and what kind of niche is available for the type:
 - `WithNiche<Stable>`: compiler-guaranteed niche.
 - `WithNiche<Unstable>`: niche exists but is not guaranteed.
 
-**Use `#[rust_spec(with_custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
+**Use `#[rust_spec(custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
 
 ### Drop
 
@@ -59,7 +59,7 @@ Describes the type's behavior when dropped:
 - `WithDrop<Inner>`: a field or other owned content has drop behavior.
 - `WithDrop<Custom>`: the type implements [`Drop`] without inner drop requirements.
 
-**Use `#[rust_spec(with_custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
+**Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
 
 
 ## How to Use
