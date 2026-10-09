@@ -11,7 +11,7 @@ use core::{
 };
 
 #[cfg(feature = "alloc")]
-use crate::drop::{Inner, WithDrop};
+use crate::drop::AutoDrop;
 use crate::{
     RustSpec, Stable, Unstable,
     drop::NoDrop,
@@ -133,7 +133,7 @@ unsafe impl RustSpec for String {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = WithDrop<Inner>;
+    type Drop = AutoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }
@@ -142,14 +142,14 @@ unsafe impl RustSpec for String {
 unsafe impl<T: RustSpec> RustSpec for Vec<T>
 where
     NoDrop: Add<T::Drop>,
-    WithDrop<crate::drop::Custom>: Add<T::Drop>,
+    crate::drop::CustomDrop<NoDrop>: Add<T::Drop>,
 {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = <WithDrop<crate::drop::Custom> as Add<T::Drop>>::Output;
+    type Drop = <crate::drop::CustomDrop<NoDrop> as Add<T::Drop>>::Output;
     type Mutability = Exclusive;
     type __IndirectTrap = T::Trap;
 }

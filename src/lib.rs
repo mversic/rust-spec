@@ -2,62 +2,63 @@
 //!
 //! # Classification Axes
 //!
-//! `RustSpec` describes a type across the following axes:
+//! [`RustSpec`] describes a type across the following axes:
 //! - [`layout`]: representation stability.
 //! - [`size`]: statically sized, metadata-sized, or extern-type-like shape.
-//! - `Alignment`: whether ABI alignment is one or greater than one.
+//! - `alignment`: whether ABI alignment is one or greater than one.
 //! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
-//! - [`drop`](mod@drop): whether no code runs on drop, custom code or inner field's.
+//! - [`drop`](mod@drop): whether dropping runs custom or compiler-generated code.
 //!
 //! ## Layout
 //!
 //! Describes total reachable (through pointer indirection) representation stability:
-//! - `Stable`: compiler-guaranteed representation.
-//! - `Unstable`: representation is not guaranteed.
+//! - [`Stable`]: compiler-guaranteed representation.
+//! - [`Unstable`]: representation is not guaranteed.
 //!
 //! ## Size
 //!
 //! Describes compile-time size and pointer metadata shape:
-//! - [`size::Sized<Zero>`]: compile-time known zero-sized type.
-//! - [`size::Sized<Gt<Zero>>`]: compile-time known non-zero-sized type.
-//! - [`size::MetaSized<size::SliceLike>`]: dynamically sized slice-like type.
-//! - [`size::MetaSized<size::DynTraitLike>`]: dynamically sized trait-object-like type.
-//! - [`size::ExternTypeLike`]: dynamically sized extern-type-like type.
-//! - [`size::NulTerminated`]: unsized nul-terminated data.
+//! - [`Sized`](size::Sized)<[`Zero`]>: compile-time known zero-sized type.
+//! - [`Sized`](size::Sized)<[`Gt`]<[`Zero`]>>: compile-time known non-zero-sized type.
+//! - [`MetaSized`](size::MetaSized)<[`SliceLike`](size::SliceLike)>: dynamically sized slice-like type.
+//! - [`MetaSized`](size::MetaSized)<[`DynTraitLike`](size::DynTraitLike)>: dynamically sized trait-object-like type.
+//! - [`ExternTypeLike`](size::ExternTypeLike): dynamically sized extern-type-like type.
+//! - [`NulTerminated`](size::NulTerminated): unsized nul-terminated data.
 //!
 //! ## Alignment
 //!
 //! - [`One`] means ABI alignment is exactly one;
-//! - [`Gt<One>`] means it is greater than one.
+//! - [`Gt`]<[`One`]> means it is greater than one.
 //!
 //! ## Trap
 //!
 //! Describes total reachable (through pointer indirection) value-representation validity:
-//! - [`layout::Robust`]: every bit pattern is valid.
-//! - [`layout::NonRobust`]: some bit patterns are trap/invalid values.
+//! - [`Robust`](layout::Robust): every bit pattern is valid.
+//! - [`NonRobust`](layout::NonRobust): some bit patterns are trap/invalid values.
 //!
 //! ## Niche
 //!
 //! Describes whether and what kind of niche is available for the type:
-//! - [`niche::WithoutNiche`]: no niche is available.
-//! - [`niche::WithNiche<Stable>`]: compiler-guaranteed niche.
-//! - [`niche::WithNiche<Unstable>`]: niche exists but is not guaranteed.
+//! - [`WithoutNiche`]: no niche is available.
+//! - [`WithNiche`]<[`Stable`]>: compiler-guaranteed niche.
+//! - [`WithNiche`]<[`Unstable`]>: niche exists but is not guaranteed.
 //!
-//! **Use `#[rust_spec(custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
+//! **Use `#[rust_spec(custom_niche)]` when deriving [`RustSpec`] to select WithNiche<Unstable>**.
 //!
 //! ## Drop
 //!
 //! Describes the type's behavior when dropped:
-//! - [`drop::NoDrop`]: dropping the type runs no drop glue.
-//! - [`drop::WithDrop<drop::Inner>`]: a field or other owned content has drop behavior.
-//! - [`drop::WithDrop<drop::Custom>`]: the type implements [`Drop`] without inner drop requirements.
+//! - [`NoDrop`]: dropping the type runs no drop glue.
+//! - [`AutoDrop`](drop::AutoDrop): owned contents need automatic drop glue.
+//! - [`CustomDrop`]<[`NoDrop`]>: the type implements [`Drop`] and its contents need no automatic drop glue.
+//! - [`CustomDrop`]<[`AutoDrop`](drop::AutoDrop)>: the type implements [`Drop`] and its contents need automatic drop glue.
 //!
-//! **Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
+//! **Use `#[rust_spec(custom_drop)]` when deriving [`RustSpec`] for a type that implements `Drop`**.
 //!
 //! ## How to Use
 //!
-//! Derive `RustSpec` for your types, then use its associated marker families as bounds when implementing other traits:
+//! Derive [`RustSpec`] for your types, then use its associated marker families as bounds when implementing other traits:
 //!
 //! ```rust
 //! # #[cfg(feature = "derive")]
@@ -105,6 +106,7 @@ use alloc::boxed::Box;
 use core::ops::Add;
 
 use crate::{
+    drop::{CustomDrop, NoDrop},
     niche::{WithNiche, WithoutNiche},
     size::{MetadataKind, SizedKind},
 };
@@ -113,6 +115,14 @@ use disjoint_impls::disjoint_impls;
 pub use rust_spec_derive::RustSpec;
 
 mod core_impls;
+pub mod drop;
+pub mod layout;
+#[doc(hidden)]
+pub mod mutability;
+pub mod niche;
+mod primitives;
+pub mod size;
+mod tuple;
 
 /// Marker for a compiler-guaranteed representation or niche.
 pub enum Stable {}
@@ -146,15 +156,6 @@ trait WithoutOrUnstableNiche {}
 impl WithoutOrUnstableNiche for WithoutNiche {}
 impl WithoutOrUnstableNiche for WithNiche<Stable> {}
 
-pub mod drop;
-pub mod layout;
-#[doc(hidden)]
-pub mod mutability;
-pub mod niche;
-mod primitives;
-pub mod size;
-mod tuple;
-
 /// Opaque, lifetime-indexed field axes emitted by `RustSpec` derives for
 /// projections whose prerequisites are supplied by higher-ranked bounds.
 #[doc(hidden)]
@@ -177,32 +178,31 @@ disjoint_impls! {
     ///
     /// # Safety
     ///
-    /// Implementors must classify `Self` truthfully. In particular, [`Self::Size`]
-    /// carries the same safety requirements documented by the size marker types.
+    /// Implementors must classify `Self` truthfully according to each axis's documentation.
     pub unsafe trait RustSpec {
-        /// Representation-stability classification.
+        /// Representation-stability classification; see [`layout`].
         type Layout;
 
-        /// Statically known, metadata-sized, or extern-type-like size classification.
+        /// Statically known, metadata-sized, or extern-type-like size classification; see [`size`].
         type Size;
 
-        /// ABI alignment
+        /// ABI alignment classification; see the [crate root](crate) for [`One`] and [`Gt`].
         type Alignment;
 
-        /// Trap-representation classification.
+        /// Trap-representation classification; see [`layout`].
         type Trap;
 
-        /// Niche availability classification.
+        /// Niche availability classification; see [`niche`].
         type Niche;
 
-        /// Whether `Self` declares `Drop`, has inner drop glue, or has no drop glue.
+        /// Whether `Self` declares `Drop`, has inner drop glue, or has no drop glue; see [`drop`](mod@drop).
         type Drop;
 
-        /// Shared-access mutability classification.
+        /// Shared-access mutability classification; see [`mutability`].
         #[doc(hidden)]
         type Mutability;
 
-        /// Trap classification reachable through one or more supported pointer indirections.
+        /// Trap classification reachable through one or more supported pointer indirections; see [`layout`].
         #[doc(hidden)]
         type __IndirectTrap;
     }
@@ -291,7 +291,7 @@ disjoint_impls! {
     unsafe impl<R, S: SizedKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::Sized<S>>,
-        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
+        CustomDrop<NoDrop>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
@@ -299,7 +299,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
-        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
+        type Drop = <CustomDrop<NoDrop> as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
         type __IndirectTrap = R::Trap;
     }
@@ -307,7 +307,7 @@ disjoint_impls! {
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::MetaSized<U>>,
-        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
+        CustomDrop<NoDrop>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
@@ -315,7 +315,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
+        type Drop = <CustomDrop<NoDrop> as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
@@ -323,7 +323,7 @@ disjoint_impls! {
     unsafe impl<R: ?Sized> RustSpec for Box<R>
     where
         R: RustSpec<Size = size::NulTerminated>,
-        drop::WithDrop<drop::Custom>: Add<<R as RustSpec>::Drop>,
+        CustomDrop<NoDrop>: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
@@ -331,7 +331,7 @@ disjoint_impls! {
         type Alignment = <usize as RustSpec>::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::WithDrop<drop::Custom> as Add<R::Drop>>::Output;
+        type Drop = <CustomDrop<NoDrop> as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
@@ -339,7 +339,7 @@ disjoint_impls! {
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithoutNiche>,
-        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        NoDrop: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
@@ -347,14 +347,14 @@ disjoint_impls! {
         type Alignment = R::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
+        type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithNiche<Unstable>>,
-        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        NoDrop: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = Unstable;
@@ -365,14 +365,14 @@ disjoint_impls! {
         type Alignment = R::Alignment;
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
-        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
+        type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
     where
         R: RustSpec<Niche = WithNiche<Stable>>,
-        drop::NoDrop: Add<<R as RustSpec>::Drop>,
+        NoDrop: Add<<R as RustSpec>::Drop>,
         <R as RustSpec>::Drop: Sized,
     {
         type Layout = R::Layout;
@@ -380,7 +380,7 @@ disjoint_impls! {
         type Alignment = R::Alignment;
         type Trap = R::__IndirectTrap;
         type Niche = WithoutNiche;
-        type Drop = <drop::NoDrop as Add<R::Drop>>::Output;
+        type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::__IndirectTrap;
     }

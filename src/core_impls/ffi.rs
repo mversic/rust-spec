@@ -12,10 +12,7 @@ use crate::{
     size::{self, NulTerminated},
 };
 #[cfg(feature = "alloc")]
-use crate::{
-    drop::{Inner, WithDrop},
-    niche::WithNiche,
-};
+use crate::{drop::AutoDrop, niche::WithNiche};
 
 unsafe impl RustSpec for c_void {
     type Layout = Stable;
@@ -46,7 +43,7 @@ unsafe impl RustSpec for CString {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = WithDrop<Inner>;
+    type Drop = AutoDrop;
     type Mutability = Exclusive;
     type __IndirectTrap = Robust;
 }

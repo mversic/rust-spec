@@ -865,7 +865,7 @@ fn gen_drop_family(
 ) -> AggregateFamily {
     let crate_ = crate_path();
     let seed = if custom_drop {
-        quote! { #crate_::drop::WithDrop<#crate_::drop::Custom> }
+        quote! { #crate_::drop::CustomDrop<#crate_::drop::NoDrop> }
     } else {
         quote! { #crate_::drop::NoDrop }
     };

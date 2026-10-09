@@ -3,7 +3,7 @@ use std::ffi::{CStr, c_void};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
-    drop::{Custom, Inner, NoDrop, WithDrop},
+    drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
@@ -197,16 +197,28 @@ impl Drop for CustomAndInnerDropStruct {
     fn drop(&mut self) {}
 }
 
+#[derive(RustSpec)]
+#[rust_spec(custom_drop)]
+pub struct CustomWithInnerDropStruct(pub InnerDropStruct);
+
+impl Drop for CustomWithInnerDropStruct {
+    fn drop(&mut self) {}
+}
+
 #[test]
 fn struct_drop_classification() {
     assert_impl_all!(NoDropStruct: RustSpec<Drop = NoDrop>);
-    assert_impl_all!(CustomDropStruct: RustSpec<Drop = WithDrop<Custom>>);
-    assert_impl_all!(InnerDropStruct: RustSpec<Drop = WithDrop<Inner>>);
-    assert_impl_all!(CustomAndInnerDropStruct: RustSpec<Drop = WithDrop<Inner>>);
-    assert_impl_all!(Box<u8>: RustSpec<Drop = WithDrop<Custom>>);
-    assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = WithDrop<Inner>>);
-    assert_impl_all!(Vec<u8>: RustSpec<Drop = WithDrop<Custom>>);
-    assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(CustomDropStruct: RustSpec<Drop = CustomDrop<NoDrop>>);
+    assert_impl_all!(InnerDropStruct: RustSpec<Drop = AutoDrop>);
+    assert_impl_all!(CustomAndInnerDropStruct: RustSpec<Drop = CustomDrop<AutoDrop>>);
+    assert_impl_all!(CustomWithInnerDropStruct: RustSpec<Drop = CustomDrop<AutoDrop>>);
+    assert_impl_all!(Option<CustomAndInnerDropStruct>: RustSpec<Drop = AutoDrop>);
+    assert_impl_all!((CustomDropStruct, CustomDropStruct): RustSpec<Drop = AutoDrop>);
+    assert_impl_all!(Box<u8>: RustSpec<Drop = CustomDrop<NoDrop>>);
+    assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
+    assert_impl_all!(Box<CustomAndInnerDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
+    assert_impl_all!(Vec<u8>: RustSpec<Drop = CustomDrop<NoDrop>>);
+    assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
 }
 
 fn assert_rust_spec<T: RustSpec + ?Sized>() {}

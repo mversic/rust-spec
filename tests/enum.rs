@@ -2,7 +2,7 @@ use core::{cell::UnsafeCell, num::NonZeroU8};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
-    drop::{Custom, Inner, NoDrop, WithDrop},
+    drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, Interior},
     niche::{WithNiche, WithoutNiche},
@@ -195,9 +195,9 @@ impl Drop for CustomAndInnerDropEnum {
 #[test]
 fn enum_drop_classification() {
     assert_impl_all!(NoDropEnum: RustSpec<Drop = NoDrop>);
-    assert_impl_all!(CustomDropEnum: RustSpec<Drop = WithDrop<Custom>>);
-    assert_impl_all!(InnerDropEnum: RustSpec<Drop = WithDrop<Inner>>);
-    assert_impl_all!(CustomAndInnerDropEnum: RustSpec<Drop = WithDrop<Inner>>);
+    assert_impl_all!(CustomDropEnum: RustSpec<Drop = CustomDrop<NoDrop>>);
+    assert_impl_all!(InnerDropEnum: RustSpec<Drop = AutoDrop>);
+    assert_impl_all!(CustomAndInnerDropEnum: RustSpec<Drop = CustomDrop<AutoDrop>>);
 }
 
 #[derive(RustSpec)]

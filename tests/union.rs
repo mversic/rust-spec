@@ -2,7 +2,7 @@ use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
-    drop::{Custom, NoDrop, WithDrop},
+    drop::{CustomDrop, NoDrop},
     layout::Robust,
     mutability::Exclusive,
     niche::WithoutNiche,
@@ -65,7 +65,7 @@ impl Drop for CustomDropUnion {
 #[test]
 fn union_drop_classification() {
     assert_impl_all!(RustUnion: RustSpec<Drop = NoDrop>);
-    assert_impl_all!(CustomDropUnion: RustSpec<Drop = WithDrop<Custom>>);
+    assert_impl_all!(CustomDropUnion: RustSpec<Drop = CustomDrop<NoDrop>>);
 }
 
 #[test]

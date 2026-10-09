@@ -14,7 +14,7 @@
 - `Alignment`: whether ABI alignment is one or greater than one.
 - `Trap`: whether the value representation has trap values.
 - `Niche`: whether a type has a stable, unstable, or no niche value.
-- `Drop`: whether no code runs on drop, custom code or inner field's.
+- `Drop`: whether droping runs custom or compiler-generated code.
 
 ### Layout
 
@@ -56,8 +56,9 @@ Describes whether and what kind of niche is available for the type:
 
 Describes the type's behavior when dropped:
 - `NoDrop`: dropping the type runs no drop glue.
-- `WithDrop<Inner>`: a field or other owned content has drop behavior.
-- `WithDrop<Custom>`: the type implements [`Drop`] without inner drop requirements.
+- `AutoDrop`: a field or other owned content has drop behavior.
+- `CustomDrop<NoDrop>`: the type implements [`Drop`] without any compiler-generated "drop glue".
+- `CustomDrop<AutoDrop>`: the type implements [`Drop`] and owns content that needs drop glue.
 
 **Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
 
