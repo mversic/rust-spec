@@ -71,6 +71,19 @@ mod tests {
                 __IndirectTrap = NonRobust,
             >,
         );
+
+        #[cfg(feature = "alloc")]
+        assert_impl_all!(String:
+            RustSpec<
+                Layout = Unstable,
+                Size = Co3Sized<crate::Gt<crate::Zero>>,
+                Alignment = <usize as RustSpec>::Alignment,
+                Trap = NonRobust,
+                Niche = WithNiche<Unstable>,
+                Mutability = Exclusive,
+                __IndirectTrap = NonRobust,
+            >,
+        );
     }
 
     #[test]
@@ -216,7 +229,7 @@ mod tests {
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectTrap = Robust,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&ManuallyDrop<String>:
@@ -304,7 +317,7 @@ mod tests {
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectTrap = Robust,
+                __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Option<ManuallyDrop<String>>:
@@ -315,7 +328,7 @@ mod tests {
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive,
-                __IndirectTrap = Robust,
+                __IndirectTrap = NonRobust,
             >,
         );
     }

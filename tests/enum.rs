@@ -463,7 +463,7 @@ fn enum_classification() {
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectTrap = Robust,
+            __IndirectTrap = NonRobust,
         >,
     );
     assert_impl_all!(ReprCFieldlessEnum:
@@ -513,7 +513,7 @@ fn enum_classification() {
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive,
-            __IndirectTrap = Robust,
+            __IndirectTrap = NonRobust,
         >,
     );
 }

@@ -135,7 +135,7 @@ unsafe impl RustSpec for String {
     type Niche = WithNiche<Unstable>;
     type Drop = AutoDrop;
     type Mutability = Exclusive;
-    type __IndirectTrap = Robust;
+    type __IndirectTrap = NonRobust;
 }
 
 #[cfg(feature = "alloc")]
