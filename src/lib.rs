@@ -219,7 +219,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &R
@@ -232,7 +232,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for &R
@@ -245,7 +245,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
 
@@ -259,7 +259,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &mut R
@@ -272,7 +272,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for &mut R
@@ -285,7 +285,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
 
@@ -302,7 +302,7 @@ disjoint_impls! {
         type Trap = layout::NonRobust;
         type Niche = WithNiche<Stable>;
         type Drop = <CustomDrop<NoDrop> as Add<R::Drop>>::Output;
-        type Mutability = R::Mutability;
+        type Mutability = mutability::Exclusive;
         type __IndirectTrap = R::Trap;
     }
     #[cfg(feature = "alloc")]

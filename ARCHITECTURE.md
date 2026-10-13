@@ -12,7 +12,7 @@
 | `Drop` | Whether dropping the type runs custom drop glue, inner drop glue, both, or neither | `drop::NoDrop`, `drop::CustomDrop<drop::NoDrop>`, `drop::AutoDrop`, `drop::CustomDrop<drop::AutoDrop>` |
 | `Mutability` | Whether the whole value may be mutated through shared access | `mutability::Exclusive`, `mutability::Interior` |
 
-`Mutability` and `__IndirectTrap` are internal classification axes. `__IndirectTrap` tracks trap values reachable through supported pointer indirections. Implementors of the unsafe `RustSpec` trait must classify their types truthfully.
+`Mutability` and `__IndirectTrap` are internal classification axes. Derived structs and unions combine their fields' `Mutability`: the result is `Interior` when every field is `Interior`, and `Exclusive` otherwise. Fieldless structs and all enums are `Exclusive`. `__IndirectTrap` tracks trap values reachable through supported pointer indirections. Implementors of the unsafe `RustSpec` trait must classify their types truthfully.
 
 ## Composite types
 

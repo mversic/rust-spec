@@ -390,7 +390,7 @@ fn struct_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Interior,
             __IndirectTrap = Robust,
         >,
     );
@@ -404,6 +404,12 @@ fn struct_classification() {
             Mutability = Exclusive,
             __IndirectTrap = Robust,
         >,
+    );
+    assert_impl_all!(Pair<UnsafeCell<u8>, UnsafeCell<u16>>:
+        RustSpec<Mutability = Interior>,
+    );
+    assert_impl_all!(Pair<UnsafeCell<u8>, u8>:
+        RustSpec<Mutability = Exclusive>,
     );
     assert_impl_all!(Wrapper<u8>:
         RustSpec<

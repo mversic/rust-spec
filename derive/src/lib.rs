@@ -376,7 +376,16 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 return Ok(quote! {});
             };
 
-            gen_struct_impl(repr, alignment, name, generics, &variant.fields, attrs)
+            let fields = field_types(&variant.fields);
+            gen_struct_fields_impl(
+                repr,
+                alignment,
+                name,
+                generics,
+                &fields,
+                attrs,
+                gen_exclusive_mutability_family(),
+            )
         }
         syn::Data::Enum(data) => {
             gen_enum_impl(repr, alignment, name, generics, &data.variants, attrs)
@@ -396,6 +405,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 generics,
                 &fields,
                 attrs,
+                gen_mutability_family(generics, &fields),
             )
         }
         syn::Data::Union(data) => {
@@ -505,7 +515,8 @@ fn gen_struct_impl(
 ) -> proc_macro2::TokenStream {
     let fields = field_types(fields);
 
-    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, attrs)
+    let mutability = gen_mutability_family(generics, &fields);
+    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, attrs, mutability)
 }
 
 fn gen_struct_fields_impl(
@@ -515,6 +526,7 @@ fn gen_struct_fields_impl(
     generics: &syn::Generics,
     fields: &[&syn::Type],
     attrs: RustSpecAttrs,
+    mutability: AggregateFamily,
 ) -> proc_macro2::TokenStream {
     let layout = if repr.is_some() {
         gen_stable_layout_family(generics, fields)
@@ -534,7 +546,6 @@ fn gen_struct_fields_impl(
     };
 
     let drop = gen_drop_family(generics, fields, attrs.custom_drop);
-    let mutability = gen_single_field_mutability_family(generics, fields);
     let indirect_trap = gen_indirect_trap_family(generics, fields);
 
     let spec = TypeSpecFamilies {
@@ -595,11 +606,7 @@ fn gen_enum_impl(
 
     let niche = gen_enum_niche_family(has_trap_tag_values);
     let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
-    let mutability = if matches!(repr, None | Some(ReprKind::Transparent)) && variants.len() == 1 {
-        gen_single_field_mutability_family(generics, &fields)
-    } else {
-        gen_exclusive_mutability_family()
-    };
+    let mutability = gen_exclusive_mutability_family();
     let indirect_trap = gen_indirect_trap_family(generics, &fields);
 
     let spec = TypeSpecFamilies {
@@ -650,7 +657,7 @@ fn gen_union_impl(
     });
     let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
 
-    let mutability = gen_exclusive_mutability_family();
+    let mutability = gen_mutability_family(generics, &fields);
     let indirect_trap = AggregateFamily::fixed(quote! {
         #crate_::layout::Robust
     });
@@ -970,16 +977,12 @@ fn gen_transparent_niche_family(
     }
 }
 
-fn gen_single_field_mutability_family(
+fn gen_mutability_family(
     generics: &syn::Generics,
     fields: &[&syn::Type],
 ) -> AggregateFamily {
-    match fields {
-        [field] => {
-            AggregateFamily::fixed(field_axis_kind(field, 0, &quote! { Mutability }, generics))
-        }
-        _ => gen_exclusive_mutability_family(),
-    }
+    AggregateFamily::aggregate(quote! { core::ops::Add }, quote! { Mutability }, generics, fields)
+        .unwrap_or_else(gen_exclusive_mutability_family)
 }
 
 fn gen_exclusive_mutability_family() -> AggregateFamily {

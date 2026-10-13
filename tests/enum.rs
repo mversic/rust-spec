@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
-    mutability::{Exclusive, Interior},
+    mutability::Exclusive,
     niche::{WithNiche, WithoutNiche},
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -81,6 +81,12 @@ pub enum ReprCDataEnum {
 #[repr(C)]
 pub enum ReprCSingleInteriorEnum {
     Value(UnsafeCell<u8>),
+}
+
+#[derive(RustSpec)]
+pub enum InteriorVariantsEnum {
+    First(UnsafeCell<u8>),
+    Second(UnsafeCell<u16>),
 }
 
 #[derive(RustSpec)]
@@ -340,7 +346,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Interior,
+            Mutability = Exclusive,
             __IndirectTrap = Robust,
         >,
     );
@@ -491,8 +497,11 @@ fn enum_classification() {
     assert_impl_all!(ReprCSingleInteriorEnum:
         RustSpec<Mutability = Exclusive>,
     );
+    assert_impl_all!(InteriorVariantsEnum:
+        RustSpec<Mutability = Exclusive>,
+    );
     assert_impl_all!(TransparentInteriorEnum:
-        RustSpec<Mutability = Interior>,
+        RustSpec<Mutability = Exclusive>,
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<

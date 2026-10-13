@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{CustomDrop, NoDrop},
     layout::Robust,
-    mutability::Exclusive,
+    mutability::{Exclusive, Interior},
     niche::WithoutNiche,
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -28,6 +28,12 @@ union ReprCStableUnion {
 union ReprCUnion {
     cell: ManuallyDrop<UnsafeCell<u8>>,
     value: u8,
+}
+
+#[derive(RustSpec)]
+pub union InteriorUnion {
+    pub first: ManuallyDrop<UnsafeCell<u8>>,
+    pub second: ManuallyDrop<UnsafeCell<u16>>,
 }
 
 #[derive(RustSpec)]
@@ -70,6 +76,7 @@ fn union_drop_classification() {
 
 #[test]
 fn union_classification() {
+    assert_impl_all!(InteriorUnion: RustSpec<Mutability = Interior>);
     assert_impl_all!(RustUnion:
         RustSpec<
             Layout = Unstable,
