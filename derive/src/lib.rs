@@ -516,7 +516,15 @@ fn gen_struct_impl(
     let fields = field_types(fields);
 
     let mutability = gen_mutability_family(generics, &fields);
-    gen_struct_fields_impl(repr, repr_alignment, name, generics, &fields, attrs, mutability)
+    gen_struct_fields_impl(
+        repr,
+        repr_alignment,
+        name,
+        generics,
+        &fields,
+        attrs,
+        mutability,
+    )
 }
 
 fn gen_struct_fields_impl(
@@ -977,12 +985,14 @@ fn gen_transparent_niche_family(
     }
 }
 
-fn gen_mutability_family(
-    generics: &syn::Generics,
-    fields: &[&syn::Type],
-) -> AggregateFamily {
-    AggregateFamily::aggregate(quote! { core::ops::Add }, quote! { Mutability }, generics, fields)
-        .unwrap_or_else(gen_exclusive_mutability_family)
+fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
+    AggregateFamily::aggregate(
+        quote! { core::ops::Add },
+        quote! { Mutability },
+        generics,
+        fields,
+    )
+    .unwrap_or_else(gen_exclusive_mutability_family)
 }
 
 fn gen_exclusive_mutability_family() -> AggregateFamily {

@@ -2,27 +2,30 @@
 
 use core::ops::Add;
 
-/// Marker for types whose whole value may be mutated through shared access.
-pub enum Interior {}
-
 /// Marker for types whose value requires exclusive access to mutate.
 pub enum Exclusive {}
 
-impl<K> Add<K> for Exclusive {
-    type Output = Self;
+/// Marker for types with at least one part mutable through shared access.
+///
+/// Any type that carries `Cell<T>` or `UnsafeCell<T>`.
+pub enum WithInterior {}
 
-    fn add(self, _: K) -> Self::Output {
-        unreachable!()
-    }
+macro_rules! combine_mutability {
+    ($left:ty, $right:ty => $output:ty) => {
+        impl Add<$right> for $left {
+            type Output = $output;
+
+            fn add(self, _: $right) -> Self::Output {
+                unreachable!()
+            }
+        }
+    };
 }
 
-impl<K> Add<K> for Interior {
-    type Output = K;
-
-    fn add(self, _: K) -> Self::Output {
-        unreachable!()
-    }
-}
+combine_mutability!(Exclusive, Exclusive => Exclusive);
+combine_mutability!(Exclusive, WithInterior => WithInterior);
+combine_mutability!(WithInterior, Exclusive => WithInterior);
+combine_mutability!(WithInterior, WithInterior => WithInterior);
 
 #[cfg(test)]
 mod tests {
@@ -34,13 +37,13 @@ mod tests {
     use crate::{
         RustSpec, Stable, Unstable,
         layout::{NonRobust, Robust},
-        mutability::{Exclusive, Interior},
+        mutability::{Exclusive, WithInterior},
         niche::{WithNiche, WithoutNiche},
         size::Sized as Co3Sized,
     };
 
     #[test]
-    fn mutability_family_tracks_whole_value_mutability() {
+    fn mutability_family_tracks_shared_mutability() {
         use core::{
             cell::{Cell, UnsafeCell},
             ptr::NonNull,
@@ -64,7 +67,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -75,7 +78,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -86,7 +89,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -97,7 +100,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Exclusive,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -108,7 +111,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );

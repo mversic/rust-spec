@@ -5,7 +5,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
-    mutability::{Exclusive, Interior},
+    mutability::{Exclusive, WithInterior},
     niche::{WithNiche, WithoutNiche},
     size::{self, Gt, MetaSized, NulTerminated, Sized as SpecSized, SliceLike, Zero},
 };
@@ -265,8 +265,7 @@ fn struct_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithoutNiche,
-            // FIXME: Should this be Interior?
-            Mutability = Exclusive,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );
@@ -390,7 +389,7 @@ fn struct_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Interior,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );
@@ -401,15 +400,15 @@ fn struct_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(Pair<UnsafeCell<u8>, UnsafeCell<u16>>:
-        RustSpec<Mutability = Interior>,
+        RustSpec<Mutability = WithInterior>,
     );
     assert_impl_all!(Pair<UnsafeCell<u8>, u8>:
-        RustSpec<Mutability = Exclusive>,
+        RustSpec<Mutability = WithInterior>,
     );
     assert_impl_all!(Wrapper<u8>:
         RustSpec<
@@ -429,7 +428,7 @@ fn struct_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Interior,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );

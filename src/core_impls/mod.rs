@@ -19,7 +19,7 @@ mod tests {
     use crate::{
         RustSpec, Stable, Unstable,
         layout::{NonRobust, Robust},
-        mutability::{Exclusive, Interior},
+        mutability::{Exclusive, WithInterior},
         niche::{WithNiche, WithoutNiche},
         size::{MetaSized, Sized as Co3Sized, SliceLike},
     };
@@ -212,7 +212,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -342,7 +342,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -433,7 +433,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -459,7 +459,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );
@@ -550,7 +550,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithoutNiche,
-                Mutability = Interior,
+                Mutability = WithInterior,
                 __IndirectTrap = Robust,
             >,
         );

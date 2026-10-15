@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{CustomDrop, NoDrop},
     layout::Robust,
-    mutability::{Exclusive, Interior},
+    mutability::{Exclusive, WithInterior},
     niche::WithoutNiche,
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -76,7 +76,7 @@ fn union_drop_classification() {
 
 #[test]
 fn union_classification() {
-    assert_impl_all!(InteriorUnion: RustSpec<Mutability = Interior>);
+    assert_impl_all!(InteriorUnion: RustSpec<Mutability = WithInterior>);
     assert_impl_all!(RustUnion:
         RustSpec<
             Layout = Unstable,
@@ -95,7 +95,7 @@ fn union_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );

@@ -8,6 +8,7 @@
 //! - `alignment`: whether ABI alignment is one or greater than one.
 //! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
+//! - [`mutability`]: whether type can be mutated through shared access.
 //! - [`drop`](mod@drop): whether dropping runs custom or compiler-generated code.
 //!
 //! ## Layout
@@ -55,6 +56,12 @@
 //! - [`CustomDrop`]<[`AutoDrop`](drop::AutoDrop)>: the type implements [`Drop`] and its contents need automatic drop glue.
 //!
 //! **Use `#[rust_spec(custom_drop)]` when deriving [`RustSpec`] for a type that implements `Drop`**.
+//!
+//! ## Mutability
+//!
+//! Describes whether a type has parts that can be mutated through shared access:
+//! - [`Exclusive`](mutability::Exclusive): mutation requires exclusive non-interleaving access.
+//! - [`WithInterior`](mutability::WithInterior): a part supports mutation through shared access.
 //!
 //! ## How to Use
 //!
@@ -119,12 +126,13 @@ pub use rust_spec_derive::RustSpec;
 mod core_impls;
 pub mod drop;
 pub mod layout;
-#[doc(hidden)]
 pub mod mutability;
 pub mod niche;
 mod primitives;
 pub mod size;
+
 mod tuple;
+
 
 /// Marker for a compiler-guaranteed representation or niche.
 pub enum Stable {}
@@ -158,8 +166,6 @@ trait WithoutOrUnstableNiche {}
 impl WithoutOrUnstableNiche for WithoutNiche {}
 impl WithoutOrUnstableNiche for WithNiche<Stable> {}
 
-/// Opaque, lifetime-indexed field axes emitted by `RustSpec` derives for
-/// projections whose prerequisites are supplied by higher-ranked bounds.
 #[doc(hidden)]
 pub trait __HrtbAxes<const FIELD: usize> {
     type Layout<'a>;
@@ -201,7 +207,6 @@ disjoint_impls! {
         type Drop;
 
         /// Shared-access mutability classification; see [`mutability`].
-        #[doc(hidden)]
         type Mutability;
 
         /// Trap classification reachable through one or more supported pointer indirections; see [`layout`].

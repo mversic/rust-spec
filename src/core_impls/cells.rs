@@ -4,7 +4,7 @@ use core::{
 };
 
 use crate::{
-    RustSpec, Stable, drop::NoDrop, layout::Robust, mutability::Interior, niche::WithoutNiche,
+    RustSpec, Stable, drop::NoDrop, layout::Robust, mutability::WithInterior, niche::WithoutNiche,
 };
 
 macro_rules! interior_cell {
@@ -20,7 +20,7 @@ macro_rules! interior_cell {
             type Trap = <Robust as Add<T::Trap>>::Output;
             type Niche = WithoutNiche;
             type Drop = <NoDrop as Add<T::Drop>>::Output;
-            type Mutability = Interior;
+            type Mutability = WithInterior;
             type __IndirectTrap = T::__IndirectTrap;
         }
     )+};

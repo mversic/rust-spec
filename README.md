@@ -15,6 +15,7 @@
 - `Trap`: whether the value representation has trap values.
 - `Niche`: whether a type has a stable, unstable, or no niche value.
 - `Drop`: whether droping runs custom or compiler-generated code.
+- `Mutability`: whether type can be mutated through shared access.
 
 ### Layout
 
@@ -61,6 +62,12 @@ Describes the type's behavior when dropped:
 - `CustomDrop<AutoDrop>`: the type implements `Drop` and owns content that needs drop glue.
 
 **Use `#[rust_spec(custom_drop)]` when deriving `RustSpec` for a type that implements `Drop`**.
+
+### Mutability
+
+`RustSpec::Mutability` classifies shared-access mutability:
+- `mutability::Exclusive`: mutation requires exclusive access.
+- `mutability::WithInterior`: at least one part can be mutated through shared access, as with `Cell<T>` or `UnsafeCell<T>`.
 
 
 ## How to Use
