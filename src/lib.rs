@@ -61,7 +61,7 @@
 //!
 //! Describes whether a type has parts that can be mutated through shared access:
 //! - [`Exclusive`](mutability::Exclusive): mutation requires exclusive non-interleaving access.
-//! - [`WithInterior`](mutability::WithInterior): a part supports mutation through shared access.
+//! - [`WithInterior`](mutability::WithInterior): a part can be mutated through shared access.
 //!
 //! ## How to Use
 //!

@@ -67,7 +67,7 @@ Describes the type's behavior when dropped:
 
 `RustSpec::Mutability` classifies shared-access mutability:
 - `mutability::Exclusive`: mutation requires exclusive access.
-- `mutability::WithInterior`: at least one part can be mutated through shared access, as with `Cell<T>` or `UnsafeCell<T>`.
+- `mutability::WithInterior`: a part can be mutated through shared access.
 
 
 ## How to Use
