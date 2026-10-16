@@ -2,11 +2,13 @@
 
 `RustSpec` is the canonical classification trait for properties of Rust types. Its associated types describe independent axes:
 
+`Opaque` is a separate unsafe marker trait, not a `RustSpec` axis. It marks types whose value representation must not be inspected by conversions. Deriving `RustSpec` with `#[rust_spec(opaque)]` implements it for source types and selects the opaque classification; generated opaque-export implementations require it.
+
 | Axis | Meaning | Markers |
 | --- | --- | --- |
 | `Layout` | Whether Rust guarantees the representation shape | `Stable`, `Unstable` |
 | `Size` | Statically sized or dynamically sized shape | `size::Sized<Zero>`, `size::Sized<Gt<Zero>>`, `size::MetaSized<SliceLike>`, `size::MetaSized<DynTraitLike>`, `size::ExternTypeLike`, `size::NulTerminated` |
-| `Alignment` | Whether ABI alignment is one or greater than one | `One`, `Gt<One>` |
+| `Alignment` | Whether alignment is one or greater than one | `One`, `Gt<One>` |
 | `Trap` | Whether every bit pattern is a valid value | `layout::Robust`, `layout::NonRobust` |
 | `Niche` | Availability and stability of a niche value | `niche::WithoutNiche`, `niche::WithNiche<Stable>`, `niche::WithNiche<Unstable>` |
 | `Drop` | Whether dropping the type runs custom drop glue, inner drop glue, both, or neither | `drop::NoDrop`, `drop::CustomDrop<drop::NoDrop>`, `drop::AutoDrop`, `drop::CustomDrop<drop::AutoDrop>` |

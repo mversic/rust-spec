@@ -5,7 +5,7 @@
 //! [`RustSpec`] describes a type across the following axes:
 //! - [`layout`]: representation stability.
 //! - [`size`]: statically sized, metadata-sized, or extern-type-like shape.
-//! - `alignment`: whether ABI alignment is one or greater than one.
+//! - `alignment`: whether alignment is one or greater than one.
 //! - [`trap`](layout): whether the value representation has trap values.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
 //! - [`mutability`]: whether type can be mutated through shared access.
@@ -29,7 +29,7 @@
 //!
 //! ## Alignment
 //!
-//! - [`One`] means ABI alignment is exactly one;
+//! - [`One`] means alignment is exactly one;
 //! - [`Gt`]<[`One`]> means it is greater than one.
 //!
 //! ## Trap
@@ -133,7 +133,6 @@ pub mod size;
 
 mod tuple;
 
-
 /// Marker for a compiler-guaranteed representation or niche.
 pub enum Stable {}
 
@@ -146,7 +145,7 @@ pub enum Zero {}
 /// Marker for a statically sized type greater than the given threshold.
 pub struct Gt<T>(core::marker::PhantomData<T>);
 
-/// Marker for ABI alignment one.
+/// Marker for alignment one.
 pub enum One {}
 
 /// Type-level maximum used to combine alignment categories.
@@ -178,6 +177,15 @@ pub trait __HrtbAxes<const FIELD: usize> {
     type __IndirectTrap<'a>;
 }
 
+/// Marker for a type whose value representation is opaque (unreadable).
+///
+/// Opaque types must only be passed through their supported pointer representation.
+///
+/// # Safety
+///
+/// Implementors must ensure `RustSpec` implementation is that of an opaque type.
+pub unsafe trait Opaque {}
+
 disjoint_impls! {
     /// Joined Rust-spec classification of a type.
     ///
@@ -194,7 +202,7 @@ disjoint_impls! {
         /// Statically known, metadata-sized, or extern-type-like size classification; see [`size`].
         type Size;
 
-        /// ABI alignment classification; see the [crate root](crate) for [`One`] and [`Gt`].
+        /// Alignment classification; see the [crate root](crate) for [`One`] and [`Gt`].
         type Alignment;
 
         /// Trap-representation classification; see [`layout`].

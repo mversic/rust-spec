@@ -15,7 +15,7 @@ pub trait LayoutKind {}
 /// Marker for a robust type that does not require validity conversion.
 pub enum Robust {}
 
-/// Marker for a non-robust type that is still transmuted by the ABI layer.
+/// Marker for a non-robust type that has a trap value.
 pub enum NonRobust {}
 
 #[sealed::sealed]

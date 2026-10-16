@@ -355,6 +355,31 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let repr = repr.kind.as_ref();
     let name = &input.ident;
     let generics = &input.generics;
+    if attrs.opaque {
+        let crate_ = crate_path();
+        let (opaque_impl_generics, opaque_ty_generics, opaque_where_clause) =
+            generics.split_for_impl();
+        let mut rust_spec_generics = generics.clone();
+        rust_spec_generics
+            .make_where_clause()
+            .predicates
+            .push(syn::parse_quote!(Self: Sized));
+        let (impl_generics, ty_generics, where_clause) = rust_spec_generics.split_for_impl();
+        return Ok(quote! {
+            unsafe impl #opaque_impl_generics #crate_::Opaque for #name #opaque_ty_generics #opaque_where_clause {}
+
+            unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics #where_clause {
+                type Layout = #crate_::Stable;
+                type Size = #crate_::size::Sized<#crate_::Gt<#crate_::Zero>>;
+                type Alignment = #crate_::One;
+                type Trap = #crate_::layout::Robust;
+                type Niche = #crate_::niche::WithoutNiche;
+                type Drop = #crate_::drop::NoDrop;
+                type Mutability = #crate_::mutability::Exclusive;
+                type __IndirectTrap = #crate_::layout::Robust;
+            }
+        });
+    }
     if attrs.custom_niche && !matches!(&input.data, syn::Data::Struct(_)) {
         return Err(syn::Error::new_spanned(
             name,
@@ -457,6 +482,7 @@ fn gen_drop_assert(
 struct RustSpecAttrs {
     custom_niche: bool,
     custom_drop: bool,
+    opaque: bool,
 }
 
 fn parse_rust_spec_attrs(attrs: &[syn::Attribute]) -> syn::Result<RustSpecAttrs> {
@@ -467,6 +493,13 @@ fn parse_rust_spec_attrs(attrs: &[syn::Attribute]) -> syn::Result<RustSpecAttrs>
         .filter(|attr| attr.path().is_ident("rust_spec"))
     {
         attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("opaque") {
+                if result.opaque {
+                    return Err(meta.error("duplicate `opaque` within attribute"));
+                }
+                result.opaque = true;
+                return Ok(());
+            }
             if meta.path.is_ident("custom_niche") {
                 if result.custom_niche {
                     return Err(meta.error("duplicate `custom_niche` within attribute"));
