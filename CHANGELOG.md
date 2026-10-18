@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-21
+
+### Fixed
+
+- inherit `Layout` axis for `UnsafeCell` from the wrapped type
+
 ## [0.6.0] - 2026-10-16
 
 ### Added
