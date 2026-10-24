@@ -10,18 +10,6 @@ use rust_spec::{
 };
 use static_assertions::assert_impl_all;
 
-pub trait ProjectionWithGat {
-    type Borrowed<'a>;
-}
-
-pub trait ProjectionWithoutGat {
-    type Borrowed;
-}
-
-impl ProjectionWithGat for u32 {
-    type Borrowed<'a> = Self;
-}
-
 #[derive(RustSpec)]
 pub enum RustEnum {
     A(u8),
@@ -204,85 +192,6 @@ fn enum_drop_classification() {
     assert_impl_all!(CustomDropEnum: RustSpec<Drop = CustomDrop<NoDrop>>);
     assert_impl_all!(InnerDropEnum: RustSpec<Drop = AutoDrop>);
     assert_impl_all!(CustomAndInnerDropEnum: RustSpec<Drop = CustomDrop<AutoDrop>>);
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumView<'_dšč, 'a, T>
-where
-    Self: '_dšč,
-    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
-    for<'_dummy> u32: ProjectionWithGat,
-    T: ProjectionWithGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
-    B(<u32 as ProjectionWithGat>::Borrowed<'_dšč>),
-    C(<T as ProjectionWithGat>::Borrowed<'_dšč>),
-    D,
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumViewWithoutGat<'a, T>
-where
-    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
-    for<'_dummy> u32: ProjectionWithoutGat,
-    T: ProjectionWithoutGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
-    B(<u32 as ProjectionWithoutGat>::Borrowed),
-    C(<T as ProjectionWithoutGat>::Borrowed),
-    D,
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumView2<'_dšč, 'a>
-where
-    Self: '_dšč,
-    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
-    for<'_dummy> u32: ProjectionWithGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
-    B(<u32 as ProjectionWithGat>::Borrowed<'_dšč>),
-    D,
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumView2WithoutGat<'a>
-where
-    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
-    for<'_dummy> u32: ProjectionWithoutGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
-    B(<u32 as ProjectionWithoutGat>::Borrowed),
-    D,
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumView3<'_dšč, 'a>
-where
-    Self: '_dšč,
-    for<'_dummy> &'a [u32; 2]: ProjectionWithGat,
-    for<'_dummy> i32: ProjectionWithGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithGat>::Borrowed<'_dšč>),
-    B(<i32 as ProjectionWithGat>::Borrowed<'_dšč>),
-    D,
-}
-
-#[derive(RustSpec)]
-#[repr(C, u8)]
-pub enum ReprCDataEnumView3WithoutGat<'a>
-where
-    for<'_dummy> &'a [u32; 2]: ProjectionWithoutGat,
-    for<'_dummy> i32: ProjectionWithoutGat,
-{
-    A(<&'a [u32; 2] as ProjectionWithoutGat>::Borrowed),
-    B(<i32 as ProjectionWithoutGat>::Borrowed),
-    D,
 }
 
 #[derive(RustSpec)]
@@ -801,37 +710,5 @@ mod classification_regressions {
         check!(NonZeroU8, bool);
         check!(bool, NonZeroU8);
         check!(NonZeroU8, NonZeroU8);
-    }
-}
-
-mod opacity {
-    #![allow(dead_code)]
-    use rust_spec::{NonOpaque, Opaque, RustSpec};
-    use static_assertions::assert_impl_all;
-
-    #[derive(RustSpec)]
-    #[rust_spec(opaque)]
-    struct Hidden(*mut u8);
-
-    #[derive(RustSpec)]
-    #[rust_spec(opaque)]
-    enum Explicit {
-        Value(u8),
-    }
-
-    #[derive(RustSpec)]
-    enum Choice<A, B> {
-        A(A),
-        B(B),
-    }
-
-    #[test]
-    fn opacity_is_explicit_and_does_not_propagate() {
-        assert_impl_all!(Explicit: RustSpec<Opacity = Opaque>);
-        assert_impl_all!(Choice<Hidden, u8>: RustSpec<Opacity = NonOpaque>);
-        assert_impl_all!(Choice<u8, Hidden>: RustSpec<Opacity = NonOpaque>);
-        assert_impl_all!(Option<Hidden>: RustSpec<Opacity = NonOpaque>);
-        assert_impl_all!(Result<Hidden, u8>: RustSpec<Opacity = NonOpaque>);
-        assert_impl_all!(Result<u8, Hidden>: RustSpec<Opacity = NonOpaque>);
     }
 }

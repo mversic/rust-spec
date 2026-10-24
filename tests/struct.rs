@@ -1,5 +1,5 @@
 use core::{cell::UnsafeCell, num::NonZero as StdNonZero, num::NonZeroU8, ops::Add};
-use std::ffi::{CStr, c_void};
+use std::ffi::CStr;
 
 use rust_spec::{
     RustSpec, Stable, Unstable,
@@ -10,19 +10,6 @@ use rust_spec::{
     size::{self, Gt, MetaSized, NulTerminated, Sized as SpecSized, SliceLike, Zero},
 };
 use static_assertions::{assert_impl_all, assert_not_impl_any};
-
-pub trait Projection {
-    type Kita<'a>
-    where
-        Self: 'a;
-}
-
-impl Projection for c_void {
-    type Kita<'a>
-        = &'a u8
-    where
-        Self: 'a;
-}
 
 pub trait CTypeProjection {
     type CType;
@@ -52,38 +39,6 @@ pub struct NulTerminatedTail {
 fn nul_terminated_tail_classification() {
     assert_impl_all!(NulTerminatedTail: RustSpec<Size = NulTerminated>);
 }
-
-#[derive(RustSpec)]
-pub struct WithGat1<'b>(pub <c_void as Projection>::Kita<'b>)
-where
-    for<'d> c_void: Projection,
-    Self: 'b;
-
-#[derive(RustSpec)]
-#[repr(C)]
-pub struct WithGat2<'b>(pub <u8 as Projection>::Kita<'b>)
-where
-    for<'d> u8: Projection,
-    Self: 'b;
-
-#[derive(RustSpec)]
-#[repr(transparent)]
-pub struct Custom2View<'_dšč, 'a>(pub <&'a i8 as Projection>::Kita<'_dšč>)
-where
-    Self: '_dšč,
-    for<'_dummy> &'a i8: Projection;
-
-#[derive(RustSpec)]
-#[repr(transparent)]
-pub struct CounterData(<usize as CTypeProjection>::CType)
-where
-    for<'__dummy> usize: CTypeProjection;
-
-#[derive(RustSpec)]
-#[repr(C)]
-pub struct OpaqueData(<usize as CTypeProjection>::CType)
-where
-    for<'__dummy> usize: CTypeProjection;
 
 #[derive(RustSpec)]
 struct Empty;

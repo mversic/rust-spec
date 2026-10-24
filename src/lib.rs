@@ -36,7 +36,7 @@
 //! ## Trap
 //!
 //! Describes total reachable (through pointer indirection) value-representation validity:
-//! - [`Robust`](layout::Robust): every bit pattern (through indirection) is valid.
+//! - [`Robust`]: every bit pattern (through indirection) is valid.
 //! - [`NonRobust`](layout::NonRobust): some bit patterns are trap/invalid values.
 //!
 //! This classification does not establish provenance, alignment, lifetimes, or aliasing requirements
@@ -57,15 +57,15 @@
 //! Describes the type's behavior when dropped:
 //! - [`NoDrop`]: dropping the type runs no drop glue.
 //! - [`AutoDrop`](drop::AutoDrop): owned contents need automatic drop glue.
-//! - [`CustomDrop`]<[`NoDrop`]>: the type implements [`Drop`] and its contents need no automatic drop glue.
-//! - [`CustomDrop`]<[`AutoDrop`](drop::AutoDrop)>: the type implements [`Drop`] and its contents need automatic drop glue.
+//! - [`drop::CustomDrop`]<[`NoDrop`]>: the type implements [`Drop`] and its contents need no automatic drop glue.
+//! - [`drop::CustomDrop`]<[`AutoDrop`](drop::AutoDrop)>: the type implements [`Drop`] and its contents need automatic drop glue.
 //!
 //! **Use `#[rust_spec(custom_drop)]` when deriving [`RustSpec`] for a type that implements `Drop`**.
 //!
 //! ## Mutability
 //!
 //! Describes whether a type has parts that can be mutated through shared access:
-//! - [`Exclusive`](mutability::Exclusive): mutation requires exclusive non-interleaving access.
+//! - [`Exclusive`]: mutation requires exclusive non-interleaving access.
 //! - [`WithInterior`](mutability::WithInterior): a part can be mutated through shared access.
 //!
 //! ## Opacity
@@ -124,8 +124,10 @@ extern crate self as rust_spec;
 use alloc::boxed::Box;
 use core::ops::Add;
 
+#[cfg(feature = "alloc")]
+use crate::drop::{CustomDrop, DropKind};
 use crate::{
-    drop::{CustomDrop, DropKind, NoDrop},
+    drop::NoDrop,
     layout::Robust,
     mutability::Exclusive,
     niche::{WithNiche, WithoutNiche},
@@ -184,31 +186,17 @@ trait WithoutOrUnstableNiche {}
 impl WithoutOrUnstableNiche for WithoutNiche {}
 impl WithoutOrUnstableNiche for WithNiche<Unstable> {}
 
-#[doc(hidden)]
-pub trait __HrtbAxes<const FIELD: usize> {
-    type Layout<'a>;
-    type Size<'a>;
-    type Alignment<'a>;
-    type Trap<'a>;
-    type Niche<'a>;
-    type Drop<'a>;
-    type Mutability<'a>;
-    type Opacity<'a>;
-    type __IndirectTrap<'a>;
-}
-
 disjoint_impls! {
     /// Joined Rust-spec classification of a type.
     ///
     /// # Safety hazards when deriving `RustSpec`
     ///
-    /// Check [`rust_spec_derive::RustSpec`]
+    /// Check [`rust_spec_derive::RustSpec`].
     ///
     /// # Safety
     ///
     /// Implementors must classify `Self` truthfully according to each axis's documentation.
-    /// Consumers must check [`RustSpec::Opacity`] before using the other axes to inspect
-    /// or construct a value representation; see [`Opaque`].
+    /// [`Opaque`] types must be used only through indirection and consumers should not read them.
     pub unsafe trait RustSpec {
         /// Representation-stability classification; see [`layout`].
         type Layout;

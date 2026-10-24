@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{ToTokens, format_ident, quote};
+use quote::{format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
 use crate::repr::{
@@ -93,16 +93,15 @@ impl AggregateFamily {
 
         let (concrete_fields, parameterized_fields): (Vec<_>, Vec<_>) = fields
             .iter()
-            .enumerate()
-            .map(|(index, &field)| (index, field))
-            .partition(|(_, field)| !field_needs_bounds(field, generics));
+            .copied()
+            .partition(|field| !field_has_type_params(field, generics));
 
         let mut concrete_fields = concrete_fields.into_iter();
-        let concrete_kind = concrete_fields.next().map(|(index, field)| {
-            let mut kind = field_axis_kind(field, index, &axis, generics);
+        let concrete_kind = concrete_fields.next().map(|field| {
+            let mut kind = field_axis_kind(field, &axis);
 
-            for (index, field) in concrete_fields {
-                let field_kind = field_axis_kind(field, index, &axis, generics);
+            for field in concrete_fields {
+                let field_kind = field_axis_kind(field, &axis);
                 kind = quote! { <#kind as #operator<#field_kind>>::Output };
             }
 
@@ -110,11 +109,11 @@ impl AggregateFamily {
         });
 
         let mut parameterized_fields = parameterized_fields.into_iter();
-        let parameterized_kind = parameterized_fields.next().map(|(index, field)| {
-            let mut kind = field_axis_kind(field, index, &axis, generics);
+        let parameterized_kind = parameterized_fields.next().map(|field| {
+            let mut kind = field_axis_kind(field, &axis);
 
-            for (index, field) in parameterized_fields {
-                let field_kind = field_axis_kind(field, index, &axis, generics);
+            for field in parameterized_fields {
+                let field_kind = field_axis_kind(field, &axis);
 
                 aggregate_bounds.push(quote! { #kind: #operator<#field_kind> });
                 kind = quote! { <#kind as #operator<#field_kind>>::Output };
@@ -185,142 +184,10 @@ impl AggregateFamily {
     }
 }
 
-fn hrtb_projection_bound(field: &syn::Type, generics: &syn::Generics) -> Vec<syn::WherePredicate> {
-    use syn::visit::Visit;
-
-    #[derive(Default)]
-    struct ProjectionVisitor<'a> {
-        projections: Vec<&'a syn::TypePath>,
-    }
-
-    impl<'ast> Visit<'ast> for ProjectionVisitor<'ast> {
-        fn visit_type_path(&mut self, type_path: &'ast syn::TypePath) {
-            if type_path.qself.is_some() {
-                self.projections.push(type_path);
-                for segment in &type_path.path.segments {
-                    self.visit_path_arguments(&segment.arguments);
-                }
-                return;
-            }
-            syn::visit::visit_type_path(self, type_path);
-        }
-    }
-
-    let mut visitor = ProjectionVisitor::default();
-    visitor.visit_type(field);
+fn field_axis_kind(field: &syn::Type, axis: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     let crate_ = crate_path();
-
-    let mut bounds = Vec::new();
-    for projection in &visitor.projections {
-        let Some(qself) = projection.qself.as_ref() else {
-            continue;
-        };
-        let trait_path = syn::Path {
-            leading_colon: projection.path.leading_colon,
-            segments: projection
-                .path
-                .segments
-                .iter()
-                .take(qself.position)
-                .cloned()
-                .collect(),
-        };
-
-        for predicate in generics
-            .where_clause
-            .iter()
-            .flat_map(|where_clause| &where_clause.predicates)
-        {
-            let syn::WherePredicate::Type(predicate) = predicate else {
-                continue;
-            };
-            if predicate.lifetimes.is_none()
-                || predicate.bounded_ty.to_token_stream().to_string()
-                    != qself.ty.to_token_stream().to_string()
-            {
-                continue;
-            }
-
-            let Some(bound_index) = predicate.bounds.iter().position(|bound| {
-                matches!(bound, syn::TypeParamBound::Trait(bound) if bound.path.to_token_stream().to_string() == trait_path.to_token_stream().to_string())
-            }) else {
-                continue;
-            };
-            let Some(associated_type) = projection.path.segments.iter().nth(qself.position) else {
-                continue;
-            };
-            let mut predicate = predicate.clone();
-            let syn::TypeParamBound::Trait(bound) = &mut predicate.bounds[bound_index] else {
-                unreachable!("matched a trait bound");
-            };
-            *bound = syn::parse_quote! { #trait_path<#associated_type: #crate_::RustSpec> };
-
-            bounds.push(syn::WherePredicate::Type(predicate));
-        }
-    }
-
-    bounds
-}
-
-fn hrtb_lifetimes(field: &syn::Type, generics: &syn::Generics) -> Vec<syn::BoundLifetimes> {
-    hrtb_projection_bound(field, generics)
-        .into_iter()
-        .filter_map(|predicate| match predicate {
-            syn::WherePredicate::Type(predicate) => predicate.lifetimes,
-            _ => None,
-        })
-        .collect()
-}
-
-fn field_axis_kind(
-    field: &syn::Type,
-    index: usize,
-    axis: &proc_macro2::TokenStream,
-    generics: &syn::Generics,
-) -> proc_macro2::TokenStream {
-    let crate_ = crate_path();
-
-    if !hrtb_projection_bound(field, generics).is_empty() {
-        return quote! { <Self as #crate_::__HrtbAxes<#index>>::#axis<'static> };
-    }
 
     quote! { <#field as #crate_::RustSpec>::#axis }
-}
-
-fn hrtb_axes_impl(
-    name: &syn::Ident,
-    generics: &syn::Generics,
-    field: &syn::Type,
-    index: usize,
-) -> Option<proc_macro2::TokenStream> {
-    let hrtb_bounds = hrtb_projection_bound(field, generics);
-
-    let crate_ = crate_path();
-    if hrtb_bounds.is_empty() {
-        return None;
-    }
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let predicates = where_clause.map(|w| &w.predicates);
-
-    Some(quote! {
-        #[doc(hidden)]
-        impl #impl_generics #crate_::__HrtbAxes<#index> for #name #ty_generics
-        where
-            #(#hrtb_bounds,)*
-            #predicates
-        {
-            type Layout<'__rust_spec> = <#field as #crate_::RustSpec>::Layout;
-            type Size<'__rust_spec> = <#field as #crate_::RustSpec>::Size;
-            type Alignment<'__rust_spec> = <#field as #crate_::RustSpec>::Alignment;
-            type Trap<'__rust_spec> = <#field as #crate_::RustSpec>::Trap;
-            type Niche<'__rust_spec> = <#field as #crate_::RustSpec>::Niche;
-            type Drop<'__rust_spec> = <#field as #crate_::RustSpec>::Drop;
-            type Mutability<'__rust_spec> = <#field as #crate_::RustSpec>::Mutability;
-            type Opacity<'__rust_spec> = <#field as #crate_::RustSpec>::Opacity;
-            type __IndirectTrap<'__rust_spec> = <#field as #crate_::RustSpec>::__IndirectTrap;
-        }
-    })
 }
 
 fn field_has_type_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
@@ -356,10 +223,6 @@ fn field_has_type_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
     let mut visitor = Visitor::new(generics);
     visitor.visit_type(ty);
     visitor.found
-}
-
-fn field_needs_bounds(field: &syn::Type, generics: &syn::Generics) -> bool {
-    field_has_type_params(field, generics) || !hrtb_projection_bound(field, generics).is_empty()
 }
 
 fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -1135,7 +998,7 @@ fn gen_transparent_niche_family(
             let crate_ = crate_path();
             AggregateFamily::fixed(quote! { #crate_::niche::WithoutNiche })
         }
-        [field] => AggregateFamily::fixed(field_axis_kind(field, 0, &quote! { Niche }, generics)),
+        [field] => AggregateFamily::fixed(field_axis_kind(field, &quote! { Niche })),
         _ => gen_niche_family(generics, fields),
     }
 }
@@ -1179,29 +1042,10 @@ fn gen_type_spec_impl(
         .map(|where_clause| &where_clause.predicates);
 
     let crate_ = crate_path();
-    let hrtb_axes = fields
+    let field_bounds = fields
         .iter()
-        .filter_map(|field| {
-            let lifetimes = hrtb_lifetimes(field, generics);
-            (!lifetimes.is_empty()).then_some(lifetimes)
-        })
-        .collect::<Vec<_>>();
-
-    let field_bounds = fields.iter().enumerate().flat_map(|(index, field)| {
-        if field_has_type_params(field, generics) {
-            vec![quote! { #field: #crate_::RustSpec }]
-        } else {
-            hrtb_lifetimes(field, generics)
-                .into_iter()
-                .map(|lifetimes| quote! { #lifetimes Self: #crate_::__HrtbAxes<#index> })
-                .collect()
-        }
-    });
-
-    let hrtb_axes_impls = fields
-        .iter()
-        .enumerate()
-        .filter_map(|(index, field)| hrtb_axes_impl(name, generics, field, index));
+        .filter(|field| field_has_type_params(field, generics))
+        .map(|field| quote! { #field: #crate_::RustSpec });
 
     let aggregate_bounds = layout
         .aggregate_bounds
@@ -1212,18 +1056,7 @@ fn gen_type_spec_impl(
         .chain(niche.aggregate_bounds)
         .chain(drop.aggregate_bounds)
         .chain(mutability.aggregate_bounds)
-        .chain(indirect_trap.aggregate_bounds)
-        .flat_map(|bound| {
-            if !bound.to_string().contains("__HrtbAxes") {
-                return vec![bound.clone()];
-            }
-
-            hrtb_axes
-                .iter()
-                .flatten()
-                .map(|lifetimes| quote! { #lifetimes #bound })
-                .collect()
-        });
+        .chain(indirect_trap.aggregate_bounds);
 
     let layout_kind = layout.kind;
     let size_kind = size.kind;
@@ -1235,8 +1068,6 @@ fn gen_type_spec_impl(
     let indirect_trap_kind = indirect_trap.kind;
 
     quote! {
-        #(#hrtb_axes_impls)*
-
         #attrs
         unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics where
             #(#field_bounds,)*
