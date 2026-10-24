@@ -41,8 +41,12 @@ Describes compile-time size and pointer metadata shape:
 ### Trap
 
 Describes total reachable (through pointer indirection) value-representation validity:
-- `Robust`: every bit pattern is valid.
+- `Robust`: every bit pattern (through indirection) is valid.
 - `NonRobust`: some bit patterns are trap/invalid values.
+
+This classification does not establish provenance, alignment, lifetimes, or aliasing
+requirements for pointers and references. For example, `Option<&u8>` is `Robust`, but
+a non-null representation must still be a valid reference before constructing the value.
 
 ### Niche
 

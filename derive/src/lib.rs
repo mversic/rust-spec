@@ -4,12 +4,25 @@ use syn::{Token, punctuated::Punctuated};
 
 use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
 
+mod classify;
 mod repr;
 
 /// Derives `RustSpec` for a struct, enum, or union.
 ///
 /// Add `#[rust_spec(custom_drop)]` if the type itself implements [`Drop`].
 /// Add `#[rust_spec(custom_niche)]` if a struct has a custom niche.
+///
+/// # Safety hazards of private invariants
+///
+/// The derive infers `RustSpec` axes from the fields. It cannot see invariants enforced through
+/// private constructors.
+///
+/// For example, if an invariant of `#[repr(C)] Wrapper(u8)` is that it may never hold `u8::MAX`,
+/// `RustSpec` will infer `Layout = Stable` and `Trap = Robust` which downstream consumers may
+/// interpret as a permission to transmute `u8` into `Wrapper` and cause UB.
+///
+///Likewise, be very careful when the inner fields are raw pointers, `NonNull<T>` or `MaybeUninit<T>`.
+/// `UnsafeCell<T>` and `ManuallyDrop<T>` fields, however, don't require special care from the user.
 #[proc_macro_derive(RustSpec, attributes(rust_spec))]
 pub fn rust_spec(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
@@ -352,6 +365,18 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let repr = repr.kind.as_ref();
     let name = &input.ident;
     let generics = &input.generics;
+    if attrs.opaque && attrs.custom_niche {
+        return Err(syn::Error::new_spanned(
+            name,
+            "`custom_niche` cannot be combined with `opaque`",
+        ));
+    }
+    if attrs.opaque && attrs.custom_drop {
+        return Err(syn::Error::new_spanned(
+            name,
+            "`custom_drop` cannot be combined with `opaque`",
+        ));
+    }
     if attrs.opaque {
         let crate_ = crate_path();
         let (opaque_impl_generics, opaque_ty_generics, opaque_where_clause) =
@@ -376,6 +401,28 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type __IndirectTrap = #crate_::layout::Robust;
             }
         });
+    }
+    let raw_pointer_field = match &input.data {
+        syn::Data::Struct(data) => data
+            .fields
+            .iter()
+            .find(|field| classify::contains_raw_pointer(&field.ty)),
+        syn::Data::Enum(data) => data
+            .variants
+            .iter()
+            .flat_map(|variant| variant.fields.iter())
+            .find(|field| classify::contains_raw_pointer(&field.ty)),
+        syn::Data::Union(data) => data
+            .fields
+            .named
+            .iter()
+            .find(|field| classify::contains_raw_pointer(&field.ty)),
+    };
+    if let Some(field) = raw_pointer_field {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            "RustSpec cannot be derived for a raw pointer field",
+        ));
     }
     if attrs.custom_niche && !matches!(&input.data, syn::Data::Struct(_)) {
         return Err(syn::Error::new_spanned(
@@ -406,7 +453,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 generics,
                 &fields,
                 attrs,
-                gen_exclusive_mutability_family(),
+                gen_mutability_family(generics, &fields),
             )
         }
         syn::Data::Enum(data) => {
@@ -573,7 +620,12 @@ fn gen_struct_fields_impl(
     };
     let size = gen_size_family(generics, fields);
     let alignment = apply_repr_alignment(gen_alignment_family(generics, fields, None), alignment);
-    let trap = gen_trap_family(generics, fields, false);
+    let trap = if attrs.custom_niche {
+        let crate_ = crate_path();
+        AggregateFamily::fixed(quote! { #crate_::layout::NonRobust })
+    } else {
+        gen_trap_family(generics, fields, false)
+    };
     let niche = if attrs.custom_niche {
         let crate_ = crate_path();
         AggregateFamily::fixed(quote! { #crate_::niche::WithNiche<#crate_::Unstable> })
@@ -644,7 +696,7 @@ fn gen_enum_impl(
 
     let niche = gen_enum_niche_family(has_trap_tag_values);
     let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
-    let mutability = gen_exclusive_mutability_family();
+    let mutability = gen_mutability_family(generics, &fields);
     let indirect_trap = gen_indirect_trap_family(generics, &fields);
 
     let spec = TypeSpecFamilies {
@@ -882,7 +934,7 @@ fn gen_plain_c_enum_impls(
             trap: gen_trap_family(generics, &fields, has_trap_tag_values),
             niche,
             drop: gen_drop_family(generics, &fields, attrs.custom_drop),
-            mutability: gen_exclusive_mutability_family(),
+            mutability: gen_mutability_family(generics, &fields),
             indirect_trap: gen_indirect_trap_family(generics, &fields),
         };
 
@@ -909,18 +961,21 @@ fn gen_drop_family(
     custom_drop: bool,
 ) -> AggregateFamily {
     let crate_ = crate_path();
-    let seed = if custom_drop {
-        quote! { #crate_::drop::CustomDrop<#crate_::drop::NoDrop> }
-    } else {
-        quote! { #crate_::drop::NoDrop }
-    };
-    AggregateFamily::aggregate_with_seed(
+    let mut family = AggregateFamily::aggregate_with_seed(
         quote! { core::ops::Add },
         quote! { Drop },
-        seed,
+        quote! { #crate_::drop::NoDrop },
         generics,
         fields,
-    )
+    );
+    if custom_drop {
+        let kind = family.kind;
+        family
+            .aggregate_bounds
+            .push(quote! { #kind: #crate_::drop::DropKind });
+        family.kind = quote! { #crate_::drop::CustomDrop<#kind> };
+    }
+    family
 }
 
 fn gen_trap_family(
@@ -947,6 +1002,18 @@ fn gen_trap_family(
 
 fn gen_size_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
+    if fields
+        .iter()
+        .all(|field| classify::classify_nonzero(field) == classify::NonZeroClass::No)
+    {
+        return AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::Zero> });
+    }
+    if let Some(tail) = fields.last()
+        && classify::classify_type(tail, generics) == classify::TypeClass::Sized
+        && classify::classify_nonzero(tail) == classify::NonZeroClass::Yes
+    {
+        return AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::Gt<#crate_::Zero>> });
+    }
 
     AggregateFamily::aggregate(quote! { core::ops::Add }, quote! { Size }, generics, fields)
         .unwrap_or_else(|| AggregateFamily::fixed(quote! { #crate_::size::Sized<#crate_::Zero> }))

@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
-    mutability::Exclusive,
+    mutability::{Exclusive, WithInterior},
     niche::{WithNiche, WithoutNiche},
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -346,7 +346,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = WithInterior,
             __IndirectTrap = Robust,
         >,
     );
@@ -495,13 +495,13 @@ fn enum_classification() {
         >,
     );
     assert_impl_all!(ReprCSingleInteriorEnum:
-        RustSpec<Mutability = Exclusive>,
+        RustSpec<Mutability = WithInterior>,
     );
     assert_impl_all!(InteriorVariantsEnum:
-        RustSpec<Mutability = Exclusive>,
+        RustSpec<Mutability = WithInterior>,
     );
     assert_impl_all!(TransparentInteriorEnum:
-        RustSpec<Mutability = Exclusive>,
+        RustSpec<Mutability = WithInterior>,
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<

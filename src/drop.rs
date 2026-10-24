@@ -58,7 +58,7 @@ impl<Rhs> Add<Rhs> for AutoDrop {
 }
 
 impl Add<NoDrop> for CustomDrop<NoDrop> {
-    type Output = Self;
+    type Output = AutoDrop;
 
     fn add(self, _: NoDrop) -> Self::Output {
         unreachable!()
@@ -66,7 +66,7 @@ impl Add<NoDrop> for CustomDrop<NoDrop> {
 }
 
 impl Add<AutoDrop> for CustomDrop<NoDrop> {
-    type Output = CustomDrop<AutoDrop>;
+    type Output = AutoDrop;
 
     fn add(self, _: AutoDrop) -> Self::Output {
         unreachable!()
@@ -74,7 +74,7 @@ impl Add<AutoDrop> for CustomDrop<NoDrop> {
 }
 
 impl<I: DropKind> Add<CustomDrop<I>> for CustomDrop<NoDrop> {
-    type Output = CustomDrop<AutoDrop>;
+    type Output = AutoDrop;
 
     fn add(self, _: CustomDrop<I>) -> Self::Output {
         unreachable!()
@@ -82,7 +82,7 @@ impl<I: DropKind> Add<CustomDrop<I>> for CustomDrop<NoDrop> {
 }
 
 impl<Rhs> Add<Rhs> for CustomDrop<AutoDrop> {
-    type Output = Self;
+    type Output = AutoDrop;
 
     fn add(self, _: Rhs) -> Self::Output {
         unreachable!()

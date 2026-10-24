@@ -12,7 +12,11 @@ use crate::{Stable, Unstable};
 #[sealed::sealed]
 pub trait LayoutKind {}
 
-/// Marker for a robust type that does not require validity conversion.
+/// Marker for a type whose bit patterns require no representation-validity conversion.
+///
+/// This marker does not establish provenance, alignment, lifetimes, or aliasing requirements
+/// for pointers or references. For example, `Option<&u8>` is `Robust`, but a non-null
+/// representation must still be a valid reference before constructing the value.
 pub enum Robust {}
 
 /// Marker for a non-robust type that has a trap value.

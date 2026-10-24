@@ -11,7 +11,7 @@ use core::{
 };
 
 #[cfg(feature = "alloc")]
-use crate::drop::AutoDrop;
+use crate::drop::{AutoDrop, CustomDrop, DropKind};
 use crate::{
     RustSpec, Stable, Unstable,
     drop::NoDrop,
@@ -104,8 +104,11 @@ unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
     type __IndirectTrap = Robust;
 }
 
-unsafe impl<T: ?Sized> RustSpec for NonNull<T> {
-    type Layout = Stable;
+unsafe impl<T: ?Sized> RustSpec for NonNull<T>
+where
+    *mut T: RustSpec,
+{
+    type Layout = <*mut T as RustSpec>::Layout;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
@@ -142,14 +145,14 @@ unsafe impl RustSpec for String {
 unsafe impl<T: RustSpec> RustSpec for Vec<T>
 where
     NoDrop: Add<T::Drop>,
-    crate::drop::CustomDrop<NoDrop>: Add<T::Drop>,
+    <NoDrop as Add<T::Drop>>::Output: DropKind,
 {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = <crate::drop::CustomDrop<NoDrop> as Add<T::Drop>>::Output;
+    type Drop = CustomDrop<<NoDrop as Add<T::Drop>>::Output>;
     type Mutability = Exclusive;
     type __IndirectTrap = T::Trap;
 }

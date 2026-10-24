@@ -1,0 +1,23 @@
+error: RustSpec cannot be derived for a raw pointer field
+ --> tests/ui_fail/raw_pointer_field.rs:4:15
+  |
+4 | struct Direct(*mut u8);
+  |               ^^^^^^^
+
+error: RustSpec cannot be derived for a raw pointer field
+ --> tests/ui_fail/raw_pointer_field.rs:7:15
+  |
+7 | struct Nested([(*const u8, u8); 2]);
+  |               ^^^^^^^^^^^^^^^^^^^^
+
+error: RustSpec cannot be derived for a raw pointer field
+  --> tests/ui_fail/raw_pointer_field.rs:11:13
+   |
+11 |     Pointer(*mut u8),
+   |             ^^^^^^^
+
+error: RustSpec cannot be derived for a raw pointer field
+  --> tests/ui_fail/raw_pointer_field.rs:16:14
+   |
+16 |     pointer: *const u8,
+   |              ^^^^^^^^^

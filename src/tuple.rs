@@ -20,7 +20,7 @@ macro_rules! impl_tuple_type_spec {
         unsafe impl<$($all),+> RustSpec for $target
         where
             $($params)*
-            $ty: RustSpec,
+            $ty: RustSpec + ?Sized,
             Robust: Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>,
             NoDrop: Add<impl_tuple_type_spec!(@kind Drop; $($all),+)>,
         {
