@@ -10,6 +10,7 @@
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
 //! - [`mutability`]: whether type can be mutated through shared access.
 //! - [`drop`](mod@drop): whether dropping runs custom or compiler-generated code.
+//! - [`Opaque`]: whether the value representation may be inspected.
 //!
 //! ## Layout
 //!
@@ -67,6 +68,13 @@
 //! - [`Exclusive`](mutability::Exclusive): mutation requires exclusive non-interleaving access.
 //! - [`WithInterior`](mutability::WithInterior): a part can be mutated through shared access.
 //!
+//! ## Opacity
+//!
+//! - [`NonOpaque`]: the value representation is not opaque.
+//! - [`Opaque`]: the value must appear only behind an indirection.
+//!
+//! **Use `#[rust_spec(opaque)]` when deriving [`RustSpec`] to classify type as `Opaque`**.
+//!
 //! ## How to Use
 //!
 //! Derive [`RustSpec`] for your types, then use its associated marker families as bounds when implementing other traits:
@@ -83,16 +91,7 @@
 //!     flags: u16,
 //! }
 //!
-//! /// Marker for a type whose value representation is opaque (unreadable).
-///
-/// Opaque types must only be passed through their supported pointer representation.
-///
-/// # Safety
-///
-/// Implementors must ensure `RustSpec` implementation is that of an opaque type.
-pub unsafe trait Opaque {}
-
-disjoint_impls! {
+//! disjoint_impls! {
 //!     trait NullableEncoding {
 //!         const NEEDS_TAG: bool;
 //!     }
@@ -141,6 +140,7 @@ pub mod drop;
 pub mod layout;
 pub mod mutability;
 pub mod niche;
+
 mod primitives;
 pub mod size;
 
@@ -151,6 +151,12 @@ pub enum Stable {}
 
 /// Marker for a representation or niche that is not compiler-guaranteed.
 pub enum Unstable {}
+
+/// The value is opaque and must be placed behind an indirection.
+pub enum Opaque {}
+
+/// The value representation is not opaque.
+pub enum NonOpaque {}
 
 /// Marker for a zero-sized type.
 pub enum Zero {}
@@ -187,6 +193,7 @@ pub trait __HrtbAxes<const FIELD: usize> {
     type Niche<'a>;
     type Drop<'a>;
     type Mutability<'a>;
+    type Opacity<'a>;
     type __IndirectTrap<'a>;
 }
 
@@ -200,6 +207,8 @@ disjoint_impls! {
     /// # Safety
     ///
     /// Implementors must classify `Self` truthfully according to each axis's documentation.
+    /// Consumers must check [`RustSpec::Opacity`] before using the other axes to inspect
+    /// or construct a value representation; see [`Opaque`].
     pub unsafe trait RustSpec {
         /// Representation-stability classification; see [`layout`].
         type Layout;
@@ -223,6 +232,9 @@ disjoint_impls! {
         /// Shared-access mutability classification; see [`mutability`].
         type Mutability;
 
+        /// Whether the value representation is opaque; see [`Opaque`].
+        type Opacity;
+
         /// Trap classification reachable through one or more supported pointer indirections; see [`layout`].
         #[doc(hidden)]
         type __IndirectTrap;
@@ -239,6 +251,7 @@ disjoint_impls! {
         type Niche = WithNiche<Stable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &R
@@ -252,6 +265,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for &R
@@ -265,6 +279,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
 
@@ -279,6 +294,7 @@ disjoint_impls! {
         type Niche = WithNiche<Stable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, U: MetadataKind> RustSpec for &mut R
@@ -292,6 +308,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for &mut R
@@ -305,6 +322,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = drop::NoDrop;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
 
@@ -321,6 +339,7 @@ disjoint_impls! {
         type Niche = WithNiche<Stable>;
         type Drop = CustomDrop<<NoDrop as Add<R::Drop>>::Output>;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     #[cfg(feature = "alloc")]
@@ -336,6 +355,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = CustomDrop<<NoDrop as Add<R::Drop>>::Output>;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
     #[cfg(feature = "alloc")]
@@ -351,6 +371,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = CustomDrop<<NoDrop as Add<R::Drop>>::Output>;
         type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::Trap;
     }
 
@@ -366,6 +387,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
@@ -383,6 +405,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R> RustSpec for Option<R>
@@ -397,6 +420,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = <NoDrop as Add<R::Drop>>::Output;
         type Mutability = R::Mutability;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
 
@@ -408,7 +432,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             __IndirectTrap: Add<<E as RustSpec>::__IndirectTrap>,
         >,
-        E: RustSpec<Size = size::Sized<K>, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<K>, Mutability: Sized, Drop: Sized>,
         <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
     {
@@ -419,6 +443,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = <R::__IndirectTrap as Add<E::__IndirectTrap>>::Output;
     }
 
@@ -431,7 +456,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             Mutability: Add<<E as RustSpec>::Mutability>,
         >,
-        E: RustSpec<Size = size::Sized<Zero>, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<Zero>, Mutability: Sized, Drop: Sized>,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
         <E as RustSpec>::Alignment: Sized,
     {
@@ -442,6 +467,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -452,7 +478,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             Mutability: Add<<E as RustSpec>::Mutability>,
         >,
-        E: RustSpec<Size = size::Sized<Zero>, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<Zero>, Mutability: Sized, Drop: Sized>,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
         <E as RustSpec>::Alignment: Sized,
     {
@@ -463,6 +489,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -473,7 +500,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             Mutability: Add<<E as RustSpec>::Mutability>,
         >,
-        E: RustSpec<Size = size::Sized<Zero>, Alignment = Gt<One>, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<Zero>, Alignment = Gt<One>, Mutability: Sized, Drop: Sized>,
         <E as RustSpec>::Alignment: Sized,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
     {
@@ -484,6 +511,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -494,7 +522,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             Mutability: Add<<E as RustSpec>::Mutability>,
         >,
-        E: RustSpec<Size = size::Sized<Zero>, Alignment = One, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<Zero>, Alignment = One, Mutability: Sized, Drop: Sized>,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
         <E as RustSpec>::Alignment: Sized,
     {
@@ -505,6 +533,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = R::__IndirectTrap;
     }
 
@@ -516,7 +545,7 @@ disjoint_impls! {
             Drop: Add<<E as RustSpec>::Drop>,
             Mutability: Add<<E as RustSpec>::Mutability>,
         >,
-        E: RustSpec<Size = size::Sized<Gt<Zero>>, Niche = WithoutNiche, Mutability: Sized, Drop: Sized>,
+        E: RustSpec< Size = size::Sized<Gt<Zero>>, Niche = WithoutNiche, Mutability: Sized, Drop: Sized>,
         <R as RustSpec>::Alignment: Max<<E as RustSpec>::Alignment>,
         <E as RustSpec>::Alignment: Sized,
     {
@@ -527,6 +556,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = E::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -553,6 +583,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = E::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -579,6 +610,7 @@ disjoint_impls! {
         type Niche = WithNiche<Unstable>;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = E::__IndirectTrap;
     }
     unsafe impl<R, E> RustSpec for Result<R, E>
@@ -605,6 +637,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = <R::Mutability as Add<E::Mutability>>::Output;
+        type Opacity = NonOpaque;
         type __IndirectTrap = E::__IndirectTrap;
     }
 
@@ -619,6 +652,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
     unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *const R
@@ -632,6 +666,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
     unsafe impl<R: ?Sized> RustSpec for *const R
@@ -645,6 +680,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
 
@@ -659,6 +695,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
     unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *mut R
@@ -672,6 +709,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
     unsafe impl<R: ?Sized> RustSpec for *mut R
@@ -685,6 +723,7 @@ disjoint_impls! {
         type Niche = WithoutNiche;
         type Drop = NoDrop;
         type Mutability = Exclusive;
+        type Opacity = NonOpaque;
         type __IndirectTrap = Robust;
     }
 }

@@ -1,0 +1,17 @@
+error[E0080]: evaluation panicked: enum discriminant does not fit inferred u8; add an explicit integer #[repr(...)]
+ --> tests/ui_fail/discriminant_out_of_range.rs:7:10
+  |
+7 | #[derive(RustSpec)]
+  |          ^^^^^^^^ evaluation of `_` failed here
+
+error[E0080]: evaluation panicked: enum discriminant does not fit inferred u8; add an explicit integer #[repr(...)]
+  --> tests/ui_fail/discriminant_out_of_range.rs:10:10
+   |
+10 | #[derive(RustSpec)]
+   |          ^^^^^^^^ evaluation of `_` failed here
+
+error[E0080]: evaluation panicked: enum discriminant does not fit inferred u8; add an explicit integer #[repr(...)]
+  --> tests/ui_fail/discriminant_out_of_range.rs:13:10
+   |
+13 | #[derive(RustSpec)]
+   |          ^^^^^^^^ evaluation of `_` failed here

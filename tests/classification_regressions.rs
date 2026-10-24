@@ -93,6 +93,7 @@ unsafe impl RustSpec for dyn Object + '_ {
     type Niche = WithoutNiche;
     type Drop = NoDrop;
     type Mutability = Exclusive;
+    type Opacity = rust_spec::NonOpaque;
     type __IndirectTrap = rust_spec::layout::Robust;
 }
 

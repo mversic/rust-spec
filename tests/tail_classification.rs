@@ -81,6 +81,7 @@ unsafe impl RustSpec for Hidden<*mut Unclassified> {
     type Niche = rust_spec::niche::WithoutNiche;
     type Drop = rust_spec::drop::NoDrop;
     type Mutability = rust_spec::mutability::Exclusive;
+    type Opacity = rust_spec::NonOpaque;
     type __IndirectTrap = Robust;
 }
 

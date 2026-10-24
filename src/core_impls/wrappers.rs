@@ -13,7 +13,7 @@ use core::{
 #[cfg(feature = "alloc")]
 use crate::drop::{AutoDrop, CustomDrop, DropKind};
 use crate::{
-    RustSpec, Stable, Unstable,
+    NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
     layout::{NonRobust, Robust},
     mutability::Exclusive,
@@ -31,6 +31,7 @@ macro_rules! non_zero_derive {
             type Niche = WithNiche<Stable>;
             type Drop = NoDrop;
             type Mutability = Exclusive;
+            type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
     )+};
@@ -46,6 +47,7 @@ macro_rules! stable_robust_zst {
             type Niche = WithoutNiche;
             type Drop = NoDrop;
             type Mutability = Exclusive;
+            type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
     };
@@ -64,6 +66,7 @@ macro_rules! transparent_wrapper {
             type Niche = T::Niche;
             type Drop = <NoDrop as Add<T::Drop>>::Output;
             type Mutability = T::Mutability;
+            type Opacity = NonOpaque;
             type __IndirectTrap = T::__IndirectTrap;
         }
     };
@@ -90,6 +93,7 @@ unsafe impl<T: RustSpec + ?Sized> RustSpec for ManuallyDrop<T> {
     type Niche = T::Niche;
     type Drop = NoDrop;
     type Mutability = T::Mutability;
+    type Opacity = NonOpaque;
     type __IndirectTrap = T::__IndirectTrap;
 }
 
@@ -101,6 +105,7 @@ unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
     type Niche = WithoutNiche;
     type Drop = NoDrop;
     type Mutability = T::Mutability;
+    type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
 
@@ -115,6 +120,7 @@ where
     type Niche = WithNiche<Stable>;
     type Drop = NoDrop;
     type Mutability = Exclusive;
+    type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
 
@@ -127,6 +133,7 @@ unsafe impl RustSpec for str {
     type Niche = WithNiche<Unstable>;
     type Drop = NoDrop;
     type Mutability = Exclusive;
+    type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
 #[cfg(feature = "alloc")]
@@ -138,6 +145,7 @@ unsafe impl RustSpec for String {
     type Niche = WithNiche<Unstable>;
     type Drop = AutoDrop;
     type Mutability = Exclusive;
+    type Opacity = NonOpaque;
     type __IndirectTrap = NonRobust;
 }
 
@@ -154,5 +162,6 @@ where
     type Niche = WithNiche<Unstable>;
     type Drop = CustomDrop<<NoDrop as Add<T::Drop>>::Output>;
     type Mutability = Exclusive;
+    type Opacity = NonOpaque;
     type __IndirectTrap = T::Trap;
 }

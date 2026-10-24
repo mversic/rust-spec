@@ -41,6 +41,11 @@ static_assertions = "1.1.0"
 trybuild = "1.0.122"
 
 [[test]]
+name = "ui"
+path = "tests/ui.rs"
+required-features = ["derive", "alloc"]
+
+[[test]]
 name = "struct"
 path = "tests/struct.rs"
 required-features = ["derive", "alloc"]
@@ -53,9 +58,4 @@ required-features = ["derive", "alloc"]
 [[test]]
 name = "union"
 path = "tests/union.rs"
-required-features = ["derive", "alloc"]
-
-[[test]]
-name = "ui"
-path = "tests/ui.rs"
 required-features = ["derive", "alloc"]

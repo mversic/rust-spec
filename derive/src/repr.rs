@@ -148,17 +148,94 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Repr> {
     Ok(Repr { kind, align })
 }
 
-pub(crate) fn infer_repr(num_variants: usize) -> syn::Type {
-    const U8_CAPACITY: usize = u8::MAX as usize + 1;
-    const U16_CAPACITY: usize = u16::MAX as usize + 1;
-    const U32_CAPACITY: usize = u32::MAX as usize + 1;
+/// Infer a tag from known discriminants and the number of variants.
+/// Unknown values and following implicit increments are checked by rustc against
+/// the inferred range. Target-dependent operations are left to that const check.
+pub(crate) fn infer_repr(variants: &Punctuated<syn::Variant, Token![,]>) -> syn::Result<syn::Type> {
+    let mut previous = Some(-1i128);
+    let mut minimum = 0i128;
+    let mut maximum = 0i128;
+    for variant in variants {
+        let value = if let Some((_, expr)) = &variant.discriminant {
+            eval_discriminant(expr)
+        } else {
+            previous.and_then(|value| value.checked_add(1))
+        };
+        if let Some(value) = value {
+            minimum = minimum.min(value);
+            maximum = maximum.max(value);
+        }
+        previous = value;
+    }
+    let count = variants.len() as u128;
+    let tag = if minimum >= 0 {
+        match maximum {
+            0..=255 if count <= 256 => syn::parse_quote!(u8),
+            0..=65535 if count <= 65536 => syn::parse_quote!(u16),
+            0..=4294967295 if count <= 4294967296 => syn::parse_quote!(u32),
+            _ if maximum <= u64::MAX as i128 => syn::parse_quote!(u64),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    variants,
+                    "enum discriminant exceeds the supported tag range",
+                ));
+            }
+        }
+    } else if minimum >= i8::MIN as i128 && maximum <= i8::MAX as i128 && count <= 256 {
+        syn::parse_quote!(i8)
+    } else if minimum >= i16::MIN as i128 && maximum <= i16::MAX as i128 && count <= 65536 {
+        syn::parse_quote!(i16)
+    } else if minimum >= i32::MIN as i128 && maximum <= i32::MAX as i128 && count <= 4294967296 {
+        syn::parse_quote!(i32)
+    } else if minimum >= i64::MIN as i128 && maximum <= i64::MAX as i128 {
+        syn::parse_quote!(i64)
+    } else {
+        return Err(syn::Error::new_spanned(
+            variants,
+            "enum discriminant exceeds the supported tag range",
+        ));
+    };
+    Ok(tag)
+}
 
-    #[expect(clippy::match_overlapping_arm)]
-    match num_variants {
-        0..=U8_CAPACITY => syn::parse_quote!(u8),
-        0..=U16_CAPACITY => syn::parse_quote!(u16),
-        0..=U32_CAPACITY => syn::parse_quote!(u32),
-        _ => syn::parse_quote!(u64),
+pub(crate) fn has_unresolved_discriminants(variants: &Punctuated<syn::Variant, Token![,]>) -> bool {
+    variants.iter().any(|variant| {
+        variant
+            .discriminant
+            .as_ref()
+            .is_some_and(|(_, expr)| eval_discriminant(expr).is_none())
+    })
+}
+
+fn eval_discriminant(expr: &syn::Expr) -> Option<i128> {
+    match expr {
+        syn::Expr::Lit(expr) => match &expr.lit {
+            syn::Lit::Int(value) => value.base10_parse().ok(),
+            _ => None,
+        },
+        syn::Expr::Paren(expr) => eval_discriminant(&expr.expr),
+        syn::Expr::Group(expr) => eval_discriminant(&expr.expr),
+        syn::Expr::Unary(expr) if matches!(expr.op, syn::UnOp::Neg(_)) => {
+            eval_discriminant(&expr.expr)?.checked_neg()
+        }
+        syn::Expr::Binary(expr) => {
+            let left = eval_discriminant(&expr.left)?;
+            let right = eval_discriminant(&expr.right)?;
+            match expr.op {
+                syn::BinOp::Add(_) => left.checked_add(right),
+                syn::BinOp::Sub(_) => left.checked_sub(right),
+                syn::BinOp::Mul(_) => left.checked_mul(right),
+                syn::BinOp::Div(_) => left.checked_div(right),
+                syn::BinOp::Rem(_) => left.checked_rem(right),
+                // Shifts depend on the target isize width and can discard bits.
+                // Leave their evaluation to the emitted const check.
+                syn::BinOp::BitAnd(_) => Some(left & right),
+                syn::BinOp::BitOr(_) => Some(left | right),
+                syn::BinOp::BitXor(_) => Some(left ^ right),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 

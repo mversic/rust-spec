@@ -16,6 +16,7 @@
 - `Niche`: whether a type has a stable, unstable, or no niche value.
 - `Drop`: whether droping runs custom or compiler-generated code.
 - `Mutability`: whether type can be mutated through shared access.
+- `Opacity`: whether the value representation may be inspected.
 
 ### Layout
 
@@ -73,6 +74,13 @@ Describes the type's behavior when dropped:
 - `mutability::Exclusive`: mutation requires exclusive access.
 - `mutability::WithInterior`: a part can be mutated through shared access.
 
+
+### Opacity
+
+- `NonOpaque`: the value representation is not opaque.
+- `Opaque`: the value must appear only behind an indirection.
+
+**Use `#[rust_spec(opaque)]` when deriving [`RustSpec`] to classify type as `Opaque`**.
 
 ## How to Use
 

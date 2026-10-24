@@ -2,7 +2,9 @@ use proc_macro::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Token, punctuated::Punctuated};
 
-use crate::repr::{ReprKind, infer_repr, is_exhaustive_enum, parse_repr};
+use crate::repr::{
+    ReprKind, has_unresolved_discriminants, infer_repr, is_exhaustive_enum, parse_repr,
+};
 
 mod classify;
 mod repr;
@@ -11,6 +13,7 @@ mod repr;
 ///
 /// Add `#[rust_spec(custom_drop)]` if the type itself implements [`Drop`].
 /// Add `#[rust_spec(custom_niche)]` if a struct has a custom niche.
+/// Add `#[rust_spec(opaque)]` to classify the type as `Opacity = Opaque`
 ///
 /// # Safety hazards of private invariants
 ///
@@ -314,6 +317,7 @@ fn hrtb_axes_impl(
             type Niche<'__rust_spec> = <#field as #crate_::RustSpec>::Niche;
             type Drop<'__rust_spec> = <#field as #crate_::RustSpec>::Drop;
             type Mutability<'__rust_spec> = <#field as #crate_::RustSpec>::Mutability;
+            type Opacity<'__rust_spec> = <#field as #crate_::RustSpec>::Opacity;
             type __IndirectTrap<'__rust_spec> = <#field as #crate_::RustSpec>::__IndirectTrap;
         }
     })
@@ -379,8 +383,6 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     }
     if attrs.opaque {
         let crate_ = crate_path();
-        let (opaque_impl_generics, opaque_ty_generics, opaque_where_clause) =
-            generics.split_for_impl();
         let mut rust_spec_generics = generics.clone();
         rust_spec_generics
             .make_where_clause()
@@ -388,8 +390,6 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             .push(syn::parse_quote!(Self: Sized));
         let (impl_generics, ty_generics, where_clause) = rust_spec_generics.split_for_impl();
         return Ok(quote! {
-            unsafe impl #opaque_impl_generics #crate_::Opaque for #name #opaque_ty_generics #opaque_where_clause {}
-
             unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics #where_clause {
                 type Layout = #crate_::Stable;
                 type Size = #crate_::size::Sized<#crate_::Gt<#crate_::Zero>>;
@@ -398,6 +398,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type Niche = #crate_::niche::WithoutNiche;
                 type Drop = #crate_::drop::NoDrop;
                 type Mutability = #crate_::mutability::Exclusive;
+                type Opacity = #crate_::Opaque;
                 type __IndirectTrap = #crate_::layout::Robust;
             }
         });
@@ -430,6 +431,15 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             "`custom_niche` is only supported on structs",
         ));
     }
+    let discriminant_assert = if repr.is_none()
+        && let syn::Data::Enum(data) = &input.data
+    {
+        let tag = infer_repr(&data.variants)?;
+        has_unresolved_discriminants(&data.variants)
+            .then(|| gen_discriminant_assert(name, &data.variants, &tag))
+    } else {
+        None
+    };
     let rust_spec_impl = match &input.data {
         syn::Data::Struct(data) => {
             gen_struct_impl(repr, alignment, name, generics, &data.fields, attrs)
@@ -483,7 +493,53 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     };
 
     let drop_assert = gen_drop_assert(name, generics, attrs.custom_drop);
-    Ok(quote! { #drop_assert #rust_spec_impl })
+    Ok(quote! { #discriminant_assert #drop_assert #rust_spec_impl })
+}
+
+/// Re-evaluate unresolved discriminants in rustc, including implicit increments.
+/// A default-representation discriminant cannot depend on generic parameters.
+fn gen_discriminant_assert(
+    name: &syn::Ident,
+    variants: &Punctuated<syn::Variant, Token![,]>,
+    tag: &syn::Type,
+) -> proc_macro2::TokenStream {
+    // Rewrite paths, not macro input (e.g. `stringify!(Self)` must stay unchanged).
+    struct QualifySelf<'a>(&'a syn::Ident);
+    impl syn::visit_mut::VisitMut for QualifySelf<'_> {
+        // Nested items have their own Self context.
+        fn visit_item_mut(&mut self, _: &mut syn::Item) {}
+
+        fn visit_path_mut(&mut self, path: &mut syn::Path) {
+            if let Some(first) = path.segments.first_mut()
+                && first.ident == "Self"
+            {
+                first.ident = self.0.clone();
+            }
+            syn::visit_mut::visit_path_mut(self, path);
+        }
+    }
+    let mut base = quote! { 0 };
+    let mut base_index = 0usize;
+    let checks = variants.iter().enumerate().map(|(index, variant)| {
+        if let Some((_, expr)) = &variant.discriminant {
+            let mut expr = expr.clone();
+            syn::visit_mut::VisitMut::visit_expr_mut(&mut QualifySelf(name), &mut expr);
+            base = quote! { #expr };
+            base_index = index;
+        }
+        let offset = index - base_index;
+        // Supply the original expected type without introducing local bindings
+        // that could shadow names used by a discriminant expression.
+        let value = quote! { (core::convert::identity::<isize>(#base) as i128 + #offset as i128) };
+        quote! {
+            assert!(
+                #value >= <#tag>::MIN as i128 && #value <= <#tag>::MAX as i128,
+                concat!("enum discriminant does not fit inferred ", stringify!(#tag),
+                    "; add an explicit integer #[repr(...)]"),
+            );
+        }
+    });
+    quote! { const _: () = { #(#checks)* }; }
 }
 
 fn gen_drop_assert(
@@ -667,7 +723,7 @@ fn gen_enum_impl(
     let crate_ = crate_path();
     let fields = variant_field_types(variants);
     let has_trap_tag_values = match repr {
-        None => rust_tag_has_traps(variants.len()),
+        None => rust_tag_has_traps(variants),
         Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
             primitive_tag_has_traps(tag, variants.len())
         }
@@ -686,7 +742,7 @@ fn gen_enum_impl(
         Some(ReprKind::Primitive(tag) | ReprKind::C(Some(tag))) => Some(tag.as_ref().clone()),
         Some(ReprKind::C(None)) => unreachable!("handled by gen_plain_c_enum_impls"),
         Some(ReprKind::Transparent) => None,
-        None => Some(infer_repr(variants.len())),
+        None => Some(infer_repr(variants).expect("validated enum discriminants")),
     };
     let alignment = apply_repr_alignment(
         gen_alignment_family(generics, &fields, tag.as_ref()),
@@ -803,7 +859,7 @@ fn gen_fieldless_enum_impl(
 
     let niche = if has_tag {
         let has_trap_tag_values = match repr {
-            None => rust_tag_has_traps(variants.len()),
+            None => rust_tag_has_traps(variants),
             Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
                 primitive_tag_has_traps(tag, variants.len())
             }
@@ -817,7 +873,7 @@ fn gen_fieldless_enum_impl(
 
     let has_trap_tag_values = has_tag
         && match repr {
-            None => rust_tag_has_traps(variants.len()),
+            None => rust_tag_has_traps(variants),
             Some(ReprKind::C(Some(tag)) | ReprKind::Primitive(tag)) => {
                 primitive_tag_has_traps(tag, variants.len())
             }
@@ -829,8 +885,10 @@ fn gen_fieldless_enum_impl(
         let tag = match repr {
             Some(ReprKind::Primitive(tag) | ReprKind::C(Some(tag))) => tag.as_ref().clone(),
             Some(ReprKind::C(None)) => unreachable!("handled by gen_plain_c_enum_impls"),
-            Some(ReprKind::Transparent) => infer_repr(variants.len()),
-            None => infer_repr(variants.len()),
+            Some(ReprKind::Transparent) => {
+                infer_repr(variants).expect("validated enum discriminants")
+            }
+            None => infer_repr(variants).expect("validated enum discriminants"),
         };
         gen_alignment_family(generics, &[], Some(&tag))
     } else {
@@ -1192,6 +1250,7 @@ fn gen_type_spec_impl(
             type Niche = #niche_kind;
             type Drop = #drop_kind;
             type Mutability = #mutability_kind;
+            type Opacity = #crate_::NonOpaque;
             type __IndirectTrap = #indirect_trap_kind;
         }
     }
@@ -1213,9 +1272,9 @@ fn primitive_tag_has_traps(tag: &syn::Type, variant_count: usize) -> bool {
     !is_exhaustive_enum(variant_count, tag)
 }
 
-fn rust_tag_has_traps(variant_count: usize) -> bool {
-    let tag = infer_repr(variant_count);
-    primitive_tag_has_traps(&tag, variant_count)
+fn rust_tag_has_traps(variants: &Punctuated<syn::Variant, Token![,]>) -> bool {
+    let tag = infer_repr(variants).expect("validated enum discriminants");
+    primitive_tag_has_traps(&tag, variants.len())
 }
 
 fn c_tag_type(c_enum_bits: u32) -> syn::Type {

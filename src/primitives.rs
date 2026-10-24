@@ -3,7 +3,7 @@
 use core::{cmp::Ordering, ops::Add};
 
 use crate::{
-    RustSpec, Stable, Unstable, Zero,
+    NonOpaque, RustSpec, Stable, Unstable, Zero,
     drop::NoDrop,
     layout::{NonRobust, Robust},
     mutability::Exclusive,
@@ -21,6 +21,7 @@ macro_rules! primitive_derive {
             type Niche = WithoutNiche;
             type Drop = NoDrop;
             type Mutability = Exclusive;
+            type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
     };
@@ -40,6 +41,7 @@ macro_rules! impl_nonempty_array {
             type Niche = <WithoutNiche as Add<R::Niche>>::Output;
             type Drop = <NoDrop as Add<R::Drop>>::Output;
             type Mutability = R::Mutability;
+            type Opacity = NonOpaque;
             type __IndirectTrap = R::__IndirectTrap;
         })*
     };
@@ -114,6 +116,7 @@ macro_rules! impl_fn_types {
             type Niche = WithNiche<Stable>;
             type Drop = NoDrop;
             type Mutability = Exclusive;
+            type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
     };
@@ -129,6 +132,7 @@ macro_rules! fieldless_enum_derive {
             type Niche = WithNiche<Unstable>;
             type Drop = NoDrop;
             type Mutability = Exclusive;
+            type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
     };
@@ -169,6 +173,7 @@ where
     type Niche = WithoutNiche;
     type Drop = <NoDrop as Add<R::Drop>>::Output;
     type Mutability = R::Mutability;
+    type Opacity = NonOpaque;
     type __IndirectTrap = R::__IndirectTrap;
 }
 
@@ -180,6 +185,7 @@ unsafe impl<R: RustSpec> RustSpec for [R; 0] {
     type Niche = WithoutNiche;
     type Drop = NoDrop;
     type Mutability = Exclusive;
+    type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
 

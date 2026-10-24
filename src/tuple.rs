@@ -1,6 +1,6 @@
 use core::ops::Add;
 
-use crate::{Max, RustSpec, Unstable, drop::NoDrop, layout::Robust};
+use crate::{Max, NonOpaque, RustSpec, Unstable, drop::NoDrop, layout::Robust};
 
 macro_rules! impl_tuple_type_spec {
     (@alignment $ty:ident) => {
@@ -31,6 +31,7 @@ macro_rules! impl_tuple_type_spec {
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
             type Drop = <NoDrop as Add<impl_tuple_type_spec!(@kind Drop; $($all),+)>>::Output;
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
+            type Opacity = NonOpaque;
             type __IndirectTrap = impl_tuple_type_spec!(@kind __IndirectTrap; $($all),+);
         }
     };
