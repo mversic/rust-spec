@@ -334,9 +334,6 @@ fn field_has_type_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
 
             syn::visit::visit_type_path(self, type_path);
         }
-
-        // Raw pointers have fixed classifications and do not follow their pointees.
-        fn visit_type_ptr(&mut self, _: &syn::TypePtr) {}
     }
 
     let mut visitor = Visitor::new(generics);

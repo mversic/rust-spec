@@ -26,22 +26,6 @@ macro_rules! primitive_derive {
     };
 }
 
-macro_rules! raw_pointer_derive {
-    ( $mutability:tt ) => {
-        unsafe impl<R: ?Sized> RustSpec for *$mutability R {
-            type Layout = Stable;
-            type Size = size::Sized<crate::Gt<Zero>>;
-            type Alignment = <usize as RustSpec>::Alignment;
-            type Trap = Robust;
-            type Niche = WithoutNiche;
-            type Drop = NoDrop;
-            type Mutability = Exclusive;
-            type __IndirectTrap = Robust;
-
-        }
-    };
-}
-
 macro_rules! impl_nonempty_array {
     ($($n:literal),* $(,)?) => { $(
         unsafe impl<R: RustSpec> RustSpec for [R; $n]
@@ -171,9 +155,6 @@ primitive_derive! { usize => crate::Gt<crate::One> }
 primitive_derive! { usize => crate::Gt<crate::One> }
 
 primitive_derive! { isize => <usize as RustSpec>::Alignment }
-
-raw_pointer_derive! { const }
-raw_pointer_derive! { mut }
 
 unsafe impl<R: RustSpec> RustSpec for [R]
 where

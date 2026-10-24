@@ -115,9 +115,7 @@ use core::ops::Add;
 #[cfg(feature = "alloc")]
 use crate::drop::CustomDrop;
 use crate::{
-    drop::NoDrop,
-    niche::{WithNiche, WithoutNiche},
-    size::{MetadataKind, SizedKind},
+    drop::NoDrop, layout::Robust, mutability::Exclusive, niche::{WithNiche, WithoutNiche}, size::{MetadataKind, SizedKind},
 };
 use disjoint_impls::disjoint_impls;
 #[cfg(feature = "derive")]
@@ -568,6 +566,86 @@ disjoint_impls! {
         type Drop = <R::Drop as Add<E::Drop>>::Output;
         type Mutability = mutability::Exclusive;
         type __IndirectTrap = E::__IndirectTrap;
+    }
+
+    unsafe impl<R: ?Sized> RustSpec for *const R
+    where
+        R: RustSpec<Size: size::Thin>,
+    {
+        type Layout = Stable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
+    }
+    unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *const R
+    where
+        R: RustSpec<Size = size::MetaSized<K>>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
+    }
+    unsafe impl<R: ?Sized> RustSpec for *const R
+    where
+        R: RustSpec<Size = size::NulTerminated>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
+    }
+
+    unsafe impl<R: ?Sized> RustSpec for *mut R
+    where
+        R: RustSpec<Size: size::Thin>,
+    {
+        type Layout = Stable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
+    }
+    unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *mut R
+    where
+        R: RustSpec<Size = size::MetaSized<K>>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
+    }
+    unsafe impl<R: ?Sized> RustSpec for *mut R
+    where
+        R: RustSpec<Size = size::NulTerminated>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        type Mutability = Exclusive;
+        type __IndirectTrap = Robust;
     }
 }
 

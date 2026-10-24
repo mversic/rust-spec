@@ -9,7 +9,7 @@ use rust_spec::{
     niche::{WithNiche, WithoutNiche},
     size::{self, Gt, MetaSized, NulTerminated, Sized as SpecSized, SliceLike, Zero},
 };
-use static_assertions::assert_impl_all;
+use static_assertions::{assert_impl_all, assert_not_impl_any};
 
 pub trait Projection {
     type Kita<'a>
@@ -154,7 +154,7 @@ struct NotRustSpec;
 
 #[derive(RustSpec)]
 #[repr(C)]
-struct RawPointer<T> {
+struct RawPointer<T: ?Sized> {
     pointer: *mut T,
 }
 
@@ -454,7 +454,8 @@ fn struct_classification() {
             __IndirectTrap = Robust,
         >,
     );
-    assert_impl_all!(RawPointer<NotRustSpec>:
+    assert_not_impl_any!(RawPointer<NotRustSpec>: RustSpec);
+    assert_impl_all!(RawPointer<u8>:
         RustSpec<
             Layout = Stable,
             Size = size::Sized<Gt<Zero>>,
@@ -501,4 +502,54 @@ fn struct_wide_classification() {
             __IndirectTrap = Robust,
         >,
     );
+}
+
+#[test]
+fn generic_raw_pointer_bounds_follow_pointee_shape() {
+    #[derive(RustSpec)]
+    #[repr(transparent)]
+    struct ConstPointer<T: ?Sized>(*const T);
+
+    trait Pointee {
+        type Target: ?Sized;
+    }
+    impl Pointee for u8 {
+        type Target = [bool];
+    }
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct ProjectedPointer<T: Pointee> {
+        pointer: *const <T as Pointee>::Target,
+    }
+
+    assert_impl_all!(ConstPointer<bool>: RustSpec<Layout = Stable, Trap = Robust>);
+    assert_impl_all!(ConstPointer<[bool]>: RustSpec<Layout = Unstable, Trap = Robust>);
+    assert_impl_all!(RawPointer<[bool]>: RustSpec<Layout = Unstable, Trap = Robust>);
+    assert_impl_all!(ConstPointer<*mut [bool]>: RustSpec<Layout = Stable, Trap = Robust>);
+    assert_impl_all!(ProjectedPointer<u8>: RustSpec<Layout = Unstable, Trap = Robust>);
+    assert_not_impl_any!(ConstPointer<NotRustSpec>: RustSpec);
+}
+
+#[test]
+fn nul_terminated_raw_pointers() {
+    fn check<
+        P: RustSpec<
+                Layout = Unstable,
+                Size = size::Sized<Gt<Zero>>,
+                Alignment = <usize as RustSpec>::Alignment,
+                Trap = Robust,
+                Niche = WithoutNiche,
+                Drop = NoDrop,
+                Mutability = Exclusive,
+                __IndirectTrap = Robust,
+            >,
+    >() {
+    }
+
+    check::<*const CStr>();
+    check::<*mut CStr>();
+    check::<*const NulTerminatedTail>();
+    check::<*mut NulTerminatedTail>();
+    assert_impl_all!(RawPointer<CStr>: RustSpec<Layout = Unstable, Trap = Robust>);
+    assert_impl_all!(RawPointer<NulTerminatedTail>: RustSpec<Layout = Unstable, Trap = Robust>);
 }
