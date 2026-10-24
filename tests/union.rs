@@ -133,3 +133,32 @@ fn union_classification() {
         >,
     );
 }
+
+mod opacity {
+    #![allow(dead_code)]
+    use core::mem::ManuallyDrop;
+    use rust_spec::{NonOpaque, Opaque, RustSpec};
+    use static_assertions::assert_impl_all;
+
+    #[derive(RustSpec)]
+    #[rust_spec(opaque)]
+    struct Hidden(*mut u8);
+
+    #[derive(RustSpec)]
+    #[rust_spec(opaque)]
+    union Explicit {
+        value: u8,
+    }
+
+    #[derive(RustSpec)]
+    union Storage<T> {
+        value: ManuallyDrop<T>,
+        byte: u8,
+    }
+
+    #[test]
+    fn opacity_is_explicit_and_does_not_propagate() {
+        assert_impl_all!(Explicit: RustSpec<Opacity = Opaque>);
+        assert_impl_all!(Storage<Hidden>: RustSpec<Opacity = NonOpaque>);
+    }
+}
