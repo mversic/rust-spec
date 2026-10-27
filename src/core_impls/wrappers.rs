@@ -7,11 +7,10 @@ use core::{
     mem::{ManuallyDrop, MaybeUninit},
     num::{NonZero, Saturating, Wrapping},
     ops::Add,
-    ptr::NonNull,
 };
 
 #[cfg(feature = "alloc")]
-use crate::drop::{AutoDrop, CustomDrop, DropKind};
+use crate::drop::{AutoDrop, CustomDrop};
 use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
@@ -109,21 +108,6 @@ unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
     type __IndirectTrap = Robust;
 }
 
-unsafe impl<T: ?Sized> RustSpec for NonNull<T>
-where
-    *mut T: RustSpec,
-{
-    type Layout = <*mut T as RustSpec>::Layout;
-    type Size = size::Sized<crate::Gt<crate::Zero>>;
-    type Alignment = <usize as RustSpec>::Alignment;
-    type Trap = NonRobust;
-    type Niche = WithNiche<Stable>;
-    type Drop = NoDrop;
-    type Mutability = Exclusive;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = Robust;
-}
-
 unsafe impl RustSpec for str {
     type Layout = Stable;
     type Size = size::MetaSized<size::SliceLike>;
@@ -150,17 +134,13 @@ unsafe impl RustSpec for String {
 }
 
 #[cfg(feature = "alloc")]
-unsafe impl<T: RustSpec> RustSpec for Vec<T>
-where
-    NoDrop: Add<T::Drop>,
-    <NoDrop as Add<T::Drop>>::Output: DropKind,
-{
+unsafe impl<T: RustSpec> RustSpec for Vec<T> {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = CustomDrop<<NoDrop as Add<T::Drop>>::Output>;
+    type Drop = CustomDrop<AutoDrop>;
     type Mutability = Exclusive;
     type Opacity = NonOpaque;
     type __IndirectTrap = T::Trap;

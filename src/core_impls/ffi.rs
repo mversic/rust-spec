@@ -3,7 +3,7 @@ use alloc::ffi::CString;
 use core::ffi::{CStr, c_void};
 
 #[cfg(feature = "alloc")]
-use crate::drop::CustomDrop;
+use crate::drop::{AutoDrop, CustomDrop};
 use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
@@ -44,7 +44,7 @@ unsafe impl RustSpec for CString {
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
-    type Drop = CustomDrop<NoDrop>;
+    type Drop = CustomDrop<AutoDrop>;
     type Mutability = Exclusive;
     type Opacity = NonOpaque;
     type __IndirectTrap = Robust;

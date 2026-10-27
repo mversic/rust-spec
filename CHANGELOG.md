@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
+### Changed
+
+- Replace the `Opaque` marker trait with the `RustSpec::Opacity = Opaque | NonOpaque` axis.
+- Reject raw pointer fields in non-opaque derives and conflicting `opaque` attributes.
+
+### Fixed
+
+- Classify raw pointers and `NonNull` according to the pointee's metadata shape.
+- Correct custom and automatic drop classification for containers and derived types.
+- Preserve payload mutability in derived enums and classify custom niches as `NonRobust`.
+- Check unresolved enum discriminants against the inferred tag range.
+
 ## [0.6.1] - 2026-10-21
 
 ### Fixed

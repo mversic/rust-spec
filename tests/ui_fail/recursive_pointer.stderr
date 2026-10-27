@@ -1,0 +1,7 @@
+error[E0275]: overflow evaluating the requirement `<Node as RustSpec>::Layout == _`
+ --> tests/ui_fail/recursive_pointer.rs:3:10
+  |
+3 | #[derive(RustSpec)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -16,9 +16,9 @@
 
 ## Composite types
 
-Implementations for built-in wrappers, pointers, tuples, `Option`, and `Result` live in `src/`. The derive macro covers structs, enums, and unions. It combines field classifications with type-level operations, taking account of the representation and enum tag where applicable. For generic fields, it adds the bounds required by those combinations.
+Implementations for built-in wrappers, pointers, tuples, `Option`, and `Result` live in `src/`. The derive macro covers structs, enums, and unions. It combines field classifications with type-level operations, taking account of the representation and enum tag where applicable. For generic fields, it adds the bounds required by those combinations. Syntax-known absorbing contributions bypass the corresponding axis fold: nonempty tuple fields and pointers/references to slices fix layout to `Unstable`; references or a tag with invalid values fix `Trap` to `NonRobust`; a slice tail fixes `Size` to `MetaSized<SliceLike>`. Field `RustSpec` requirements remain in place, and named types retain trait-based classification.
 
-The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for owned contents. The derive starts at `NoDrop` unless the type has `#[rust_spec(custom_drop)]`, in which case it starts at `CustomDrop<NoDrop>`. It then combines the `Drop` classifications of all fields:
+The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for owned contents. The derive combines the `Drop` classifications of all fields starting at `NoDrop`, then wraps the result in `CustomDrop` if the type has `#[rust_spec(custom_drop)]`:
 
 | Outer type implements `Drop` | Field or owned content needs dropping | Result |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for 
 | No | Yes | `AutoDrop` |
 | Yes | Yes | `CustomDrop<AutoDrop>` |
 
-A field classified as anything other than `NoDrop` counts as inner drop behavior in its container, even when that field's own classification includes custom drop glue. Owned contents of types such as `Box<T>` and `Vec<T>` follow the same rule. Borrowed references do not own their referents; `ManuallyDrop<T>` and `MaybeUninit<T>` suppress dropping their contents.
+A field classified as anything other than `NoDrop` counts as inner drop behavior in its container, even when that field's own classification includes custom drop glue. Owned contents of types such as `Box<T>` follow the same rule. `Vec<T>` is always `CustomDrop<AutoDrop>` because its `RawVec` field frees the allocation after `Vec::drop`, independently of `T`'s drop behavior. Syntactically recognized raw pointer and reference fields are omitted from the derive’s drop calculation because they contribute `NoDrop`; an empty calculation remains `NoDrop`, and `custom_drop` is applied afterward. This includes parenthesized and grouped pointer/reference types. Borrowed references do not own their referents; `ManuallyDrop<T>` and `MaybeUninit<T>` suppress dropping their contents.
 
 `custom_drop` is required exactly when the derived type itself implements `core::ops::Drop`. The derive emits compile-time checks for both a missing annotation and an annotation without a `Drop` implementation. These checks apply to generic types as well. For structs, the separate `#[rust_spec(custom_niche)]` attribute selects `WithNiche<Unstable>`. The derive cannot verify the niche. Enums classify niches using unused discriminant values, and enums and unions reject the annotation.
 

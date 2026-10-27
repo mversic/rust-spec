@@ -1,5 +1,4 @@
 //! Mutability classification of Rust types.
-
 use core::ops::Add;
 
 /// Marker for types whose value requires exclusive access to mutate.

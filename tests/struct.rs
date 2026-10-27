@@ -193,8 +193,9 @@ fn struct_drop_classification() {
     assert_impl_all!(Box<u8>: RustSpec<Drop = CustomDrop<NoDrop>>);
     assert_impl_all!(Box<CustomDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
     assert_impl_all!(Box<CustomAndInnerDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
-    assert_impl_all!(Vec<u8>: RustSpec<Drop = CustomDrop<NoDrop>>);
+    assert_impl_all!(Vec<u8>: RustSpec<Drop = CustomDrop<AutoDrop>>);
     assert_impl_all!(Vec<CustomDropStruct>: RustSpec<Drop = CustomDrop<AutoDrop>>);
+    assert_impl_all!(std::ffi::CString: RustSpec<Drop = CustomDrop<AutoDrop>>);
 }
 
 fn assert_rust_spec<T: RustSpec + ?Sized>() {}
@@ -481,10 +482,10 @@ fn struct_wide_classification() {
 
 #[test]
 fn generic_raw_pointer_bounds_follow_pointee_shape() {
-    assert_impl_all!(*const bool: RustSpec<Layout = Stable, Trap = Robust>);
-    assert_impl_all!(*const [bool]: RustSpec<Layout = Unstable, Trap = Robust>);
-    assert_impl_all!(*mut [bool]: RustSpec<Layout = Unstable, Trap = Robust>);
-    assert_impl_all!(*const *mut [bool]: RustSpec<Layout = Stable, Trap = Robust>);
+    assert_impl_all!(*const bool: RustSpec<Layout = Stable, Trap = NonRobust>);
+    assert_impl_all!(*const [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
+    assert_impl_all!(*mut [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
+    assert_impl_all!(*const *mut [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
     assert_not_impl_any!(*const NotRustSpec: RustSpec);
 }
 
@@ -495,11 +496,11 @@ fn nul_terminated_raw_pointers() {
                 Layout = Unstable,
                 Size = size::Sized<Gt<Zero>>,
                 Alignment = <usize as RustSpec>::Alignment,
-                Trap = Robust,
+                Trap = NonRobust,
                 Niche = WithoutNiche,
                 Drop = NoDrop,
                 Mutability = Exclusive,
-                __IndirectTrap = Robust,
+                __IndirectTrap = NonRobust,
             >,
     >() {
     }

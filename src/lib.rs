@@ -6,7 +6,7 @@
 //! - [`layout`]: representation stability.
 //! - [`size`]: statically sized, metadata-sized, or extern-type-like shape.
 //! - `alignment`: whether alignment is one or greater than one.
-//! - [`trap`](layout): whether the value representation has trap values.
+//! - [`trap`](layout): whether the value has trap representations.
 //! - [`niche`]: whether a type has a stable, unstable, or no niche value.
 //! - [`mutability`]: whether type can be mutated through shared access.
 //! - [`drop`](mod@drop): whether dropping runs custom or compiler-generated code.
@@ -36,7 +36,7 @@
 //! ## Trap
 //!
 //! Describes total reachable (through pointer indirection) value-representation validity:
-//! - [`Robust`]: every bit pattern (through indirection) is valid.
+//! - [`Robust`](layout::Robust): every bit pattern (through indirection) is valid.
 //! - [`NonRobust`](layout::NonRobust): some bit patterns are trap/invalid values.
 //!
 //! This classification does not establish provenance, alignment, lifetimes, or aliasing requirements
@@ -65,7 +65,7 @@
 //! ## Mutability
 //!
 //! Describes whether a type has parts that can be mutated through shared access:
-//! - [`Exclusive`]: mutation requires exclusive non-interleaving access.
+//! - [`Exclusive`](mutability::Exclusive): mutation requires exclusive non-interleaving access.
 //! - [`WithInterior`](mutability::WithInterior): a part can be mutated through shared access.
 //!
 //! ## Opacity
@@ -75,7 +75,7 @@
 //!
 //! **Use `#[rust_spec(opaque)]` when deriving [`RustSpec`] to classify type as `Opaque`**.
 //!
-//! ## How to Use
+//! # How to Use
 //!
 //! Derive [`RustSpec`] for your types, then use its associated marker families as bounds when implementing other traits:
 //!
@@ -122,14 +122,13 @@ extern crate self as rust_spec;
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use core::ops::Add;
+use core::{ops::Add, ptr::NonNull};
 
 #[cfg(feature = "alloc")]
 use crate::drop::{CustomDrop, DropKind};
 use crate::{
     drop::NoDrop,
-    layout::Robust,
-    mutability::Exclusive,
+    layout::NonRobust,
     niche::{WithNiche, WithoutNiche},
     size::{MetadataKind, SizedKind},
 };
@@ -633,15 +632,15 @@ disjoint_impls! {
     where
         R: RustSpec<Size: size::Thin>,
     {
-        type Layout = Stable;
+        type Layout = R::Layout;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *const R
     where
@@ -650,12 +649,12 @@ disjoint_impls! {
         type Layout = Unstable;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for *const R
     where
@@ -664,27 +663,27 @@ disjoint_impls! {
         type Layout = Unstable;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
     }
 
     unsafe impl<R: ?Sized> RustSpec for *mut R
     where
         R: RustSpec<Size: size::Thin>,
     {
-        type Layout = Stable;
+        type Layout = R::Layout;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for *mut R
     where
@@ -693,12 +692,12 @@ disjoint_impls! {
         type Layout = Unstable;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
     }
     unsafe impl<R: ?Sized> RustSpec for *mut R
     where
@@ -707,12 +706,55 @@ disjoint_impls! {
         type Layout = Unstable;
         type Size = size::Sized<crate::Gt<Zero>>;
         type Alignment = <usize as RustSpec>::Alignment;
-        type Trap = Robust;
+        type Trap = R::Trap;
         type Niche = WithoutNiche;
         type Drop = NoDrop;
-        type Mutability = Exclusive;
+        type Mutability = mutability::Exclusive;
         type Opacity = NonOpaque;
-        type __IndirectTrap = Robust;
+        type __IndirectTrap = R::Trap;
+    }
+
+    unsafe impl<R> RustSpec for NonNull<R>
+    where
+        R: RustSpec<Size: size::Thin>,
+    {
+        type Layout = R::Layout;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = NonRobust;
+        type Niche = WithNiche<Stable>;
+        type Drop = NoDrop;
+        type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
+        type __IndirectTrap = R::Trap;
+    }
+    unsafe impl<R: ?Sized, K: MetadataKind> RustSpec for NonNull<R>
+    where
+        R: RustSpec<Size = size::MetaSized<K>>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = NonRobust;
+        type Niche = WithNiche<Stable>;
+        type Drop = NoDrop;
+        type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
+        type __IndirectTrap = R::Trap;
+    }
+    unsafe impl<R: ?Sized> RustSpec for NonNull<R>
+    where
+        R: RustSpec<Size = size::NulTerminated>,
+    {
+        type Layout = Unstable;
+        type Size = size::Sized<crate::Gt<Zero>>;
+        type Alignment = <usize as RustSpec>::Alignment;
+        type Trap = NonRobust;
+        type Niche = WithNiche<Stable>;
+        type Drop = NoDrop;
+        type Mutability = mutability::Exclusive;
+        type Opacity = NonOpaque;
+        type __IndirectTrap = R::Trap;
     }
 }
 
@@ -737,7 +779,7 @@ mod tests {
         assert_impl_all!(&bool: RustSpec<__IndirectTrap = NonRobust>);
         assert_impl_all!(&&u8: RustSpec<__IndirectTrap = NonRobust>);
         assert_impl_all!(Option<&u8>: RustSpec<__IndirectTrap = Robust>);
-        assert_impl_all!(*const bool: RustSpec<__IndirectTrap = Robust>);
+        assert_impl_all!(*const bool: RustSpec<__IndirectTrap = NonRobust>);
     }
 
     #[test]

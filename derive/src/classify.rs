@@ -26,15 +26,27 @@ fn peel(ty: &Type) -> &Type {
     }
 }
 
-/// Only inspect field structure; a named wrapper owns the meaning of its type arguments.
-pub(crate) fn contains_raw_pointer(ty: &Type) -> bool {
+/// Raw pointers and references never contribute drop glue to their container.
+pub(crate) fn is_pointer_or_reference(ty: &Type) -> bool {
+    matches!(peel(ty), Type::Ptr(_) | Type::Reference(_))
+}
+
+/// Syntax whose RustSpec layout is unstable independently of generic arguments.
+pub(crate) fn has_unstable_layout(ty: &Type) -> bool {
     match peel(ty) {
-        Type::Ptr(_) => true,
-        Type::Array(array) => contains_raw_pointer(&array.elem),
-        Type::Slice(slice) => contains_raw_pointer(&slice.elem),
-        Type::Tuple(tuple) => tuple.elems.iter().any(contains_raw_pointer),
+        Type::Tuple(tuple) => !tuple.elems.is_empty(),
+        Type::Reference(reference) => is_slice(&reference.elem),
+        Type::Ptr(pointer) => is_slice(&pointer.elem),
         _ => false,
     }
+}
+
+pub(crate) fn is_reference(ty: &Type) -> bool {
+    matches!(peel(ty), Type::Reference(_))
+}
+
+pub(crate) fn is_slice(ty: &Type) -> bool {
+    matches!(peel(ty), Type::Slice(_))
 }
 
 fn sized_bound(bound: &syn::TypeParamBound) -> Option<bool> {
@@ -270,23 +282,5 @@ mod tests {
             classify_type(&parse_quote!(T), &input.generics),
             TypeClass::Unsized(UnsizedTail::Unknown)
         );
-    }
-
-    #[test]
-    fn raw_pointer_fields_are_syntactic() {
-        for ty in [
-            parse_quote!(*mut u8),
-            parse_quote!((*const u8, u8)),
-            parse_quote!([*mut u8; 2]),
-        ] {
-            assert!(contains_raw_pointer(&ty));
-        }
-        for ty in [
-            parse_quote!(&*const u8),
-            parse_quote!(Option<*mut u8>),
-            parse_quote!(core::marker::PhantomData<*mut u8>),
-        ] {
-            assert!(!contains_raw_pointer(&ty));
-        }
     }
 }

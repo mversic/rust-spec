@@ -266,28 +266,6 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             }
         });
     }
-    let raw_pointer_field = match &input.data {
-        syn::Data::Struct(data) => data
-            .fields
-            .iter()
-            .find(|field| classify::contains_raw_pointer(&field.ty)),
-        syn::Data::Enum(data) => data
-            .variants
-            .iter()
-            .flat_map(|variant| variant.fields.iter())
-            .find(|field| classify::contains_raw_pointer(&field.ty)),
-        syn::Data::Union(data) => data
-            .fields
-            .named
-            .iter()
-            .find(|field| classify::contains_raw_pointer(&field.ty)),
-    };
-    if let Some(field) = raw_pointer_field {
-        return Err(syn::Error::new_spanned(
-            &field.ty,
-            "RustSpec cannot be derived for a raw pointer field",
-        ));
-    }
     if attrs.custom_niche && !matches!(&input.data, syn::Data::Struct(_)) {
         return Err(syn::Error::new_spanned(
             name,
@@ -788,6 +766,12 @@ fn gen_unstable_layout_family() -> AggregateFamily {
 
 fn gen_stable_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
+    if fields
+        .iter()
+        .any(|field| classify::has_unstable_layout(field))
+    {
+        return gen_unstable_layout_family();
+    }
 
     AggregateFamily::aggregate(
         quote! { core::ops::Add },
@@ -882,12 +866,18 @@ fn gen_drop_family(
     custom_drop: bool,
 ) -> AggregateFamily {
     let crate_ = crate_path();
+    // These fields contribute NoDrop regardless of their pointees' drop behavior.
+    let fields: Vec<_> = fields
+        .iter()
+        .copied()
+        .filter(|field| !classify::is_pointer_or_reference(field))
+        .collect();
     let mut family = AggregateFamily::aggregate_with_seed(
         quote! { core::ops::Add },
         quote! { Drop },
         quote! { #crate_::drop::NoDrop },
         generics,
-        fields,
+        &fields,
     );
     if custom_drop {
         let kind = family.kind;
@@ -906,11 +896,10 @@ fn gen_trap_family(
 ) -> AggregateFamily {
     let crate_ = crate_path();
 
-    let init = if has_trap_values {
-        quote! { #crate_::layout::NonRobust }
-    } else {
-        quote! { #crate_::layout::Robust }
-    };
+    if has_trap_values || fields.iter().any(|field| classify::is_reference(field)) {
+        return AggregateFamily::fixed(quote! { #crate_::layout::NonRobust });
+    }
+    let init = quote! { #crate_::layout::Robust };
 
     AggregateFamily::aggregate_with_seed(
         quote! { core::ops::Add },
@@ -923,6 +912,11 @@ fn gen_trap_family(
 
 fn gen_size_family(generics: &syn::Generics, fields: &[&syn::Type]) -> AggregateFamily {
     let crate_ = crate_path();
+    if fields.last().is_some_and(|tail| classify::is_slice(tail)) {
+        return AggregateFamily::fixed(quote! {
+            #crate_::size::MetaSized<#crate_::size::SliceLike>
+        });
+    }
     if fields
         .iter()
         .all(|field| classify::classify_nonzero(field) == classify::NonZeroClass::No)
@@ -1114,5 +1108,74 @@ fn c_tag_type(c_enum_bits: u32) -> syn::Type {
         16 => syn::parse_quote!(u16),
         32 => syn::parse_quote!(u32),
         _ => unreachable!("unsupported C enum width"),
+    }
+}
+
+#[cfg(test)]
+mod axis_short_circuit_tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn known_fields_remove_generic_axis_combinations() {
+        let generics = parse_quote!(<T, U>);
+        let first: syn::Type = parse_quote!(T);
+        let second: syn::Type = parse_quote!(U);
+        let crate_ = crate_path();
+
+        for known in [
+            parse_quote!((T,)),
+            parse_quote!(&[T]),
+            parse_quote!(&mut [T]),
+            parse_quote!(*const [T]),
+            parse_quote!(*mut [T]),
+        ] {
+            let family = gen_stable_layout_family(&generics, &[&first, &second, &known]);
+            assert!(family.aggregate_bounds.is_empty());
+            assert_eq!(
+                family.kind.to_string(),
+                quote!(#crate_::Unstable).to_string()
+            );
+        }
+        for known in [parse_quote!(&T), parse_quote!(&mut T)] {
+            let family = gen_trap_family(&generics, &[&first, &second, &known], false);
+            assert!(family.aggregate_bounds.is_empty());
+            assert_eq!(
+                family.kind.to_string(),
+                quote!(#crate_::layout::NonRobust).to_string()
+            );
+        }
+        let tagged = gen_trap_family(&generics, &[&first, &second], true);
+        assert!(tagged.aggregate_bounds.is_empty());
+        assert_eq!(
+            tagged.kind.to_string(),
+            quote!(#crate_::layout::NonRobust).to_string()
+        );
+
+        let tail = parse_quote!([U]);
+        let family = gen_size_family(&generics, &[&first, &tail]);
+        assert!(family.aggregate_bounds.is_empty());
+        assert_eq!(
+            family.kind.to_string(),
+            quote!(#crate_::size::MetaSized<#crate_::size::SliceLike>).to_string()
+        );
+    }
+
+    #[test]
+    fn unknown_layouts_and_raw_pointer_traps_are_not_short_circuited() {
+        for field in [
+            parse_quote!(()),
+            parse_quote!([T]),
+            parse_quote!(*const T),
+            parse_quote!(&T),
+            parse_quote!(CStr),
+        ] {
+            assert!(!classify::has_unstable_layout(&field));
+        }
+        assert!(!classify::is_reference(&parse_quote!(*const T)));
+        assert!(classify::has_unstable_layout(&parse_quote!(
+            ((*const ([T])))
+        )));
+        assert!(classify::is_reference(&parse_quote!((&mut T))));
     }
 }
