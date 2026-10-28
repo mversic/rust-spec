@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
-    mutability::{Exclusive, WithInterior},
+    mutability::{Exclusive, WithInterior, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -211,7 +211,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -222,7 +222,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -233,7 +233,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -244,7 +244,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -255,7 +255,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = WithInterior,
+            Mutability = WithInterior<Robust>,
             __IndirectTrap = Robust,
         >,
     );
@@ -266,7 +266,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -277,7 +277,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -288,7 +288,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -299,7 +299,7 @@ fn enum_classification() {
             Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Stable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -310,7 +310,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -321,7 +321,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -333,7 +333,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -344,7 +344,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -355,7 +355,7 @@ fn enum_classification() {
             Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -366,7 +366,7 @@ fn enum_classification() {
             Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -377,7 +377,7 @@ fn enum_classification() {
             Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = NonRobust,
         >,
     );
@@ -388,7 +388,7 @@ fn enum_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -399,18 +399,18 @@ fn enum_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCSingleInteriorEnum:
-        RustSpec<Mutability = WithInterior>,
+        RustSpec<Mutability = WithInterior<Robust>>,
     );
     assert_impl_all!(InteriorVariantsEnum:
-        RustSpec<Mutability = WithInterior>,
+        RustSpec<Mutability = WithInterior<Robust>>,
     );
     assert_impl_all!(TransparentInteriorEnum:
-        RustSpec<Mutability = WithInterior>,
+        RustSpec<Mutability = WithInterior<Robust>>,
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<
@@ -419,7 +419,7 @@ fn enum_classification() {
             Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -430,7 +430,7 @@ fn enum_classification() {
             Alignment = <usize as RustSpec>::Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = NonRobust,
         >,
     );
@@ -619,7 +619,8 @@ mod classification_regressions {
 
     use rust_spec::{
         RustSpec, Unstable,
-        mutability::{Exclusive, WithInterior},
+        layout::Robust,
+        mutability::{Exclusive, WithInterior, WithoutInterior},
         niche::WithNiche,
     };
     use static_assertions::assert_impl_all;
@@ -661,8 +662,8 @@ mod classification_regressions {
     fn enum_mutability_follows_payloads() {
         macro_rules! check {
             ($($wrapper:ident),*) => {$(
-                assert_impl_all!($wrapper<Cell<u8>>: RustSpec<Mutability = WithInterior>);
-                assert_impl_all!($wrapper<u8>: RustSpec<Mutability = Exclusive>);
+                assert_impl_all!($wrapper<Cell<u8>>: RustSpec<Mutability = WithInterior<Robust>>);
+                assert_impl_all!($wrapper<u8>: RustSpec<Mutability = Exclusive<WithoutInterior>>);
             )*};
         }
         check!(
@@ -673,14 +674,14 @@ mod classification_regressions {
             Transparent,
             Singleton
         );
-        assert_impl_all!(Option<Cell<u8>>: RustSpec<Mutability = WithInterior>);
-        assert_impl_all!(Result<Cell<u8>, ()>: RustSpec<Mutability = WithInterior>);
-        assert_impl_all!(Result<(), Cell<u8>>: RustSpec<Mutability = WithInterior>);
-        assert_impl_all!(Result<u8, Cell<u8>>: RustSpec<Mutability = WithInterior>);
-        assert_impl_all!(Result<Cell<u8>, u8>: RustSpec<Mutability = WithInterior>);
+        assert_impl_all!(Option<Cell<u8>>: RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(Result<Cell<u8>, ()>: RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(Result<(), Cell<u8>>: RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(Result<u8, Cell<u8>>: RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(Result<Cell<u8>, u8>: RustSpec<Mutability = WithInterior<Robust>>);
         // A nested payload still permits mutation through a shared reference.
         let value = GenericC::Value(Some(Cell::new(0)));
-        assert_impl_all!(GenericC<Option<Cell<u8>>>: RustSpec<Mutability = WithInterior>);
+        assert_impl_all!(GenericC<Option<Cell<u8>>>: RustSpec<Mutability = WithInterior<Robust>>);
         if let GenericC::Value(Some(cell)) = &value {
             cell.set(1);
             assert_eq!(cell.get(), 1);

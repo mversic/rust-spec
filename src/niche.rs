@@ -58,7 +58,7 @@ mod tests {
     use crate::{
         RustSpec, Unstable,
         layout::{NonRobust, Robust},
-        mutability::Exclusive,
+        mutability::{Exclusive, WithoutInterior},
     };
 
     #[test]
@@ -70,7 +70,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<crate::Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -82,7 +82,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<crate::Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -95,7 +95,7 @@ mod tests {
                 Trap = NonRobust,
                 // FIXME: The type should be WithoutNiche
                 Niche = WithNiche<crate::Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );

@@ -15,7 +15,7 @@ use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
     layout::{NonRobust, Robust},
-    mutability::Exclusive,
+    mutability::{Exclusive, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
     size,
 };
@@ -29,7 +29,7 @@ macro_rules! non_zero_derive {
             type Trap = NonRobust;
             type Niche = WithNiche<Stable>;
             type Drop = NoDrop;
-            type Mutability = Exclusive;
+            type Mutability = Exclusive<WithoutInterior>;
             type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
@@ -45,7 +45,7 @@ macro_rules! stable_robust_zst {
             type Trap = Robust;
             type Niche = WithoutNiche;
             type Drop = NoDrop;
-            type Mutability = Exclusive;
+            type Mutability = Exclusive<WithoutInterior>;
             type Opacity = NonOpaque;
             type __IndirectTrap = Robust;
         }
@@ -116,7 +116,7 @@ unsafe impl RustSpec for str {
     // TODO: This should not be set at all
     type Niche = WithNiche<Unstable>;
     type Drop = NoDrop;
-    type Mutability = Exclusive;
+    type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
@@ -128,20 +128,20 @@ unsafe impl RustSpec for String {
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = AutoDrop;
-    type Mutability = Exclusive;
+    type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
     type __IndirectTrap = NonRobust;
 }
 
 #[cfg(feature = "alloc")]
-unsafe impl<T: RustSpec> RustSpec for Vec<T> {
+unsafe impl<T: RustSpec<Mutability: crate::mutability::Indirect>> RustSpec for Vec<T> {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type Alignment = <usize as RustSpec>::Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = CustomDrop<AutoDrop>;
-    type Mutability = Exclusive;
+    type Mutability = <T::Mutability as crate::mutability::Indirect>::Output;
     type Opacity = NonOpaque;
     type __IndirectTrap = T::Trap;
 }

@@ -19,7 +19,7 @@ mod tests {
     use crate::{
         RustSpec, Stable, Unstable,
         layout::{NonRobust, Robust},
-        mutability::{Exclusive, WithInterior},
+        mutability::{Exclusive, WithInterior, WithoutInterior},
         niche::{WithNiche, WithoutNiche},
         size::{MetaSized, Sized as RustSpecSized, SliceLike},
     };
@@ -32,7 +32,7 @@ mod tests {
                 Size = MetaSized<SliceLike>,
                 Alignment = crate::One,
                 Trap = NonRobust,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -44,7 +44,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -55,7 +55,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -67,7 +67,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -80,7 +80,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -95,7 +95,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -106,7 +106,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -117,7 +117,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -129,7 +129,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -140,7 +140,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -151,7 +151,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -163,7 +163,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -175,7 +175,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -186,7 +186,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -197,7 +197,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -212,7 +212,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = WithInterior,
+                Mutability = WithInterior<NonRobust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -228,7 +228,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -239,7 +239,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -250,7 +250,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -261,7 +261,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -272,7 +272,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -283,7 +283,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -294,7 +294,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -305,7 +305,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -316,7 +316,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -327,7 +327,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -342,7 +342,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = WithInterior,
+                Mutability = WithInterior<Robust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -353,7 +353,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -364,7 +364,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -376,7 +376,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -387,7 +387,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -398,7 +398,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -410,7 +410,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -422,7 +422,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<Robust>>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -433,7 +433,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
-                Mutability = WithInterior,
+                Mutability = WithInterior<Robust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -444,7 +444,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = WithInterior,
+                Mutability = WithInterior<Robust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -459,7 +459,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithoutNiche,
-                Mutability = WithInterior,
+                Mutability = WithInterior<NonRobust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -470,7 +470,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -481,7 +481,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -493,7 +493,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -504,7 +504,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -515,7 +515,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -527,7 +527,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -539,7 +539,7 @@ mod tests {
                 Alignment = <usize as RustSpec>::Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = Exclusive,
+                Mutability = Exclusive<WithInterior<NonRobust>>,
                 __IndirectTrap = NonRobust,
             >,
         );
@@ -550,7 +550,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithoutNiche,
-                Mutability = WithInterior,
+                Mutability = WithInterior<NonRobust>,
                 __IndirectTrap = Robust,
             >,
         );
@@ -561,7 +561,7 @@ mod tests {
                 Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
-                Mutability = WithInterior,
+                Mutability = WithInterior<NonRobust>,
                 __IndirectTrap = Robust,
             >,
         );

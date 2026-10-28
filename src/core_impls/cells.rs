@@ -21,7 +21,7 @@ macro_rules! interior_cell {
             type Trap = <Robust as Add<T::Trap>>::Output;
             type Niche = WithoutNiche;
             type Drop = <NoDrop as Add<T::Drop>>::Output;
-            type Mutability = WithInterior;
+            type Mutability = WithInterior<T::Trap>;
             type Opacity = NonOpaque;
             type __IndirectTrap = T::__IndirectTrap;
         }

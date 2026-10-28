@@ -4,7 +4,7 @@ use rust_spec::{
     RustSpec, Stable, Unstable,
     drop::{CustomDrop, NoDrop},
     layout::Robust,
-    mutability::{Exclusive, WithInterior},
+    mutability::{Exclusive, WithInterior, WithoutInterior},
     niche::WithoutNiche,
     size::{Gt, Sized as SpecSized, Zero},
 };
@@ -76,7 +76,7 @@ fn union_drop_classification() {
 
 #[test]
 fn union_classification() {
-    assert_impl_all!(InteriorUnion: RustSpec<Mutability = WithInterior>);
+    assert_impl_all!(InteriorUnion: RustSpec<Mutability = WithInterior<Robust>>);
     assert_impl_all!(RustUnion:
         RustSpec<
             Layout = Unstable,
@@ -84,7 +84,7 @@ fn union_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -95,7 +95,7 @@ fn union_classification() {
             Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = WithInterior,
+            Mutability = WithInterior<Robust>,
             __IndirectTrap = Robust,
         >,
     );
@@ -106,7 +106,7 @@ fn union_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -117,7 +117,7 @@ fn union_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
@@ -128,7 +128,7 @@ fn union_classification() {
             Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
-            Mutability = Exclusive,
+            Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );

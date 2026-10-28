@@ -71,9 +71,9 @@ Describes the type's behavior when dropped:
 ### Mutability
 
 `RustSpec::Mutability` classifies shared-access mutability:
-- `mutability::Exclusive`: mutation requires exclusive access.
-- `mutability::WithInterior`: a part can be mutated through shared access.
-
+- `mutability::Exclusive<WithoutInterior>`: mutation requires exclusive access.
+- `mutability::WithInterior<Robust>`: only robust parts can be mutated through shared access.
+- `mutability::WithInterior<NonRobust>`: non-robust parts can be mutated through shared access.
 
 ### Opacity
 

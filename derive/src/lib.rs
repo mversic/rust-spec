@@ -260,7 +260,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 type Trap = #crate_::layout::Robust;
                 type Niche = #crate_::niche::WithoutNiche;
                 type Drop = #crate_::drop::NoDrop;
-                type Mutability = #crate_::mutability::Exclusive;
+                type Mutability = #crate_::mutability::Exclusive<#crate_::mutability::WithoutInterior>;
                 type Opacity = #crate_::Opaque;
                 type __IndirectTrap = #crate_::layout::Robust;
             }
@@ -1009,7 +1009,9 @@ fn gen_mutability_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Agg
 
 fn gen_exclusive_mutability_family() -> AggregateFamily {
     let crate_ = crate_path();
-    AggregateFamily::fixed(quote! { #crate_::mutability::Exclusive })
+    AggregateFamily::fixed(
+        quote! { #crate_::mutability::Exclusive<#crate_::mutability::WithoutInterior> },
+    )
 }
 
 fn gen_type_spec_impl(

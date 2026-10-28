@@ -8,7 +8,7 @@ use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
     layout::{NonRobust, Robust},
-    mutability::Exclusive,
+    mutability::{Exclusive, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
     size::{self, NulTerminated},
 };
@@ -20,7 +20,7 @@ unsafe impl RustSpec for c_void {
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = NoDrop;
-    type Mutability = Exclusive;
+    type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
@@ -32,7 +32,7 @@ unsafe impl RustSpec for CStr {
     type Trap = NonRobust;
     type Niche = WithoutNiche;
     type Drop = NoDrop;
-    type Mutability = Exclusive;
+    type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
@@ -45,7 +45,7 @@ unsafe impl RustSpec for CString {
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = CustomDrop<AutoDrop>;
-    type Mutability = Exclusive;
+    type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
     type __IndirectTrap = Robust;
 }
