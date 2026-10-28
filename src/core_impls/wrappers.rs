@@ -6,7 +6,6 @@ use core::{
     marker::{PhantomData, PhantomPinned},
     mem::{ManuallyDrop, MaybeUninit},
     num::{NonZero, Saturating, Wrapping},
-    ops::Add,
 };
 
 #[cfg(feature = "alloc")]
@@ -15,7 +14,7 @@ use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
     drop::NoDrop,
     layout::{NonRobust, Robust},
-    mutability::{Exclusive, WithoutInterior},
+    mutability::{Exclusive, WithInterior, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
     size,
 };
@@ -25,7 +24,7 @@ macro_rules! non_zero_derive {
         unsafe impl RustSpec for NonZero<$primitive> {
             type Layout = Stable;
             type Size = size::Sized<crate::Gt<crate::Zero>>;
-            type Alignment = <$primitive as RustSpec>::Alignment;
+            type __Alignment = <$primitive as RustSpec>::__Alignment;
             type Trap = NonRobust;
             type Niche = WithNiche<Stable>;
             type Drop = NoDrop;
@@ -41,7 +40,7 @@ macro_rules! stable_robust_zst {
         unsafe impl<$($generics)*> RustSpec for $ty {
             type Layout = Stable;
             type Size = size::Sized<size::Zero>;
-            type Alignment = crate::One;
+            type __Alignment = crate::One;
             type Trap = Robust;
             type Niche = WithoutNiche;
             type Drop = NoDrop;
@@ -56,14 +55,14 @@ macro_rules! transparent_wrapper {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty
         where
-            NoDrop: Add<T::Drop>,
+            T::Drop: crate::drop::DropKind,
         {
             type Layout = T::Layout;
             type Size = T::Size;
-            type Alignment = T::Alignment;
+            type __Alignment = T::__Alignment;
             type Trap = T::Trap;
             type Niche = T::Niche;
-            type Drop = <NoDrop as Add<T::Drop>>::Output;
+            type Drop = <T::Drop as crate::drop::DropKind>::NeedsDrop;
             type Mutability = T::Mutability;
             type Opacity = NonOpaque;
             type __IndirectTrap = T::__IndirectTrap;
@@ -87,7 +86,7 @@ transparent_wrapper!((T: RustSpec) => Saturating<T>);
 unsafe impl<T: RustSpec + ?Sized> RustSpec for ManuallyDrop<T> {
     type Layout = T::Layout;
     type Size = T::Size;
-    type Alignment = T::Alignment;
+    type __Alignment = T::__Alignment;
     type Trap = T::Trap;
     type Niche = T::Niche;
     type Drop = NoDrop;
@@ -96,22 +95,41 @@ unsafe impl<T: RustSpec + ?Sized> RustSpec for ManuallyDrop<T> {
     type __IndirectTrap = T::__IndirectTrap;
 }
 
-unsafe impl<T: RustSpec> RustSpec for MaybeUninit<T> {
-    type Layout = T::Layout;
-    type Size = T::Size;
-    type Alignment = T::Alignment;
-    type Trap = Robust;
-    type Niche = WithoutNiche;
-    type Drop = NoDrop;
-    type Mutability = T::Mutability;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = Robust;
-}
+// Keep the projection helper inaccessible outside this implementation block.
+const _: () = {
+    pub trait UninitMutability {
+        type Output;
+    }
+
+    impl UninitMutability for Exclusive<WithoutInterior> {
+        type Output = Self;
+    }
+    impl<R> UninitMutability for WithInterior<R> {
+        type Output = WithInterior<Robust>;
+    }
+    impl<R> UninitMutability for Exclusive<WithInterior<R>> {
+        type Output = Exclusive<WithInterior<Robust>>;
+    }
+
+    unsafe impl<T: RustSpec<Mutability: UninitMutability>> RustSpec for MaybeUninit<T> {
+        type Layout = T::Layout;
+        type Size = T::Size;
+        type __Alignment = T::__Alignment;
+        type Trap = Robust;
+        type Niche = WithoutNiche;
+        type Drop = NoDrop;
+        // Preserve shared mutability, but impose no validity requirements on
+        // uninitialized contents or anything reachable through those contents.
+        type Mutability = <T::Mutability as UninitMutability>::Output;
+        type Opacity = NonOpaque;
+        type __IndirectTrap = Robust;
+    }
+};
 
 unsafe impl RustSpec for str {
     type Layout = Stable;
     type Size = size::MetaSized<size::SliceLike>;
-    type Alignment = crate::One;
+    type __Alignment = crate::One;
     type Trap = NonRobust;
     // TODO: This should not be set at all
     type Niche = WithNiche<Unstable>;
@@ -124,7 +142,7 @@ unsafe impl RustSpec for str {
 unsafe impl RustSpec for String {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
-    type Alignment = <usize as RustSpec>::Alignment;
+    type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = AutoDrop;
@@ -134,14 +152,50 @@ unsafe impl RustSpec for String {
 }
 
 #[cfg(feature = "alloc")]
-unsafe impl<T: RustSpec<Mutability: crate::mutability::Indirect>> RustSpec for Vec<T> {
+unsafe impl<T: RustSpec<Mutability: crate::mutability::PointerMutability>> RustSpec for Vec<T> {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
-    type Alignment = <usize as RustSpec>::Alignment;
+    type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = NonRobust;
     type Niche = WithNiche<Unstable>;
     type Drop = CustomDrop<AutoDrop>;
-    type Mutability = <T::Mutability as crate::mutability::Indirect>::Output;
+    type Mutability = <T::Mutability as crate::mutability::PointerMutability>::Output;
     type Opacity = NonOpaque;
     type __IndirectTrap = T::Trap;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::cell::{Cell, UnsafeCell};
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn maybe_uninit_preserves_mutability_without_inner_traps() {
+        assert_impl_all!(MaybeUninit<bool>:
+            RustSpec<Mutability = Exclusive<WithoutInterior>, Trap = Robust>);
+        assert_impl_all!(MaybeUninit<UnsafeCell<bool>>:
+            RustSpec<Mutability = WithInterior<Robust>, Trap = Robust>);
+        assert_impl_all!(MaybeUninit<Cell<bool>>:
+            RustSpec<Mutability = WithInterior<Robust>, Trap = Robust>);
+        assert_impl_all!(MaybeUninit<&'static UnsafeCell<bool>>:
+            RustSpec<Mutability = Exclusive<WithInterior<Robust>>, Trap = Robust>);
+        assert_impl_all!([MaybeUninit<UnsafeCell<bool>>; 2]:
+            RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(UnsafeCell<MaybeUninit<bool>>:
+            RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(MaybeUninit<MaybeUninit<UnsafeCell<bool>>>:
+            RustSpec<Mutability = WithInterior<Robust>>);
+        assert_impl_all!(ManuallyDrop<UnsafeCell<bool>>:
+            RustSpec<Mutability = WithInterior<NonRobust>, Trap = NonRobust>);
+
+        #[cfg(feature = "alloc")]
+        {
+            use alloc::boxed::Box;
+            assert_impl_all!(Box<MaybeUninit<UnsafeCell<bool>>>:
+                RustSpec<Mutability = Exclusive<WithInterior<Robust>>>);
+            assert_impl_all!(MaybeUninit<Box<UnsafeCell<bool>>>:
+                RustSpec<Mutability = Exclusive<WithInterior<Robust>>, Trap = Robust>);
+        }
+    }
 }

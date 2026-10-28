@@ -256,7 +256,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics #where_clause {
                 type Layout = #crate_::Stable;
                 type Size = #crate_::size::Sized<#crate_::Gt<#crate_::Zero>>;
-                type Alignment = #crate_::One;
+                type __Alignment = #crate_::One;
                 type Trap = #crate_::layout::Robust;
                 type Niche = #crate_::niche::WithoutNiche;
                 type Drop = #crate_::drop::NoDrop;
@@ -943,7 +943,7 @@ fn gen_alignment_family(
 
     let mut family = AggregateFamily::aggregate(
         quote! { #crate_::Max },
-        quote! { Alignment },
+        quote! { __Alignment },
         generics,
         fields,
     )
@@ -952,7 +952,7 @@ fn gen_alignment_family(
     if let Some(tag) = tag {
         let kind = family.kind;
 
-        let tag_kind = quote! { <#tag as #crate_::RustSpec>::Alignment };
+        let tag_kind = quote! { <#tag as #crate_::RustSpec>::__Alignment };
         family.kind = quote! { <#tag_kind as #crate_::Max<#kind>>::Output };
     }
 
@@ -1072,7 +1072,7 @@ fn gen_type_spec_impl(
         {
             type Layout = #layout_kind;
             type Size = #size_kind;
-            type Alignment = #alignment_kind;
+            type __Alignment = #alignment_kind;
             type Trap = #trap_kind;
             type Niche = #niche_kind;
             type Drop = #drop_kind;

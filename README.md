@@ -11,7 +11,6 @@
 `RustSpec` describes a type across the following axes:
 - `Layout`: representation stability.
 - `Size`: statically sized, metadata-sized, or extern-type-like shape.
-- `Alignment`: whether alignment is one or greater than one.
 - `Trap`: whether the value representation has trap values.
 - `Niche`: whether a type has a stable, unstable, or no niche value.
 - `Drop`: whether droping runs custom or compiler-generated code.
@@ -33,11 +32,6 @@ Describes compile-time size and pointer metadata shape:
 - `MetaSized<DynTraitLike>`: dynamically sized trait-object-like type.
 - `ExternTypeLike`: dynamically sized extern-type-like type.
 - `NulTerminated`: unsized data whose length is found from a nul terminator.
-
-### Alignment
-
-- `One` means alignment is exactly one;
-- `Gt<One>` means it is greater than one.
 
 ### Trap
 

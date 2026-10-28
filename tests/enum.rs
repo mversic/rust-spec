@@ -208,7 +208,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Zero>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -219,7 +219,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Zero>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -230,7 +230,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -241,7 +241,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -252,7 +252,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = WithInterior<Robust>,
@@ -263,7 +263,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -274,7 +274,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -285,7 +285,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -296,7 +296,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = <usize as RustSpec>::Alignment,
+            __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Stable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -307,7 +307,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -318,7 +318,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Zero>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -330,7 +330,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -341,7 +341,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -352,7 +352,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = <usize as RustSpec>::Alignment,
+            __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -363,7 +363,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = <usize as RustSpec>::Alignment,
+            __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -374,7 +374,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = <usize as RustSpec>::Alignment,
+            __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -385,7 +385,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::Gt<rust_spec::One>,
+            __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -396,7 +396,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::Gt<rust_spec::One>,
+            __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -416,7 +416,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -427,7 +427,7 @@ fn enum_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = <usize as RustSpec>::Alignment,
+            __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
             Niche = WithNiche<Unstable>,
             Mutability = Exclusive<WithoutInterior>,
@@ -572,10 +572,10 @@ mod discriminants {
 
     #[test]
     fn inferred_tag_tracks_values_and_implicit_increments() {
-        assert_impl_all!(Sparse: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(Increment: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(Negative: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(Arithmetic: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Sparse: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Increment: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Negative: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Arithmetic: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
         assert_eq!(
             core::mem::align_of::<Sparse>(),
             core::mem::align_of::<u16>()
@@ -592,24 +592,24 @@ mod discriminants {
 
     #[test]
     fn exhaustiveness_uses_inferred_width() {
-        assert_impl_all!(Full: RustSpec<Alignment = One, Trap = Robust, Niche = WithoutNiche>);
-        assert_impl_all!(SignedFull: RustSpec<Alignment = One, Trap = Robust, Niche = WithoutNiche>);
-        assert_impl_all!(Shifted: RustSpec<Alignment = Gt<One>, Trap = NonRobust, Niche = WithNiche<Unstable>>);
-        assert_impl_all!(AlignedFull: RustSpec<Alignment = Gt<One>, Trap = Robust, Niche = WithoutNiche>);
+        assert_impl_all!(Full: RustSpec<__Alignment = One, Trap = Robust, Niche = WithoutNiche>);
+        assert_impl_all!(SignedFull: RustSpec<__Alignment = One, Trap = Robust, Niche = WithoutNiche>);
+        assert_impl_all!(Shifted: RustSpec<__Alignment = Gt<One>, Trap = NonRobust, Niche = WithNiche<Unstable>>);
+        assert_impl_all!(AlignedFull: RustSpec<__Alignment = Gt<One>, Trap = Robust, Niche = WithoutNiche>);
         assert_eq!(core::mem::size_of::<Shifted>(), 2);
     }
 
     #[test]
     fn unresolved_values_are_checked_and_explicit_repr_is_respected() {
-        assert_impl_all!(Named: RustSpec<Alignment = One, Trap = NonRobust>);
-        assert_impl_all!(SelfReference: RustSpec<Alignment = One, Trap = NonRobust>);
-        assert_impl_all!(Mixed: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(Reset: RustSpec<Alignment = One, Trap = NonRobust>);
-        assert_impl_all!(MacroInput: RustSpec<Alignment = One, Trap = NonRobust>);
-        assert_impl_all!(Hygienic: RustSpec<Alignment = One, Trap = NonRobust>);
-        assert_impl_all!(Explicit: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(Data: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
-        assert_impl_all!(CData: RustSpec<Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Named: RustSpec<__Alignment = One, Trap = NonRobust>);
+        assert_impl_all!(SelfReference: RustSpec<__Alignment = One, Trap = NonRobust>);
+        assert_impl_all!(Mixed: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Reset: RustSpec<__Alignment = One, Trap = NonRobust>);
+        assert_impl_all!(MacroInput: RustSpec<__Alignment = One, Trap = NonRobust>);
+        assert_impl_all!(Hygienic: RustSpec<__Alignment = One, Trap = NonRobust>);
+        assert_impl_all!(Explicit: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(Data: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
+        assert_impl_all!(CData: RustSpec<__Alignment = Gt<One>, Trap = NonRobust>);
     }
 }
 

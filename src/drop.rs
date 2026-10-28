@@ -7,6 +7,13 @@
 //! out of a mutable reference in a generic context without a risk of a double free.
 use core::{convert::Infallible, ops::Add};
 
+#[sealed::sealed]
+pub trait DropKind {
+    /// Drop glue required by a container that owns a field of this kind.
+    /// A field's custom destructor is automatic drop glue for its container.
+    type NeedsDrop: DropKind;
+}
+
 /// Dropping this type does not run drop glue.
 pub enum NoDrop {}
 
@@ -17,37 +24,22 @@ pub enum AutoDrop {}
 pub struct CustomDrop<I: DropKind>(core::marker::PhantomData<I>, Infallible);
 
 #[sealed::sealed]
-pub trait DropKind {}
-
+impl DropKind for NoDrop {
+    type NeedsDrop = NoDrop;
+}
 #[sealed::sealed]
-impl DropKind for NoDrop {}
+impl DropKind for AutoDrop {
+    type NeedsDrop = AutoDrop;
+}
 #[sealed::sealed]
-impl DropKind for AutoDrop {}
-#[sealed::sealed]
-impl DropKind for CustomDrop<NoDrop> {}
-#[sealed::sealed]
-impl DropKind for CustomDrop<AutoDrop> {}
-
-impl Add<Self> for NoDrop {
-    type Output = Self;
-
-    fn add(self, _: Self) -> Self::Output {
-        unreachable!()
-    }
+impl<K: DropKind> DropKind for CustomDrop<K> {
+    type NeedsDrop = AutoDrop;
 }
 
-impl Add<AutoDrop> for NoDrop {
-    type Output = AutoDrop;
+impl<I: DropKind> Add<I> for NoDrop {
+    type Output = I::NeedsDrop;
 
-    fn add(self, _: AutoDrop) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl<I: DropKind> Add<CustomDrop<I>> for NoDrop {
-    type Output = AutoDrop;
-
-    fn add(self, _: CustomDrop<I>) -> Self::Output {
+    fn add(self, _: I) -> Self::Output {
         unreachable!()
     }
 }

@@ -1,6 +1,8 @@
 //! Mutability classification of Rust types.
 use core::{convert::Infallible, marker::PhantomData, ops::Add};
 
+use crate::Sum;
+
 /// No reachable interior-mutable storage.
 pub enum WithoutInterior {}
 
@@ -24,13 +26,17 @@ pub struct Exclusive<I: ExclusiveKind>(PhantomData<I>, Infallible);
 pub struct WithInterior<R>(PhantomData<R>, Infallible);
 
 /// Convert a pointee classification to the classification of its pointer.
-pub trait Indirect {
+#[sealed::sealed]
+pub trait PointerMutability {
     type Output;
 }
-impl<I: ExclusiveKind> Indirect for Exclusive<I> {
+
+#[sealed::sealed]
+impl<I: ExclusiveKind> PointerMutability for Exclusive<I> {
     type Output = Self;
 }
-impl<R> Indirect for WithInterior<R> {
+#[sealed::sealed]
+impl<R> PointerMutability for WithInterior<R> {
     type Output = Exclusive<Self>;
 }
 
@@ -72,7 +78,7 @@ impl<L: ExclusiveKind + Add<R, Output: ExclusiveKind>, R: ExclusiveKind> Add<Exc
     }
 }
 impl<I: ExclusiveKind + Add<WithInterior<R>>, R> Add<WithInterior<R>> for Exclusive<I> {
-    type Output = <I as Add<WithInterior<R>>>::Output;
+    type Output = Sum<I, WithInterior<R>>;
 
     fn add(self, _: WithInterior<R>) -> Self::Output {
         unreachable!()
@@ -82,7 +88,7 @@ impl<I: ExclusiveKind, R> Add<Exclusive<I>> for WithInterior<R>
 where
     Self: Add<I>,
 {
-    type Output = <Self as Add<I>>::Output;
+    type Output = Sum<Self, I>;
 
     fn add(self, _: Exclusive<I>) -> Self::Output {
         unreachable!()
@@ -153,7 +159,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = Exclusive<WithoutInterior>,
@@ -164,7 +170,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = WithInterior<Robust>,
@@ -175,7 +181,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = WithInterior<Robust>,
@@ -186,7 +192,7 @@ mod tests {
             RustSpec<
                 Layout = Unstable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = WithInterior<Robust>,
@@ -197,7 +203,7 @@ mod tests {
             RustSpec<
                 Layout = Unstable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = WithInterior<Robust>,
@@ -208,7 +214,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = WithInterior<Robust>,
@@ -219,7 +225,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = Exclusive<WithoutInterior>,
@@ -230,7 +236,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -241,7 +247,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -252,7 +258,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -263,7 +269,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
                 Niche = WithoutNiche,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -274,7 +280,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -285,7 +291,7 @@ mod tests {
             RustSpec<
                 Layout = Unstable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = crate::One,
+                __Alignment = crate::One,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = WithInterior<Robust>,
@@ -298,7 +304,7 @@ mod tests {
             RustSpec<
                 Layout = Stable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Stable>,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -310,7 +316,7 @@ mod tests {
             RustSpec<
                 Layout = Unstable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive<WithInterior<Robust>>,
@@ -322,7 +328,7 @@ mod tests {
             RustSpec<
                 Layout = Unstable,
                 Size = RustSpecSized<crate::Gt<crate::Zero>>,
-                Alignment = <usize as RustSpec>::Alignment,
+                __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
                 Niche = WithNiche<Unstable>,
                 Mutability = Exclusive<WithInterior<Robust>>,

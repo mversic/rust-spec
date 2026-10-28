@@ -81,7 +81,7 @@ fn union_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -92,7 +92,7 @@ fn union_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::One,
+            __Alignment = rust_spec::One,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = WithInterior<Robust>,
@@ -103,7 +103,7 @@ fn union_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::Gt<rust_spec::One>,
+            __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -114,7 +114,7 @@ fn union_classification() {
         RustSpec<
             Layout = Stable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::Gt<rust_spec::One>,
+            __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,
@@ -125,7 +125,7 @@ fn union_classification() {
         RustSpec<
             Layout = Unstable,
             Size = SpecSized<Gt<Zero>>,
-            Alignment = rust_spec::Gt<rust_spec::One>,
+            __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
             Niche = WithoutNiche,
             Mutability = Exclusive<WithoutInterior>,

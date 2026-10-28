@@ -1,6 +1,7 @@
 use core::{convert::Infallible, ops::Add};
 
 pub use crate::{Gt, Zero};
+use crate::{Stable, Unstable, layout::LayoutKind};
 
 #[sealed::sealed]
 pub trait SizedKind {}
@@ -48,12 +49,33 @@ impl MetadataKind for SliceLike {}
 #[sealed::sealed]
 impl MetadataKind for DynTraitLike {}
 
-/// Pointers to types implementing this trait alias are “thin”.
+/// Pointer layout stability determined by the pointee's size category.
 ///
-/// See [`core::ptr::Thin`]
-pub(crate) trait Thin {}
-impl<K: SizedKind> Thin for Sized<K> {}
-impl Thin for ExternTypeLike {}
+/// Combine the layout contribution with the pointee's layout using `Add`.
+#[sealed::sealed]
+pub trait PointerLayout {
+    type Output: LayoutKind;
+}
+
+#[sealed::sealed]
+impl<K: SizedKind> PointerLayout for Sized<K> {
+    type Output = Stable;
+}
+
+#[sealed::sealed]
+impl<K: MetadataKind> PointerLayout for MetaSized<K> {
+    type Output = Unstable;
+}
+
+#[sealed::sealed]
+impl PointerLayout for ExternTypeLike {
+    type Output = Stable;
+}
+
+#[sealed::sealed]
+impl PointerLayout for NulTerminated {
+    type Output = Unstable;
+}
 
 pub(crate) trait Dst {}
 impl Dst for ExternTypeLike {}

@@ -8,11 +8,11 @@
 | --- | --- | --- |
 | `Layout` | Whether Rust guarantees the representation shape | `Stable`, `Unstable` |
 | `Size` | Statically sized or dynamically sized shape | `size::Sized<Zero>`, `size::Sized<Gt<Zero>>`, `size::MetaSized<SliceLike>`, `size::MetaSized<DynTraitLike>`, `size::ExternTypeLike`, `size::NulTerminated` |
-| `Alignment` | Whether alignment is one or greater than one | `One`, `Gt<One>` |
+| `__Alignment` | Whether alignment is one or greater than one | `One`, `Gt<One>` |
 | `Trap` | Whether every bit pattern is a valid value | `layout::Robust`, `layout::NonRobust` |
 | `Niche` | Availability and stability of a niche value | `niche::WithoutNiche`, `niche::WithNiche<Stable>`, `niche::WithNiche<Unstable>` |
 | `Drop` | Whether dropping the type runs custom drop glue, inner drop glue, both, or neither | `drop::NoDrop`, `drop::CustomDrop<drop::NoDrop>`, `drop::AutoDrop`, `drop::CustomDrop<drop::AutoDrop>` |
-| `Mutability` | Whether type can be mutated through shared access. | `mutability::Exclusive`, `mutability::WithInterior` |
+| `Mutability` | Whether type can be mutated through shared access. | `mutability::Exclusive<WithoutInterior>`, `mutability::WithInterior<R>`, `mutability::Exclusive<WithInterior<R>>` |
 
 ## Composite types
 
@@ -33,4 +33,18 @@ A field classified as anything other than `NoDrop` counts as inner drop behavior
 
 ## Safety and guarantees
 
-`Layout` and `Trap` are separate axes: a type can have a stable representation while some bit patterns remain invalid. `Alignment` records only whether alignment is one or greater than one; it does not encode an exact byte count. `Niche` records whether a niche is available and whether Rust guarantees it, rather than a particular niche value. The `Size` markers describe shape, not an exact byte count. `repr(packed)` is not supported by the derive.
+`Layout` and `Trap` are separate axes: a type can have a stable representation while some bit patterns remain invalid. `__Alignment` records only whether alignment is one or greater than one; it does not encode an exact byte count. `Niche` records whether a niche is available and whether Rust guarantees it, rather than a particular niche value. The `Size` markers describe shape, not an exact byte count. `repr(packed)` is not supported by the derive.
+
+`WithInterior<R>` aggregates the trap classifications of all interior-mutable parts, including those reachable through indirection, independently of the whole value’s `Trap`; exclusive fields contribute only the robustness of their reachable interior-mutable storage. `Exclusive<WithInterior<R>>` marks exclusive immediate storage with potentially reachable interior-mutable storage. Pointer and reference indirection maps either interior state to this marker; aggregate fields combine with `WithInterior` taking precedence, then `Exclusive<WithInterior<R>>`, while combining interior robustness in either case. This classification does not establish pointer validity or permission to dereference.
+
+`MaybeUninit<T>` preserves the immediate mutability and interior-storage reachability
+of `T`, but resets any interior robustness parameter to `Robust`. Neither its
+contents nor pointers stored in them require validation: the contents may be
+uninitialized and must not be inspected. This applies to both `WithInterior<R>`
+and `Exclusive<WithInterior<R>>`; `Exclusive<WithoutInterior>` is unchanged.
+
+`size::PointerLayout::Output` supplies the pointer layout contribution for each pointee size category. References and boxes also use this stability in `WithNiche<Output>`. It is sealed and has no type parameters. References, raw pointers, `Box`, and `NonNull` use ordinary generic implementations.
+
+`niche::NullableRepresentation` supplies layout and trap contributions and the resulting niche when adding an empty alternative. `Option` combines these with its payload in one generic implementation. `DropKind::NeedsDrop` converts a field’s own destructor classification into the containing value’s drop glue; `NoDrop + K` delegates to that operation. Both operations are defined on sealed marker families without trait parameters.
+
+`Result` uses one generic implementation and three internal size-pair implementations: equal size categories, a zero-sized error, or a zero-sized success. Mixed-size cases reuse `NullableRepresentation`, adding `niche::NullableAlignment` contributions from the empty variant’s alignment. Alignment one preserves the nullable classification; greater alignment forces unstable layout, non-robustness, and an unstable niche. Equal size categories combine both indirect trap classifications; mixed-size cases retain the payload’s indirect trap classification.
