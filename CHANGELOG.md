@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-31
+
+### Added
+
+- track robustness of types with interior mutability
+
+### Changed
+
+- hide `RustSpec::__Alignment` axis
+- remove `disjoint_impls` dependency
+
 ## [0.7.0] - 2026-10-28
 
 ### Changed
