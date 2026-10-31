@@ -12,7 +12,7 @@ use core::{
 use crate::drop::{AutoDrop, CustomDrop};
 use crate::{
     NonOpaque, RustSpec, Stable, Unstable,
-    drop::NoDrop,
+    drop::{NeedsDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithInterior, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
@@ -62,7 +62,7 @@ macro_rules! transparent_wrapper {
             type __Alignment = T::__Alignment;
             type Trap = T::Trap;
             type Niche = T::Niche;
-            type Drop = <T::Drop as crate::drop::DropKind>::NeedsDrop;
+            type Drop = NeedsDrop<T::Drop>;
             type Mutability = T::Mutability;
             type Opacity = NonOpaque;
             type __IndirectTrap = T::__IndirectTrap;

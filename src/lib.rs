@@ -122,7 +122,7 @@ use core::{convert::Infallible, ops::Add, ptr::NonNull};
 #[cfg(feature = "alloc")]
 use crate::drop::{CustomDrop, DropKind};
 use crate::{
-    drop::NoDrop,
+    drop::{NeedsDrop, NoDrop},
     layout::NonRobust,
     mutability::PointerMutability,
     niche::{NullableRepresentation, WithNiche, WithoutNiche},
@@ -141,6 +141,10 @@ pub mod size;
 mod tuple;
 
 type Sum<A, B> = <A as Add<B>>::Output;
+
+/// The output of the type-level [`Max`] operation.
+#[doc(hidden)]
+pub type Maximum<A, B> = <A as Max<B>>::Output;
 
 /// Marker for a compiler-guaranteed representation or niche.
 pub enum Stable {}
@@ -161,9 +165,11 @@ pub enum Zero {}
 pub struct Gt<T>(core::marker::PhantomData<T>, Infallible);
 
 /// Marker for alignment one.
+#[doc(hidden)]
 pub enum One {}
 
 /// Type-level maximum used to combine alignment categories.
+#[doc(hidden)]
 pub trait Max<Rhs> {
     type Output;
 }
@@ -193,6 +199,7 @@ pub unsafe trait RustSpec {
     type Size;
 
     /// __Alignment classification; see the [crate root](crate) for [`One`] and [`Gt`].
+    #[doc(hidden)]
     type __Alignment;
 
     /// Trap-representation classification, assuming pointer and reference validity
@@ -243,7 +250,7 @@ where
     type __Alignment = R::__Alignment;
     type Trap = Sum<<R::Niche as NullableRepresentation>::Trap, R::__IndirectTrap>;
     type Niche = <R::Niche as NullableRepresentation>::Niche;
-    type Drop = <R::Drop as drop::DropKind>::NeedsDrop;
+    type Drop = NeedsDrop<R::Drop>;
     type Mutability = R::Mutability;
     type Opacity = NonOpaque;
     type __IndirectTrap = R::__IndirectTrap;
@@ -292,7 +299,7 @@ where
     type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = layout::NonRobust;
     type Niche = WithNiche<<R::Size as PointerLayout>::Output>;
-    type Drop = CustomDrop<<R::Drop as DropKind>::NeedsDrop>;
+    type Drop = CustomDrop<NeedsDrop<R::Drop>>;
     type Mutability = <R::Mutability as PointerMutability>::Output;
     type Opacity = NonOpaque;
     type __IndirectTrap = R::Trap;

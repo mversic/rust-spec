@@ -4,7 +4,8 @@ use core::{
 };
 
 use crate::{
-    NonOpaque, RustSpec, Sum, layout::Robust, mutability::WithInterior, niche::WithoutNiche,
+    NonOpaque, RustSpec, Sum, drop::NeedsDrop, layout::Robust, mutability::WithInterior,
+    niche::WithoutNiche,
 };
 
 macro_rules! interior_cell {
@@ -19,7 +20,7 @@ macro_rules! interior_cell {
             type __Alignment = T::__Alignment;
             type Trap = Sum<Robust, T::Trap>;
             type Niche = WithoutNiche;
-            type Drop = <T::Drop as crate::drop::DropKind>::NeedsDrop;
+            type Drop = NeedsDrop<T::Drop>;
             type Mutability = WithInterior<T::Trap>;
             type Opacity = NonOpaque;
             type __IndirectTrap = T::__IndirectTrap;

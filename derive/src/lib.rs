@@ -953,7 +953,7 @@ fn gen_alignment_family(
         let kind = family.kind;
 
         let tag_kind = quote! { <#tag as #crate_::RustSpec>::__Alignment };
-        family.kind = quote! { <#tag_kind as #crate_::Max<#kind>>::Output };
+        family.kind = quote! { #crate_::Maximum<#tag_kind, #kind> };
     }
 
     family
@@ -965,7 +965,7 @@ fn apply_repr_alignment(mut family: AggregateFamily, align: Option<usize>) -> Ag
     if matches!(align, Some(value) if value > 1) {
         let minimum = quote! { #crate_::Gt<#crate_::One> };
         let kind = family.kind;
-        family.kind = quote! { <#minimum as #crate_::Max<#kind>>::Output };
+        family.kind = quote! { #crate_::Maximum<#minimum, #kind> };
     }
 
     family

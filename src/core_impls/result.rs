@@ -3,7 +3,7 @@
 use core::ops::Add;
 
 use crate::{
-    Gt, Max, NonOpaque, RustSpec, Stable, Sum, Unstable, Zero,
+    Gt, Max, Maximum, NonOpaque, RustSpec, Stable, Sum, Unstable, Zero,
     layout::{LayoutKind, NonRobust, Robust},
     niche::{NullableRepresentation, WithNiche, WithoutNiche},
     size::{self, SizedKind},
@@ -141,7 +141,7 @@ where
 {
     type Layout = <(R::Size, E::Size) as ResultRepresentation<R, E>>::Layout;
     type Size = size::Sized<Gt<Zero>>;
-    type __Alignment = <R::__Alignment as Max<E::__Alignment>>::Output;
+    type __Alignment = Maximum<R::__Alignment, E::__Alignment>;
     type Trap = <(R::Size, E::Size) as ResultRepresentation<R, E>>::Trap;
     type Niche = <(R::Size, E::Size) as ResultRepresentation<R, E>>::Niche;
     type Drop = Sum<R::Drop, E::Drop>;

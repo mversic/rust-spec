@@ -14,6 +14,8 @@ pub trait DropKind {
     type NeedsDrop: DropKind;
 }
 
+pub(crate) type NeedsDrop<T> = <T as DropKind>::NeedsDrop;
+
 /// Dropping this type does not run drop glue.
 pub enum NoDrop {}
 

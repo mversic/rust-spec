@@ -4,7 +4,7 @@ use core::{cmp::Ordering, ops::Add};
 
 use crate::{
     NonOpaque, RustSpec, Stable, Sum, Unstable, Zero,
-    drop::NoDrop,
+    drop::{NeedsDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithoutInterior},
     niche::{WithNiche, WithoutNiche},
@@ -39,7 +39,7 @@ macro_rules! impl_nonempty_array {
             type __Alignment = R::__Alignment;
             type Trap = R::Trap;
             type Niche = Sum<WithoutNiche, R::Niche>;
-            type Drop = <R::Drop as crate::drop::DropKind>::NeedsDrop;
+            type Drop = NeedsDrop<R::Drop>;
             type Mutability = R::Mutability;
             type Opacity = NonOpaque;
             type __IndirectTrap = R::__IndirectTrap;
@@ -171,7 +171,7 @@ where
     // TODO: This should not be set at all
     // however we set it to help some impls
     type Niche = WithoutNiche;
-    type Drop = <R::Drop as crate::drop::DropKind>::NeedsDrop;
+    type Drop = NeedsDrop<R::Drop>;
     type Mutability = R::Mutability;
     type Opacity = NonOpaque;
     type __IndirectTrap = R::__IndirectTrap;

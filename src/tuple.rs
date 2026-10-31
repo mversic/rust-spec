@@ -1,13 +1,13 @@
 use core::ops::Add;
 
-use crate::{Max, NonOpaque, RustSpec, Sum, Unstable, layout::Robust};
+use crate::{Max, Maximum, NonOpaque, RustSpec, Sum, Unstable, drop::NeedsDrop, layout::Robust};
 
 macro_rules! impl_tuple_type_spec {
     (@alignment $ty:ident) => {
         <$ty as RustSpec>::__Alignment
     };
     (@alignment $head:ident, $($tail:ident),+) => {
-        <<$head as RustSpec>::__Alignment as Max<impl_tuple_type_spec!(@alignment $($tail),+)>>::Output
+        Maximum<<$head as RustSpec>::__Alignment, impl_tuple_type_spec!(@alignment $($tail),+)>
     };
     (@kind $axis:ident; $ty:ident) => {
         <$ty as RustSpec>::$axis
@@ -29,7 +29,7 @@ macro_rules! impl_tuple_type_spec {
             type __Alignment = impl_tuple_type_spec!(@alignment $($all),+);
             type Trap = Sum<Robust, impl_tuple_type_spec!(@kind Trap; $($all),+)>;
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
-            type Drop = <impl_tuple_type_spec!(@kind Drop; $($all),+) as crate::drop::DropKind>::NeedsDrop;
+            type Drop = NeedsDrop<impl_tuple_type_spec!(@kind Drop; $($all),+)>;
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
             type Opacity = NonOpaque;
             type __IndirectTrap = impl_tuple_type_spec!(@kind __IndirectTrap; $($all),+);
