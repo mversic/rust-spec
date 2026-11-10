@@ -1,6 +1,6 @@
 use core::ops::Add;
 
-use crate::{Max, Maximum, NonOpaque, RustSpec, Sum, Unstable, drop::NeedsDrop, layout::Robust};
+use crate::{Max, Maximum, NonOpaque, RustSpec, Sum, Unstable, drop::NeedsDrop};
 
 macro_rules! impl_tuple_type_spec {
     (@alignment $ty:ident) => {
@@ -21,13 +21,12 @@ macro_rules! impl_tuple_type_spec {
         where
             $($params)*
             $ty: RustSpec + ?Sized,
-            Robust: Add<impl_tuple_type_spec!(@kind Trap; $($all),+)>,
             impl_tuple_type_spec!(@kind Drop; $($all),+): crate::drop::DropKind,
         {
             type Layout = Unstable;
             type Size = impl_tuple_type_spec!(@kind Size; $($all),+);
             type __Alignment = impl_tuple_type_spec!(@alignment $($all),+);
-            type Trap = Sum<Robust, impl_tuple_type_spec!(@kind Trap; $($all),+)>;
+            type Trap = impl_tuple_type_spec!(@kind Trap; $($all),+);
             type Niche = impl_tuple_type_spec!(@kind Niche; $($all),+);
             type Drop = NeedsDrop<impl_tuple_type_spec!(@kind Drop; $($all),+)>;
             type Mutability = impl_tuple_type_spec!(@kind Mutability; $($all),+);
@@ -87,7 +86,7 @@ mod tests {
     use super::*;
     use crate::{
         Stable,
-        layout::NonRobust,
+        layout::{NonRobust, Robust},
         mutability::{Exclusive, WithoutInterior},
         niche::{WithNiche, WithoutNiche},
         size::{self, Zero},

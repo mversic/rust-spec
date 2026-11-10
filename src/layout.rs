@@ -54,18 +54,10 @@ impl<K> Add<K> for Unstable {
     }
 }
 
-impl Add<Unstable> for Stable {
-    type Output = Unstable;
+impl<K: LayoutKind> Add<K> for Stable {
+    type Output = K;
 
-    fn add(self, _: Unstable) -> Self::Output {
-        unreachable!()
-    }
-}
-
-impl Add for Stable {
-    type Output = Self;
-
-    fn add(self, _: Self) -> Self::Output {
+    fn add(self, _: K) -> Self::Output {
         unreachable!()
     }
 }

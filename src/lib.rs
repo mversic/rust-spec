@@ -123,7 +123,6 @@ use core::{convert::Infallible, ops::Add, ptr::NonNull};
 use crate::drop::{CustomDrop, DropKind};
 use crate::{
     drop::{NeedsDrop, NoDrop},
-    layout::NonRobust,
     mutability::PointerMutability,
     niche::{NullableRepresentation, WithNiche, WithoutNiche},
     size::PointerLayout,
@@ -223,22 +222,6 @@ pub unsafe trait RustSpec {
     type __IndirectTrap;
 }
 
-unsafe impl<R: ?Sized> RustSpec for NonNull<R>
-where
-    R: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
-    <R::Size as PointerLayout>::Output: Add<R::Layout>,
-{
-    type Layout = Sum<<R::Size as PointerLayout>::Output, R::Layout>;
-    type Size = size::Sized<Gt<Zero>>;
-    type __Alignment = <usize as RustSpec>::__Alignment;
-    type Trap = NonRobust;
-    type Niche = WithNiche<<R::Size as PointerLayout>::Output>;
-    type Drop = NoDrop;
-    type Mutability = <R::Mutability as PointerMutability>::Output;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = R::Trap;
-}
-
 unsafe impl<R> RustSpec for Option<R>
 where
     R: RustSpec<Niche: NullableRepresentation, Drop: drop::DropKind>,
@@ -256,37 +239,27 @@ where
     type __IndirectTrap = R::__IndirectTrap;
 }
 
-unsafe impl<R: ?Sized> RustSpec for &R
-where
-    R: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
-    <R::Size as PointerLayout>::Output: Add<R::Layout>,
-{
-    type Layout = Sum<<R::Size as PointerLayout>::Output, R::Layout>;
-    type Size = size::Sized<Gt<Zero>>;
-    type __Alignment = <usize as RustSpec>::__Alignment;
-    type Trap = layout::NonRobust;
-    type Niche = WithNiche<<R::Size as PointerLayout>::Output>;
-    type Drop = drop::NoDrop;
-    type Mutability = <R::Mutability as PointerMutability>::Output;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = R::Trap;
+macro_rules! impl_non_null_pointer {
+    ($pointee:ident; $($pointer:ty),+ $(,)?) => {$(
+        unsafe impl<$pointee: ?Sized> RustSpec for $pointer
+        where
+            $pointee: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
+            <$pointee::Size as PointerLayout>::Output: Add<$pointee::Layout>,
+        {
+            type Layout = Sum<<$pointee::Size as PointerLayout>::Output, $pointee::Layout>;
+            type Size = size::Sized<Gt<Zero>>;
+            type __Alignment = <usize as RustSpec>::__Alignment;
+            type Trap = layout::NonRobust;
+            type Niche = WithNiche<<$pointee::Size as PointerLayout>::Output>;
+            type Drop = drop::NoDrop;
+            type Mutability = <$pointee::Mutability as PointerMutability>::Output;
+            type Opacity = NonOpaque;
+            type __IndirectTrap = $pointee::Trap;
+        }
+    )+};
 }
 
-unsafe impl<R: ?Sized> RustSpec for &mut R
-where
-    R: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
-    <R::Size as PointerLayout>::Output: Add<R::Layout>,
-{
-    type Layout = Sum<<R::Size as PointerLayout>::Output, R::Layout>;
-    type Size = size::Sized<Gt<Zero>>;
-    type __Alignment = <usize as RustSpec>::__Alignment;
-    type Trap = layout::NonRobust;
-    type Niche = WithNiche<<R::Size as PointerLayout>::Output>;
-    type Drop = drop::NoDrop;
-    type Mutability = <R::Mutability as PointerMutability>::Output;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = R::Trap;
-}
+impl_non_null_pointer!(R; &R, &mut R, NonNull<R>);
 
 #[cfg(feature = "alloc")]
 unsafe impl<R: ?Sized> RustSpec for Box<R>
@@ -305,37 +278,27 @@ where
     type __IndirectTrap = R::Trap;
 }
 
-unsafe impl<R: ?Sized> RustSpec for *const R
-where
-    R: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
-    <R::Size as PointerLayout>::Output: Add<R::Layout>,
-{
-    type Layout = Sum<<R::Size as PointerLayout>::Output, R::Layout>;
-    type Size = size::Sized<crate::Gt<Zero>>;
-    type __Alignment = <usize as RustSpec>::__Alignment;
-    type Trap = R::Trap;
-    type Niche = WithoutNiche;
-    type Drop = NoDrop;
-    type Mutability = <R::Mutability as PointerMutability>::Output;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = R::Trap;
+macro_rules! impl_raw_pointer {
+    ($pointee:ident; $($pointer:ty),+ $(,)?) => {$(
+        unsafe impl<$pointee: ?Sized> RustSpec for $pointer
+        where
+            $pointee: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
+            <$pointee::Size as PointerLayout>::Output: Add<$pointee::Layout>,
+        {
+            type Layout = Sum<<$pointee::Size as PointerLayout>::Output, $pointee::Layout>;
+            type Size = size::Sized<crate::Gt<Zero>>;
+            type __Alignment = <usize as RustSpec>::__Alignment;
+            type Trap = $pointee::Trap;
+            type Niche = WithoutNiche;
+            type Drop = NoDrop;
+            type Mutability = <$pointee::Mutability as PointerMutability>::Output;
+            type Opacity = NonOpaque;
+            type __IndirectTrap = $pointee::Trap;
+        }
+    )+};
 }
 
-unsafe impl<R: ?Sized> RustSpec for *mut R
-where
-    R: RustSpec<Size: PointerLayout, Mutability: PointerMutability>,
-    <R::Size as PointerLayout>::Output: Add<R::Layout>,
-{
-    type Layout = Sum<<R::Size as PointerLayout>::Output, R::Layout>;
-    type Size = size::Sized<crate::Gt<Zero>>;
-    type __Alignment = <usize as RustSpec>::__Alignment;
-    type Trap = R::Trap;
-    type Niche = WithoutNiche;
-    type Drop = NoDrop;
-    type Mutability = <R::Mutability as PointerMutability>::Output;
-    type Opacity = NonOpaque;
-    type __IndirectTrap = R::Trap;
-}
+impl_raw_pointer!(R; *const R, *mut R);
 
 #[cfg(test)]
 mod tests {

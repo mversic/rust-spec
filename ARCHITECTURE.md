@@ -2,10 +2,15 @@
 
 `RustSpec` is the canonical classification trait for properties of Rust types. Its associated types describe independent axes:
 
-`Opaque` is a separate unsafe marker trait, not a `RustSpec` axis. It marks types whose value representation must not be inspected by conversions. Deriving `RustSpec` with `#[rust_spec(opaque)]` implements it for source types and selects the opaque classification; generated opaque-export implementations require it.
+`Opacity` is a `RustSpec` axis with `Opaque` and `NonOpaque` marker types.
+`Opaque` marks types whose value representation must not be inspected by
+conversions and which must be placed behind an indirection. Deriving `RustSpec`
+with `#[rust_spec(opaque)]` selects `Opacity = Opaque`; ordinary derives select
+`Opacity = NonOpaque`.
 
 | Axis | Meaning | Markers |
 | --- | --- | --- |
+| `Opacity` | Whether the value representation is opaque | `Opaque`, `NonOpaque` |
 | `Layout` | Whether Rust guarantees the representation shape | `Stable`, `Unstable` |
 | `Size` | Statically sized or dynamically sized shape | `size::Sized<Zero>`, `size::Sized<Gt<Zero>>`, `size::MetaSized<SliceLike>`, `size::MetaSized<DynTraitLike>`, `size::ExternTypeLike`, `size::NulTerminated` |
 | `__Alignment` | Whether alignment is one or greater than one | `One`, `Gt<One>` |
@@ -17,6 +22,12 @@
 ## Composite types
 
 Implementations for built-in wrappers, pointers, tuples, `Option`, and `Result` live in `src/`. The derive macro covers structs, enums, and unions. It combines field classifications with type-level operations, taking account of the representation and enum tag where applicable. For generic fields, it adds the bounds required by those combinations. Syntax-known absorbing contributions bypass the corresponding axis fold: nonempty tuple fields and pointers/references to slices fix layout to `Unstable`; references or a tag with invalid values fix `Trap` to `NonRobust`; a slice tail fixes `Size` to `MetaSized<SliceLike>`. Field `RustSpec` requirements remain in place, and named types retain trait-based classification.
+
+Enum representation analysis in `derive/src/repr.rs` selects the tag and its unused values once, retaining any required discriminant range check. Plain C enums produce a tag for each target branch. All tagged enums then share one classification path, including application of `non_robust`; enums without a tag reuse struct field aggregation.
+
+The derive carries axis expressions, emitted families, and recursive resolution states in `Families<T>`. Its registry in `derive/src/families.rs` defines the named fields, associated-type names, and traversal order together. Recursive resolution indexes by `Axis` and tracks each axis as unvisited, active, or resolved; emission maps and iterates the same container to collect associated types and deduplicated bounds. `Opacity` is fixed separately for each derive.
+
+Expression constructors normalize binary combinations, nullable representations, pointer layout and mutability, and sized-field additions. Field analysis and recursive wrapper expansion use these constructors directly; the resolver rebuilds children through them after substitution. Emitted families track dependence on surviving type and const parameters separately from their bounds, so concrete operations do not introduce generic predicates.
 
 The `Drop` axis distinguishes an outer `Drop` implementation from drop glue for owned contents. The derive combines the `Drop` classifications of all fields starting at `NoDrop`, then wraps the result in `CustomDrop` if the type has `#[rust_spec(custom_drop)]`:
 
@@ -47,4 +58,4 @@ and `Exclusive<WithInterior<R>>`; `Exclusive<WithoutInterior>` is unchanged.
 
 `niche::NullableRepresentation` supplies layout and trap contributions and the resulting niche when adding an empty alternative. `Option` combines these with its payload in one generic implementation. `DropKind::NeedsDrop` converts a field’s own destructor classification into the containing value’s drop glue; `NoDrop + K` delegates to that operation. Both operations are defined on sealed marker families without trait parameters.
 
-`Result` uses one generic implementation and three internal size-pair implementations: equal size categories, a zero-sized error, or a zero-sized success. Mixed-size cases reuse `NullableRepresentation`, adding `niche::NullableAlignment` contributions from the empty variant’s alignment. Alignment one preserves the nullable classification; greater alignment forces unstable layout, non-robustness, and an unstable niche. Equal size categories combine both indirect trap classifications; mixed-size cases retain the payload’s indirect trap classification.
+`Result` uses one generic implementation and three internal size-pair implementations: equal size categories, a zero-sized error, or a zero-sized success. The zero-sized-success case delegates to the zero-sized-error case with the variant types swapped. Mixed-size cases reuse `NullableRepresentation`, adding the internal `NullableAlignment` trait in `core_impls::result` contributions from the empty variant’s alignment. Alignment one preserves the nullable classification; greater alignment forces unstable layout, non-robustness, and an unstable niche. Equal size categories combine both indirect trap classifications; mixed-size cases retain the payload’s indirect trap classification.

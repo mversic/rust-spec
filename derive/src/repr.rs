@@ -1,4 +1,5 @@
-use proc_macro2::Delimiter;
+use proc_macro2::{Delimiter, TokenStream};
+use quote::quote;
 use syn::{
     Attribute, Meta, Token,
     parse::{Parse, ParseStream, Parser as _},
@@ -94,6 +95,92 @@ pub(crate) struct Repr {
     pub align: Option<usize>,
 }
 
+/// Enum representation facts shared by all classification axes.
+pub(crate) struct EnumRepr {
+    /// Empty for an untagged enum; plain C enums have one tag per target branch.
+    pub tags: Vec<EnumTag>,
+    /// Unresolved default-representation discriminants must fit this inferred tag.
+    pub discriminant_check: Option<syn::Type>,
+}
+
+pub(crate) struct EnumTag {
+    pub ty: syn::Type,
+    pub has_trap_values: bool,
+    pub cfg: TokenStream,
+}
+
+impl EnumTag {
+    fn new(ty: syn::Type, variant_count: usize, cfg: TokenStream) -> Self {
+        Self {
+            has_trap_values: !is_exhaustive_enum(variant_count, &ty),
+            ty,
+            cfg,
+        }
+    }
+}
+
+impl EnumRepr {
+    pub(crate) fn analyze(
+        repr: Option<&ReprKind>,
+        variants: &Punctuated<syn::Variant, Token![,]>,
+    ) -> syn::Result<Self> {
+        let mut discriminant_check = None;
+        let tags = match repr {
+            None => {
+                let tag = infer_repr(variants)?;
+                if has_unresolved_discriminants(variants) {
+                    discriminant_check = Some(tag.clone());
+                }
+                if variants.len() > 1 {
+                    vec![EnumTag::new(tag, variants.len(), quote!())]
+                } else {
+                    Vec::new()
+                }
+            }
+            Some(ReprKind::Transparent) => Vec::new(),
+            Some(ReprKind::Primitive(tag) | ReprKind::C(Some(tag))) => {
+                vec![EnumTag::new(tag.as_ref().clone(), variants.len(), quote!())]
+            }
+            Some(ReprKind::C(None)) => c_enum_tags(variants.len()),
+        };
+        Ok(Self {
+            tags,
+            discriminant_check,
+        })
+    }
+}
+
+fn c_enum_tags(variant_count: usize) -> Vec<EnumTag> {
+    let eight_bit_targets = quote! {
+        #[cfg(all(
+            target_arch = "arm",
+            any(target_os = "none", target_os = "nuttx", target_os = "rtems"),
+        ))]
+    };
+    let sixteen_bit_targets = quote! {
+        #[cfg(any(target_arch = "avr", target_arch = "msp430"))]
+    };
+    let normal_targets = quote! {
+        #[cfg(not(any(
+            all(
+                target_arch = "arm",
+                any(target_os = "none", target_os = "nuttx", target_os = "rtems"),
+            ),
+            target_arch = "avr",
+            target_arch = "msp430",
+        )))]
+    };
+
+    [
+        (eight_bit_targets, syn::parse_quote!(u8)),
+        (sixteen_bit_targets, syn::parse_quote!(u16)),
+        (normal_targets, syn::parse_quote!(u32)),
+    ]
+    .into_iter()
+    .map(|(cfg, ty)| EnumTag::new(ty, variant_count, cfg))
+    .collect()
+}
+
 pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Repr> {
     let repr_attrs = attrs
         .iter()
@@ -151,7 +238,7 @@ pub(crate) fn parse_repr(attrs: &[Attribute]) -> syn::Result<Repr> {
 /// Infer a tag from known discriminants and the number of variants.
 /// Unknown values and following implicit increments are checked by rustc against
 /// the inferred range. Target-dependent operations are left to that const check.
-pub(crate) fn infer_repr(variants: &Punctuated<syn::Variant, Token![,]>) -> syn::Result<syn::Type> {
+fn infer_repr(variants: &Punctuated<syn::Variant, Token![,]>) -> syn::Result<syn::Type> {
     let mut previous = Some(-1i128);
     let mut minimum = 0i128;
     let mut maximum = 0i128;
@@ -198,7 +285,7 @@ pub(crate) fn infer_repr(variants: &Punctuated<syn::Variant, Token![,]>) -> syn:
     Ok(tag)
 }
 
-pub(crate) fn has_unresolved_discriminants(variants: &Punctuated<syn::Variant, Token![,]>) -> bool {
+fn has_unresolved_discriminants(variants: &Punctuated<syn::Variant, Token![,]>) -> bool {
     variants.iter().any(|variant| {
         variant
             .discriminant
@@ -239,7 +326,7 @@ fn eval_discriminant(expr: &syn::Expr) -> Option<i128> {
     }
 }
 
-pub(crate) fn is_exhaustive_enum(num_variants: usize, repr: &syn::Type) -> bool {
+fn is_exhaustive_enum(num_variants: usize, repr: &syn::Type) -> bool {
     fn repr_type_bit_width(repr: &syn::Type) -> Option<u32> {
         let syn::Type::Path(type_path) = repr else {
             return None;

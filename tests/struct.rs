@@ -806,3 +806,66 @@ fn function_pointer_fields_need_no_argument_classification() {
     static_assertions::assert_impl_all!(Callback<Unclassified>: RustSpec<
         Layout = Unstable, Size = SpecSized<Gt<Zero>>, Drop = NoDrop>);
 }
+
+#[test]
+fn pin_and_vec_deque_classification() {
+    use core::pin::Pin;
+    use std::collections::VecDeque;
+
+    assert_impl_all!(Pin<&u8>: RustSpec<Layout = Stable, Trap = NonRobust,
+        Drop = NoDrop, Niche = WithNiche<Stable>>);
+    assert_impl_all!(Pin<Box<u8>>: RustSpec<Drop = AutoDrop>);
+    assert_impl_all!(Pin<Box<UnsafeCell<bool>>>: RustSpec<
+        Mutability = Exclusive<WithInterior<NonRobust>>, __IndirectTrap = NonRobust>);
+    assert_impl_all!(VecDeque<u8>: RustSpec<Layout = Unstable,
+        Size = SpecSized<Gt<Zero>>, Trap = NonRobust, Drop = CustomDrop<AutoDrop>,
+        Niche = WithNiche<Unstable>, Mutability = Exclusive<WithoutInterior>>);
+    assert_impl_all!(VecDeque<UnsafeCell<bool>>: RustSpec<
+        Mutability = Exclusive<WithInterior<NonRobust>>, __IndirectTrap = NonRobust>);
+}
+
+#[test]
+fn pointer_prefix_absorbs_metadata_before_lifetime_marker() {
+    trait Wide {
+        type Data;
+        type Metadata;
+    }
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct Header<'a, R: Wide> {
+        data: *const R::Data,
+        metadata: R::Metadata,
+        lifetime: core::marker::PhantomData<&'a ()>,
+    }
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct MutableHeader<'a, R: Wide> {
+        data: *mut R::Data,
+        metadata: R::Metadata,
+        lifetime: core::marker::PhantomData<&'a ()>,
+    }
+    struct EmptyMetadata;
+    impl Wide for EmptyMetadata {
+        type Data = u8;
+        type Metadata = ();
+    }
+    struct LengthMetadata;
+    impl Wide for LengthMetadata {
+        type Data = u8;
+        type Metadata = usize;
+    }
+    assert_impl_all!(Header<'static, EmptyMetadata>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(Header<'static, LengthMetadata>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(MutableHeader<'static, EmptyMetadata>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(MutableHeader<'static, LengthMetadata>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct MaybeUnsized<T: ?Sized> {
+        data: *const u8,
+        tail: T,
+    }
+    assert_impl_all!(MaybeUnsized<()>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(MaybeUnsized<[u8]>: RustSpec<Size = MetaSized<SliceLike>>);
+    assert_impl_all!(MaybeUnsized<CStr>: RustSpec<Size = NulTerminated>);
+}

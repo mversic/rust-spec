@@ -91,40 +91,18 @@ where
     type IndirectTrap = R::__IndirectTrap;
 }
 
-impl<R, E> ResultRepresentation<R, E> for (size::Sized<Zero>, size::Sized<Gt<Zero>>)
+// Swapping the variants preserves the nullable representation contributions.
+impl<R: RustSpec, E: RustSpec> ResultRepresentation<R, E>
+    for (size::Sized<Zero>, size::Sized<Gt<Zero>>)
 where
-    E: RustSpec<Niche: NullableRepresentation>,
-    R: RustSpec<__Alignment: NullableAlignment>,
-    <R::__Alignment as NullableAlignment>::Layout:
-        Add<<E::Niche as NullableRepresentation>::Layout>,
-    Sum<
-        <R::__Alignment as NullableAlignment>::Layout,
-        <E::Niche as NullableRepresentation>::Layout,
-    >: Add<E::Layout>,
-    <R::__Alignment as NullableAlignment>::Trap: Add<<E::Niche as NullableRepresentation>::Trap>,
-    Sum<<R::__Alignment as NullableAlignment>::Trap, <E::Niche as NullableRepresentation>::Trap>:
-        Add<E::__IndirectTrap>,
-    <R::__Alignment as NullableAlignment>::Niche: Add<<E::Niche as NullableRepresentation>::Niche>,
+    (size::Sized<Gt<Zero>>, size::Sized<Zero>): ResultRepresentation<E, R>,
 {
-    type Layout = Sum<
-        Sum<
-            <R::__Alignment as NullableAlignment>::Layout,
-            <E::Niche as NullableRepresentation>::Layout,
-        >,
-        E::Layout,
-    >;
-    type Trap = Sum<
-        Sum<
-            <R::__Alignment as NullableAlignment>::Trap,
-            <E::Niche as NullableRepresentation>::Trap,
-        >,
-        E::__IndirectTrap,
-    >;
-    type Niche = Sum<
-        <R::__Alignment as NullableAlignment>::Niche,
-        <E::Niche as NullableRepresentation>::Niche,
-    >;
-    type IndirectTrap = E::__IndirectTrap;
+    type Layout =
+        <(size::Sized<Gt<Zero>>, size::Sized<Zero>) as ResultRepresentation<E, R>>::Layout;
+    type Trap = <(size::Sized<Gt<Zero>>, size::Sized<Zero>) as ResultRepresentation<E, R>>::Trap;
+    type Niche = <(size::Sized<Gt<Zero>>, size::Sized<Zero>) as ResultRepresentation<E, R>>::Niche;
+    type IndirectTrap =
+        <(size::Sized<Gt<Zero>>, size::Sized<Zero>) as ResultRepresentation<E, R>>::IndirectTrap;
 }
 
 // SAFETY: The representation helper handles equal-sized categories and either

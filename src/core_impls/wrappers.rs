@@ -1,11 +1,12 @@
 #[cfg(feature = "alloc")]
-use alloc::{string::String, vec::Vec};
+use alloc::{collections::VecDeque, string::String, vec::Vec};
 use core::{
     cmp::Reverse,
     convert::Infallible,
     marker::{PhantomData, PhantomPinned},
     mem::{ManuallyDrop, MaybeUninit},
     num::{NonZero, Saturating, Wrapping},
+    pin::Pin,
 };
 
 #[cfg(feature = "alloc")]
@@ -82,6 +83,8 @@ stable_robust_zst!((T: ?Sized) => PhantomData<T>);
 transparent_wrapper!((T: RustSpec) => Reverse<T>);
 transparent_wrapper!((T: RustSpec) => Wrapping<T>);
 transparent_wrapper!((T: RustSpec) => Saturating<T>);
+// Pin guarantees the layout and ABI of its pointer; it has no custom destructor.
+transparent_wrapper!((T: RustSpec) => Pin<T>);
 
 unsafe impl<T: RustSpec + ?Sized> RustSpec for ManuallyDrop<T> {
     type Layout = T::Layout;
@@ -151,8 +154,13 @@ unsafe impl RustSpec for String {
     type __IndirectTrap = NonRobust;
 }
 
+// Both containers own a RawVec allocation, which runs deallocation drop glue
+// independently of whether the element type needs dropping. Neither guarantees
+// a stable representation; reachable mutability follows the elements.
 #[cfg(feature = "alloc")]
-unsafe impl<T: RustSpec<Mutability: crate::mutability::PointerMutability>> RustSpec for Vec<T> {
+macro_rules! impl_owned_buffer {
+    ($($buffer:ident),+ $(,)?) => { $(
+unsafe impl<T: RustSpec<Mutability: crate::mutability::PointerMutability>> RustSpec for $buffer<T> {
     type Layout = Unstable;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type __Alignment = <usize as RustSpec>::__Alignment;
@@ -163,6 +171,12 @@ unsafe impl<T: RustSpec<Mutability: crate::mutability::PointerMutability>> RustS
     type Opacity = NonOpaque;
     type __IndirectTrap = T::Trap;
 }
+
+    )+ };
+}
+
+#[cfg(feature = "alloc")]
+impl_owned_buffer!(Vec, VecDeque);
 
 #[cfg(test)]
 mod tests {

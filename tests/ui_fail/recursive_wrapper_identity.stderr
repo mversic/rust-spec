@@ -1,0 +1,48 @@
+error[E0277]: the trait bound `*mut Node: _::_::SameType<std::boxed::Box<Node>>` is not satisfied
+ --> tests/ui_fail/recursive_wrapper_identity.rs:9:13
+  |
+9 | struct Node(Box<Self>);
+  |             ^^^^^^^^^ the trait `_::_::SameType<std::boxed::Box<Node>>` is not implemented for `*mut Node`
+  |
+note: required by a bound in `<Node as _::_::CheckRecursiveWrappers>::check_recursive_wrappers::same_type`
+ --> tests/ui_fail/recursive_wrapper_identity.rs:8:10
+  |
+8 | #[derive(RustSpec)]
+  |          ^^^^^^^^ required by this bound in `same_type`
+  = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `shadowed_pin::Pin<std::boxed::Box<shadowed_pin::Node>>: shadowed_pin::_::_::SameType<std::pin::Pin<std::boxed::Box<shadowed_pin::Node>>>` is not satisfied
+  --> tests/ui_fail/recursive_wrapper_identity.rs:16:17
+   |
+16 |     struct Node(Pin<Box<Self>>);
+   |                 ^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `shadowed_pin::_::_::SameType<std::pin::Pin<std::boxed::Box<shadowed_pin::Node>>>` is not implemented for `shadowed_pin::Pin<std::boxed::Box<shadowed_pin::Node>>`
+  --> tests/ui_fail/recursive_wrapper_identity.rs:14:5
+   |
+14 |     struct Pin<T>(T);
+   |     ^^^^^^^^^^^^^
+note: required by a bound in `<shadowed_pin::Node as shadowed_pin::_::_::CheckRecursiveWrappers>::check_recursive_wrappers::same_type`
+  --> tests/ui_fail/recursive_wrapper_identity.rs:15:14
+   |
+15 |     #[derive(RustSpec)]
+   |              ^^^^^^^^ required by this bound in `same_type`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `shadowed_deque::VecDeque<shadowed_deque::Node>: shadowed_deque::_::_::SameType<std::collections::VecDeque<shadowed_deque::Node>>` is not satisfied
+  --> tests/ui_fail/recursive_wrapper_identity.rs:23:17
+   |
+23 |     struct Node(VecDeque<Self>);
+   |                 ^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `shadowed_deque::_::_::SameType<std::collections::VecDeque<shadowed_deque::Node>>` is not implemented for `shadowed_deque::VecDeque<shadowed_deque::Node>`
+  --> tests/ui_fail/recursive_wrapper_identity.rs:21:5
+   |
+21 |     struct VecDeque<T>(*mut T);
+   |     ^^^^^^^^^^^^^^^^^^
+note: required by a bound in `<shadowed_deque::Node as shadowed_deque::_::_::CheckRecursiveWrappers>::check_recursive_wrappers::same_type`
+  --> tests/ui_fail/recursive_wrapper_identity.rs:22:14
+   |
+22 |     #[derive(RustSpec)]
+   |              ^^^^^^^^ required by this bound in `same_type`
+   = note: this error originates in the derive macro `RustSpec` (in Nightly builds, run with -Z macro-backtrace for more info)
