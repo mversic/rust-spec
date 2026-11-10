@@ -13,6 +13,7 @@ mod repr;
 ///
 /// Add `#[rust_spec(custom_drop)]` if the type itself implements [`Drop`].
 /// Add `#[rust_spec(custom_niche)]` if a struct has a custom niche.
+/// Add `#[rust_spec(non_robust)]` if the type has an additional validity invariant.
 /// Add `#[rust_spec(opaque)]` to classify the type as `Opacity = Opaque`
 ///
 /// # Safety hazards of private invariants
@@ -238,6 +239,12 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
             "`custom_niche` cannot be combined with `opaque`",
         ));
     }
+    if attrs.opaque && attrs.non_robust {
+        return Err(syn::Error::new_spanned(
+            name,
+            "`non_robust` cannot be combined with `opaque`",
+        ));
+    }
     if attrs.opaque && attrs.custom_drop {
         return Err(syn::Error::new_spanned(
             name,
@@ -422,6 +429,7 @@ fn gen_drop_assert(
 #[derive(Clone, Copy, Default)]
 struct RustSpecAttrs {
     custom_niche: bool,
+    non_robust: bool,
     custom_drop: bool,
     opaque: bool,
 }
@@ -446,6 +454,13 @@ fn parse_rust_spec_attrs(attrs: &[syn::Attribute]) -> syn::Result<RustSpecAttrs>
                     return Err(meta.error("duplicate `custom_niche` within attribute"));
                 }
                 result.custom_niche = true;
+                return Ok(());
+            }
+            if meta.path.is_ident("non_robust") {
+                if result.non_robust {
+                    return Err(meta.error("duplicate `non_robust` within attribute"));
+                }
+                result.non_robust = true;
                 return Ok(());
             }
             if meta.path.is_ident("custom_drop") {
@@ -517,7 +532,7 @@ fn gen_struct_fields_impl(
     };
     let size = gen_size_family(generics, fields);
     let alignment = apply_repr_alignment(gen_alignment_family(generics, fields, None), alignment);
-    let trap = if attrs.custom_niche {
+    let trap = if attrs.custom_niche || attrs.non_robust {
         let crate_ = crate_path();
         AggregateFamily::fixed(quote! { #crate_::layout::NonRobust })
     } else {
@@ -589,7 +604,7 @@ fn gen_enum_impl(
         gen_alignment_family(generics, &fields, tag.as_ref()),
         repr_alignment,
     );
-    let trap = gen_trap_family(generics, &fields, has_trap_tag_values);
+    let trap = gen_trap_family(generics, &fields, has_trap_tag_values || attrs.non_robust);
 
     let niche = gen_enum_niche_family(has_trap_tag_values);
     let drop = gen_drop_family(generics, &fields, attrs.custom_drop);
@@ -636,8 +651,10 @@ fn gen_union_impl(
         gen_alignment_family(generics, &fields, None),
         repr_alignment,
     );
-    let trap = AggregateFamily::fixed(quote! {
-        #crate_::layout::Robust
+    let trap = AggregateFamily::fixed(if attrs.non_robust {
+        quote! { #crate_::layout::NonRobust }
+    } else {
+        quote! { #crate_::layout::Robust }
     });
     let niche = AggregateFamily::fixed(quote! {
         #crate_::niche::WithoutNiche
@@ -736,7 +753,7 @@ fn gen_fieldless_enum_impl(
         gen_alignment_family(generics, &[], None)
     };
     let alignment = apply_repr_alignment(alignment, repr_alignment);
-    let trap = AggregateFamily::fixed(if has_trap_tag_values {
+    let trap = AggregateFamily::fixed(if has_trap_tag_values || attrs.non_robust {
         quote! { #crate_::layout::NonRobust }
     } else {
         quote! { #crate_::layout::Robust }
