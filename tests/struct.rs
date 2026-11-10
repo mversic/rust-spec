@@ -723,3 +723,86 @@ fn interior_robustness_is_independent_of_aggregate_trap() {
     assert_impl_all!(Mixed: RustSpec<Mutability = WithInterior<NonRobust>>);
     assert_impl_all!((core::cell::UnsafeCell<bool>, core::cell::UnsafeCell<u8>): RustSpec<Mutability = WithInterior<NonRobust>>);
 }
+
+mod recursive_syntax {
+    #![allow(dead_code)]
+    use rust_spec::{
+        Gt, One, RustSpec, Stable, Unstable, Zero,
+        drop::{AutoDrop, NoDrop},
+        layout::{NonRobust, Robust},
+        mutability::{Exclusive, WithoutInterior},
+        niche::{WithNiche, WithoutNiche},
+        size::Sized as SpecSized,
+    };
+    use static_assertions::assert_impl_all;
+
+    #[derive(RustSpec)]
+    struct Tuple<T>((T, u32));
+    #[derive(RustSpec)]
+    struct Reversed<T>((u32, T));
+    #[derive(RustSpec)]
+    struct Nested<T>(((T, u32),));
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct Array<T>([(T, u32); 3]);
+
+    // Deliberately no bound on T::Size. The concrete nonzero member must
+    // eliminate that dependency even inside tuples and arrays.
+    fn prove_size<
+        T: RustSpec<
+                Layout = Stable,
+                __Alignment = One,
+                Trap = Robust,
+                Niche = WithoutNiche,
+                Drop = NoDrop,
+                Mutability = Exclusive<WithoutInterior>,
+                __IndirectTrap = Robust,
+            >,
+    >() {
+        fn nonzero<S: RustSpec<Size = SpecSized<Gt<Zero>>>>() {}
+        nonzero::<Tuple<T>>();
+        nonzero::<Reversed<T>>();
+        nonzero::<Nested<T>>();
+        nonzero::<Array<T>>();
+    }
+    #[test]
+    fn concrete_member_removes_generic_size_dependency() {
+        prove_size::<()>();
+        prove_size::<u8>();
+    }
+
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct NestedReference<'a, T>((&'a T, [u32; 2]));
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct Empty<T>([T; 0]);
+
+    #[derive(RustSpec)]
+    struct Length<const N: usize>([u8; N]);
+
+    #[test]
+    fn nested_rules_preserve_classifications() {
+        assert_impl_all!(NestedReference<'static, u8>: RustSpec<
+            Layout = Unstable, Size = SpecSized<Gt<Zero>>, Trap = NonRobust,
+            Drop = NoDrop, Niche = WithNiche<Unstable>,
+            Mutability = Exclusive<WithoutInterior>, __IndirectTrap = Robust>);
+        assert_impl_all!(Empty<String>: RustSpec<Size = SpecSized<Zero>,
+            Trap = Robust, Drop = NoDrop, Niche = WithoutNiche,
+            Mutability = Exclusive<WithoutInterior>, __IndirectTrap = Robust>);
+        assert_impl_all!(Tuple<String>: RustSpec<Drop = AutoDrop>);
+        assert_impl_all!(Length<0>: RustSpec<Size = SpecSized<Zero>, Drop = NoDrop>);
+        assert_impl_all!(Length<2>: RustSpec<Size = SpecSized<Gt<Zero>>, Drop = NoDrop>);
+    }
+}
+
+#[test]
+fn function_pointer_fields_need_no_argument_classification() {
+    use rust_spec::{Gt, RustSpec, Unstable, Zero, drop::NoDrop, size::Sized as SpecSized};
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct Callback<T>(for<'a> fn(&'a T) -> &'a T);
+    struct Unclassified;
+    static_assertions::assert_impl_all!(Callback<Unclassified>: RustSpec<
+        Layout = Unstable, Size = SpecSized<Gt<Zero>>, Drop = NoDrop>);
+}

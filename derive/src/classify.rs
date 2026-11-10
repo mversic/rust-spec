@@ -26,40 +26,63 @@ fn peel(ty: &Type) -> &Type {
     }
 }
 
-/// Raw pointers and references never contribute drop glue to their container.
-pub(crate) fn is_pointer_or_reference(ty: &Type) -> bool {
-    matches!(peel(ty), Type::Ptr(_) | Type::Reference(_))
-}
-
-/// Syntax whose RustSpec layout is unstable independently of generic arguments.
-pub(crate) fn has_unstable_layout(ty: &Type) -> bool {
-    match peel(ty) {
-        Type::Tuple(tuple) => !tuple.elems.is_empty(),
-        Type::Reference(reference) => is_slice(&reference.elem),
-        Type::Ptr(pointer) => is_slice(&pointer.elem),
-        _ => false,
-    }
-}
-
-pub(crate) fn is_reference(ty: &Type) -> bool {
-    matches!(peel(ty), Type::Reference(_))
-}
-
-pub(crate) fn is_slice(ty: &Type) -> bool {
-    matches!(peel(ty), Type::Slice(_))
-}
-
 fn sized_bound(bound: &syn::TypeParamBound) -> Option<bool> {
     let syn::TypeParamBound::Trait(bound) = bound else {
         return None;
     };
     let path = &bound.path;
+    if path
+        .segments
+        .iter()
+        .any(|s| !matches!(s.arguments, syn::PathArguments::None))
+    {
+        return None;
+    }
     let is_sized = path.is_ident("Sized")
         || (path.segments.len() == 3
             && (path.segments[0].ident == "core" || path.segments[0].ident == "std")
             && path.segments[1].ident == "marker"
             && path.segments[2].ident == "Sized");
     is_sized.then(|| bound.maybe.is_none())
+}
+
+/// Validate the implication behind name recognition with rustc. The witness
+/// explicitly opts out of implicit Sized, so the user-written trait must prove
+/// actual sizedness by itself (possibly through a supertrait).
+pub(crate) fn sized_assertions(generics: &syn::Generics) -> proc_macro2::TokenStream {
+    use quote::{format_ident, quote, quote_spanned};
+    use syn::spanned::Spanned;
+
+    let bounds = generics.type_params().flat_map(|p| &p.bounds).chain(
+        generics
+            .where_clause
+            .iter()
+            .flat_map(|c| &c.predicates)
+            .filter_map(|p| match p {
+                syn::WherePredicate::Type(p) => Some(&p.bounds),
+                _ => None,
+            })
+            .flatten(),
+    );
+    let mut checks = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for bound in bounds {
+        if sized_bound(bound) != Some(true) || !seen.insert(quote!(#bound).to_string()) {
+            continue;
+        }
+        let method = format_ident!("check_sized_bound_{}", checks.len());
+        let witness_bound = quote_spanned!(bound.span()=> #bound);
+        checks.push(quote! {
+            fn #method<T: ?::core::marker::Sized + #witness_bound>() {
+                fn require_sized<U: ::core::marker::Sized>() {}
+                require_sized::<T>();
+            }
+        });
+    }
+    if checks.is_empty() {
+        return proc_macro2::TokenStream::new();
+    }
+    quote! { const _: () = { #(#checks)* }; }
 }
 
 pub(crate) fn classify_type(ty: &Type, generics: &syn::Generics) -> TypeClass {
