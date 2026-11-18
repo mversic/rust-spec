@@ -64,8 +64,29 @@ fn crate_path() -> proc_macro2::TokenStream {
 struct EmittedFamily {
     kind: proc_macro2::TokenStream,
     aggregate_bounds: Vec<proc_macro2::TokenStream>,
-    // Surviving type/const parameters, independent of the predicates emitted so far.
-    depends_on_generics: bool,
+    bounds: Bounds,
+}
+
+enum Bounds {
+    Concrete,
+    Generic,
+    Speculative(syn::Lifetime),
+}
+
+impl Bounds {
+    fn prefix(&self) -> Option<proc_macro2::TokenStream> {
+        match self {
+            Self::Concrete => None,
+            Self::Generic => Some(quote!()),
+            Self::Speculative(lt) => Some(quote!(for<#lt>)),
+        }
+    }
+
+    fn include(&mut self, other: Self) {
+        if matches!(self, Self::Concrete) || matches!(other, Self::Speculative(_)) {
+            *self = other;
+        }
+    }
 }
 
 impl EmittedFamily {
@@ -73,18 +94,74 @@ impl EmittedFamily {
         Self {
             kind,
             aggregate_bounds: Vec::new(),
-            depends_on_generics: false,
+            bounds: Bounds::Concrete,
         }
     }
 }
 
+fn speculative_lifetime<'a>(
+    path: &syn::TypePath,
+    generics: &'a syn::Generics,
+) -> Option<&'a syn::Lifetime> {
+    use syn::visit::Visit;
+    let receiver = path.qself.as_ref()?;
+    generics
+        .where_clause
+        .as_ref()?
+        .predicates
+        .iter()
+        .find_map(|predicate| {
+            let syn::WherePredicate::Type(p) = predicate else {
+                return None;
+            };
+            let binder = p.lifetimes.as_ref()?;
+            let matches_trait = |bound: &syn::TypeParamBound| {
+                let syn::TypeParamBound::Trait(bound) = bound else {
+                    return false;
+                };
+                bound.path.leading_colon == path.path.leading_colon
+                    && bound.path.segments.iter().eq(path
+                        .path
+                        .segments
+                        .iter()
+                        .take(receiver.position))
+            };
+            if p.bounded_ty != *receiver.ty || !p.bounds.iter().any(matches_trait) {
+                return None;
+            }
+            binder.lifetimes.iter().find_map(|param| {
+                let syn::GenericParam::Lifetime(param) = param else {
+                    return None;
+                };
+                let mut used = LifetimeUse(&param.lifetime, false);
+                used.visit_type(&p.bounded_ty);
+                for bound in &p.bounds {
+                    used.visit_type_param_bound(bound);
+                }
+                (!used.1).then_some(&param.lifetime)
+            })
+        })
+}
+
+struct LifetimeUse<'a>(&'a syn::Lifetime, bool);
+impl syn::visit::Visit<'_> for LifetimeUse<'_> {
+    fn visit_lifetime(&mut self, lifetime: &syn::Lifetime) {
+        self.1 |= lifetime == self.0;
+    }
+}
+
 fn field_has_generic_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
+    !matches!(field_bounds(ty, generics), Bounds::Concrete)
+}
+
+fn field_bounds(ty: &syn::Type, generics: &syn::Generics) -> Bounds {
     use syn::visit::Visit;
 
     struct Visitor<'a> {
         type_params: Vec<&'a syn::Ident>,
         const_params: Vec<&'a syn::Ident>,
-        found: bool,
+        generics: &'a syn::Generics,
+        found: Bounds,
     }
 
     impl<'a> Visitor<'a> {
@@ -92,7 +169,8 @@ fn field_has_generic_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
             Self {
                 type_params: generics.type_params().map(|p| &p.ident).collect(),
                 const_params: generics.const_params().map(|p| &p.ident).collect(),
-                found: false,
+                generics,
+                found: Bounds::Concrete,
             }
         }
     }
@@ -103,7 +181,7 @@ fn field_has_generic_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
                 && let Some(first) = path.path.segments.first()
                 && self.const_params.contains(&&first.ident)
             {
-                self.found = true;
+                self.found.include(Bounds::Generic);
             }
             syn::visit::visit_expr_path(self, path);
         }
@@ -114,9 +192,12 @@ fn field_has_generic_params(ty: &syn::Type, generics: &syn::Generics) -> bool {
                 && (self.type_params.contains(&&first_segment.ident)
                     || self.const_params.contains(&&first_segment.ident))
             {
-                self.found = true;
+                self.found.include(Bounds::Generic);
             }
 
+            if let Some(lt) = speculative_lifetime(type_path, self.generics) {
+                self.found.include(Bounds::Speculative(lt.clone()));
+            }
             syn::visit::visit_type_path(self, type_path);
         }
     }

@@ -3,7 +3,7 @@
 use crate::{
     EmittedFamily, classify, crate_path,
     families::{Axis, Families},
-    field_has_generic_params,
+    field_bounds, field_has_generic_params,
 };
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -69,10 +69,22 @@ impl Expr {
         generics: &Generics,
         fields: &[&Type],
     ) -> Self {
-        let seed = Self::Known(seed);
-        aggregate(axis, fields, generics).map_or(seed.clone(), |expression| {
-            Self::combine(axis, seed, expression)
-        })
+        // Normalize the seed with concrete contributions before introducing
+        // generic projections and their where predicates.
+        let (concrete, generic): (Vec<_>, Vec<_>) = fields
+            .iter()
+            .map(|ty| field(ty, axis, generics))
+            .partition(|expr| !expr.has_params(generics));
+        let concrete = concrete.into_iter().fold(Self::Known(seed), |left, right| {
+            Self::combine(axis, left, right)
+        });
+        match generic
+            .into_iter()
+            .reduce(|left, right| Self::combine(axis, left, right))
+        {
+            Some(generic) => Self::combine(axis, concrete, generic),
+            None => concrete,
+        }
     }
 
     fn known(k: Known) -> Self {
@@ -243,10 +255,10 @@ impl Expr {
             Self::CustomDrop(inner) => {
                 let mut family = inner.emit(generics);
                 let kind = family.kind;
-                if family.depends_on_generics {
+                if let Some(prefix) = family.bounds.prefix() {
                     family
                         .aggregate_bounds
-                        .push(quote!(#kind: #c::drop::DropKind));
+                        .push(quote!(#prefix #kind: #c::drop::DropKind));
                 }
                 family.kind = quote!(#c::drop::CustomDrop<#kind>);
                 family
@@ -255,10 +267,10 @@ impl Expr {
                 let mut family = inner.emit(generics);
                 let kind = family.kind;
                 let name = axis.name();
-                if family.depends_on_generics {
+                if let Some(prefix) = family.bounds.prefix() {
                     family
                         .aggregate_bounds
-                        .push(quote!(#kind: #c::niche::NullableRepresentation));
+                        .push(quote!(#prefix #kind: #c::niche::NullableRepresentation));
                 }
                 family.kind = quote!(<#kind as #c::niche::NullableRepresentation>::#name);
                 family
@@ -267,16 +279,18 @@ impl Expr {
             Self::Projection(ty, axis) => {
                 let name = axis.name();
                 let mut family = EmittedFamily::fixed(quote!(<#ty as #c::RustSpec>::#name));
-                family.depends_on_generics = field_has_generic_params(&ty, generics);
-                if family.depends_on_generics {
-                    family.aggregate_bounds.push(quote!(#ty: #c::RustSpec));
+                family.bounds = field_bounds(&ty, generics);
+                if let Some(prefix) = family.bounds.prefix() {
+                    family
+                        .aggregate_bounds
+                        .push(quote!(#prefix #ty: #c::RustSpec));
                     if axis == Axis::Drop {
                         family
                             .aggregate_bounds
-                            .push(quote!(<#ty as #c::RustSpec>::Drop: #c::drop::DropKind));
+                            .push(quote!(#prefix <#ty as #c::RustSpec>::Drop: #c::drop::DropKind));
                     }
                     if axis == Axis::Niche {
-                        family.aggregate_bounds.push(quote!(#c::niche::WithoutNiche: ::core::ops::Add<<#ty as #c::RustSpec>::Niche>));
+                        family.aggregate_bounds.push(quote!(#prefix #c::niche::WithoutNiche: ::core::ops::Add<<#ty as #c::RustSpec>::Niche>));
                     }
                 }
                 family
@@ -291,26 +305,40 @@ impl Expr {
                 };
                 let l = left.kind;
                 let r = right.kind;
-                left.depends_on_generics |= right.depends_on_generics;
+                left.bounds.include(right.bounds);
                 left.aggregate_bounds.extend(right.aggregate_bounds);
                 // Concrete operations need no where predicate. Generic operations
                 // do, including operations whose operands are nested expressions.
-                if left.depends_on_generics {
-                    left.aggregate_bounds.push(quote!(#l: #operator<#r>));
+                if let Some(prefix) = left.bounds.prefix() {
+                    left.aggregate_bounds
+                        .push(quote!(#prefix #l: #operator<#r>));
                 }
                 left.kind = quote!(<#l as #operator<#r>>::Output);
                 left
             }
             Self::SizedField(inner, ty) => {
-                let mut family = inner.emit(generics);
+                // Emit one field-list operation. Repeating projections through
+                // where bounds can hide a concrete seed's absorbing output.
+                let mut fields = vec![ty];
+                let mut seed = *inner;
+                while let Self::SizedField(inner, ty) = seed {
+                    fields.push(ty);
+                    seed = *inner;
+                }
+                let mut family = seed.emit(generics);
                 let kind = family.kind;
-                family.depends_on_generics |= field_has_generic_params(&ty, generics);
-                if family.depends_on_generics {
+                for ty in &fields {
+                    family.bounds.include(field_bounds(ty, generics));
+                }
+                let fields = fields
+                    .into_iter()
+                    .fold(quote!(()), |tail, ty| quote!((#ty, #tail)));
+                if let Some(prefix) = family.bounds.prefix() {
                     family
                         .aggregate_bounds
-                        .push(quote!(#kind: AddSizedField<#ty>));
+                        .push(quote!(#prefix #kind: AddSizedField<#fields>));
                 }
-                family.kind = quote!(<#kind as AddSizedField<#ty>>::Output);
+                family.kind = quote!(<#kind as AddSizedField<#fields>>::Output);
                 family
             }
             Self::PointerLayout(inner) => {
@@ -331,8 +359,10 @@ fn emit_unary(inner: Expr, generics: &Generics, operator: Option<TokenStream>) -
     let mut family = inner.emit(generics);
     let kind = family.kind;
     if let Some(operator) = operator {
-        if family.depends_on_generics {
-            family.aggregate_bounds.push(quote!(#kind: #operator));
+        if let Some(prefix) = family.bounds.prefix() {
+            family
+                .aggregate_bounds
+                .push(quote!(#prefix #kind: #operator));
         }
         family.kind = quote!(<#kind as #operator>::Output);
     } else {
@@ -566,8 +596,14 @@ pub(crate) fn helpers() -> TokenStream {
         impl<T> AddSizedField<T> for #c::size::Sized<#c::Gt<#c::Zero>> {
             type Output = Self;
         }
-        impl<T: #c::RustSpec> AddSizedField<T> for #c::size::Sized<#c::Zero> {
-            type Output = T::Size;
+        impl AddSizedField<()> for #c::size::Sized<#c::Zero> {
+            type Output = Self;
+        }
+        impl<T: #c::RustSpec, Tail> AddSizedField<(T, Tail)> for #c::size::Sized<#c::Zero>
+        where
+            T::Size: AddSizedField<Tail>,
+        {
+            type Output = <T::Size as AddSizedField<Tail>>::Output;
         }
         impl<T, K: #c::size::MetadataKind> AddSizedField<T> for #c::size::MetaSized<K> {
             type Output = Self;

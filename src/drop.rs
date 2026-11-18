@@ -2,7 +2,7 @@
 //!
 //! Drop behavior specifies whether dropping a type runs custom drop cod3, automatic drop glue, or neither.
 //!
-//! In particular, if a type is [`CustomDrop<NoDrop>>`], it is guaranteed that no inner field of the type
+//! In particular, if a type is [`CustomDrop<NoDrop>`], it is guaranteed that no inner field of the type
 //! will run any drop glue. This can be used inside a custom drop implementation to safely take the value
 //! out of a mutable reference in a generic context without a risk of a double free.
 use core::{convert::Infallible, ops::Add};

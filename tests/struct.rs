@@ -11,6 +11,36 @@ use rust_spec::{
 };
 use static_assertions::{assert_impl_all, assert_not_impl_any};
 
+#[test]
+fn concrete_fields_normalize_before_generic_folds() {
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct FlagFirst<T>(bool, T);
+
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct FlagLast<T>(T, bool);
+
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct AliasFields<T>(core::ffi::c_int, T, core::ffi::c_long);
+
+    #[derive(RustSpec)]
+    #[repr(C)]
+    struct Multiple<T, U>(T, bool, U, core::ffi::c_long);
+
+    assert_impl_all!(FlagFirst<u8>: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(FlagLast<u8>: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(AliasFields<()>: RustSpec<Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(AliasFields<StdNonZero<u8>>: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(Multiple<(), u8>: RustSpec<
+        Size = SpecSized<Gt<Zero>>,
+        Niche = WithNiche<Unstable>,
+        Drop = NoDrop,
+    >);
+    assert_impl_all!(Multiple<Box<u8>, u8>: RustSpec<Drop = AutoDrop>);
+}
+
 pub trait CTypeProjection {
     type CType;
 }
