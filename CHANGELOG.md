@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-20
+
+### Added
+
+- Support `#[rust_spec(non_robust)]` for types with custom validity invariants.
+- Support speculative bounds on associated type projections in derives.
+- Derive `RustSpec` for common recursive pointer and container types.
+- Implement `RustSpec` for `Pin<T>` and `VecDeque<T>`.
+
+### Changed
+
+- Simplify deriving classification axes through recursive field analysis.
+
 ## [0.7.1] - 2026-10-31
 
 ### Added
