@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use core::{cell::UnsafeCell, ptr::NonNull, pin::Pin};
-use rust_spec::{RustSpec, Stable, Unstable, Gt, Zero,
+use rust_spec::{RustSpec, Specified, Unspecified, Gt, Zero,
     size::Sized as SpecSized, drop::{NoDrop, AutoDrop},
     layout::{Robust, NonRobust}, mutability::{Exclusive, WithoutInterior, WithInterior},
     niche::{WithNiche, WithoutNiche}};
@@ -74,29 +74,29 @@ mod ordinary_name {
 }
 
 fn main() {
-    assert_impl_all!(Queue<UnsafeCell<bool>>: RustSpec<Layout = Unstable,
+    assert_impl_all!(Queue<UnsafeCell<bool>>: RustSpec<Layout = Unspecified,
         Trap = NonRobust, Drop = AutoDrop, Mutability = WithInterior<NonRobust>,
         __IndirectTrap = NonRobust>);
-    assert_impl_all!(OptionalQueue: RustSpec<Layout = Unstable, Trap = NonRobust, Drop = AutoDrop>);
-    assert_impl_all!(Pinned: RustSpec<Layout = Stable, Trap = NonRobust,
+    assert_impl_all!(OptionalQueue: RustSpec<Layout = Unspecified, Trap = NonRobust, Drop = AutoDrop>);
+    assert_impl_all!(Pinned: RustSpec<Layout = Specified, Trap = NonRobust,
         Drop = AutoDrop, Size = SpecSized<Gt<Zero>>>);
-    assert_impl_all!(OptionalPinned: RustSpec<Layout = Stable, Trap = Robust,
+    assert_impl_all!(OptionalPinned: RustSpec<Layout = Specified, Trap = Robust,
         Drop = AutoDrop, Niche = WithoutNiche>);
-    assert_impl_all!(PinnedRef<'static>: RustSpec<Layout = Stable, Trap = NonRobust, Drop = NoDrop>);
-    assert_impl_all!(Boxed: RustSpec<Layout = Stable, Trap = NonRobust,
+    assert_impl_all!(PinnedRef<'static>: RustSpec<Layout = Specified, Trap = NonRobust, Drop = NoDrop>);
+    assert_impl_all!(Boxed: RustSpec<Layout = Specified, Trap = NonRobust,
         Size = SpecSized<Gt<Zero>>, Drop = AutoDrop, Mutability = Exclusive<WithoutInterior>,
-        Niche = WithNiche<Unstable>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(OptionalBox: RustSpec<Layout = Stable, Trap = Robust,
+        Niche = WithNiche<Unspecified>, __IndirectTrap = NonRobust>);
+    assert_impl_all!(OptionalBox: RustSpec<Layout = Specified, Trap = Robust,
         Drop = AutoDrop, Niche = WithoutNiche, __IndirectTrap = Robust>);
-    assert_impl_all!(OptionalNonNull: RustSpec<Layout = Stable, Trap = Robust,
+    assert_impl_all!(OptionalNonNull: RustSpec<Layout = Specified, Trap = Robust,
         Drop = NoDrop, Niche = WithoutNiche, __IndirectTrap = Robust>);
-    assert_impl_all!(OptionalVec: RustSpec<Layout = Unstable, Trap = NonRobust, Drop = AutoDrop>);
-    assert_impl_all!(OptionalRef<'static>: RustSpec<Layout = Stable, Trap = Robust, Drop = NoDrop>);
-    assert_impl_all!(OptionalRaw: RustSpec<Layout = Unstable, Trap = NonRobust, Drop = NoDrop>);
-    assert_impl_all!(Tree<UnsafeCell<bool>>: RustSpec<Layout = Unstable, Trap = NonRobust,
+    assert_impl_all!(OptionalVec: RustSpec<Layout = Unspecified, Trap = NonRobust, Drop = AutoDrop>);
+    assert_impl_all!(OptionalRef<'static>: RustSpec<Layout = Specified, Trap = Robust, Drop = NoDrop>);
+    assert_impl_all!(OptionalRaw: RustSpec<Layout = Unspecified, Trap = NonRobust, Drop = NoDrop>);
+    assert_impl_all!(Tree<UnsafeCell<bool>>: RustSpec<Layout = Unspecified, Trap = NonRobust,
         Drop = AutoDrop, Mutability = WithInterior<NonRobust>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(List<u8>: RustSpec<Layout = Unstable, Trap = NonRobust, Drop = AutoDrop>);
-    assert_impl_all!(Nested: RustSpec<Layout = Unstable, Trap = NonRobust, Drop = AutoDrop>);
+    assert_impl_all!(List<u8>: RustSpec<Layout = Unspecified, Trap = NonRobust, Drop = AutoDrop>);
+    assert_impl_all!(Nested: RustSpec<Layout = Unspecified, Trap = NonRobust, Drop = AutoDrop>);
     assert_impl_all!(alias::Node<bool>: RustSpec<Trap = NonRobust, Drop = AutoDrop>);
     assert_impl_all!(ordinary_name::Ordinary: RustSpec);
 }

@@ -3,7 +3,7 @@
 use core::ops::Add;
 
 use crate::{
-    Gt, Max, Maximum, NonOpaque, RustSpec, Stable, Sum, Unstable, Zero,
+    Gt, Max, Maximum, NonOpaque, RustSpec, Specified, Sum, Unspecified, Zero,
     layout::{LayoutKind, NonRobust, Robust},
     niche::{NullableRepresentation, WithNiche, WithoutNiche},
     size::{self, SizedKind},
@@ -23,16 +23,16 @@ pub trait NullableAlignment {
 
 #[sealed::sealed]
 impl NullableAlignment for crate::One {
-    type Layout = Stable;
+    type Layout = Specified;
     type Trap = Robust;
     type Niche = WithoutNiche;
 }
 
 #[sealed::sealed]
 impl NullableAlignment for crate::Gt<crate::One> {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
 }
 
 // Public because its associated types appear in the public RustSpec impl.
@@ -49,9 +49,9 @@ where
     R: RustSpec<__IndirectTrap: Add<E::__IndirectTrap>>,
     E: RustSpec,
 {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type IndirectTrap = Sum<R::__IndirectTrap, E::__IndirectTrap>;
 }
 

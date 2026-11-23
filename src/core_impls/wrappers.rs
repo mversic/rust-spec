@@ -12,7 +12,7 @@ use core::{
 #[cfg(feature = "alloc")]
 use crate::drop::{AutoDrop, CustomDrop};
 use crate::{
-    NonOpaque, RustSpec, Stable, Unstable,
+    NonOpaque, RustSpec, Specified, Unspecified,
     drop::{NeedsDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithInterior, WithoutInterior},
@@ -23,11 +23,11 @@ use crate::{
 macro_rules! non_zero_derive {
     ($($primitive:ty),+ $(,)?) => {$(
         unsafe impl RustSpec for NonZero<$primitive> {
-            type Layout = Stable;
+            type Layout = Specified;
             type Size = size::Sized<crate::Gt<crate::Zero>>;
             type __Alignment = <$primitive as RustSpec>::__Alignment;
             type Trap = NonRobust;
-            type Niche = WithNiche<Stable>;
+            type Niche = WithNiche<Specified>;
             type Drop = NoDrop;
             type Mutability = Exclusive<WithoutInterior>;
             type Opacity = NonOpaque;
@@ -36,10 +36,10 @@ macro_rules! non_zero_derive {
     )+};
 }
 
-macro_rules! stable_robust_zst {
+macro_rules! specified_robust_zst {
     (($($generics:tt)*) => $ty:ty) => {
         unsafe impl<$($generics)*> RustSpec for $ty {
-            type Layout = Stable;
+            type Layout = Specified;
             type Size = size::Sized<size::Zero>;
             type __Alignment = crate::One;
             type Trap = Robust;
@@ -75,10 +75,10 @@ non_zero_derive!(
     u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize
 );
 
-stable_robust_zst!(() => ());
-stable_robust_zst!(() => Infallible);
-stable_robust_zst!(() => PhantomPinned);
-stable_robust_zst!((T: ?Sized) => PhantomData<T>);
+specified_robust_zst!(() => ());
+specified_robust_zst!(() => Infallible);
+specified_robust_zst!(() => PhantomPinned);
+specified_robust_zst!((T: ?Sized) => PhantomData<T>);
 
 transparent_wrapper!((T: RustSpec) => Reverse<T>);
 transparent_wrapper!((T: RustSpec) => Wrapping<T>);
@@ -130,12 +130,12 @@ const _: () = {
 };
 
 unsafe impl RustSpec for str {
-    type Layout = Stable;
+    type Layout = Specified;
     type Size = size::MetaSized<size::SliceLike>;
     type __Alignment = crate::One;
     type Trap = NonRobust;
     // TODO: This should not be set at all
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type Drop = NoDrop;
     type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
@@ -143,11 +143,11 @@ unsafe impl RustSpec for str {
 }
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for String {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type Drop = AutoDrop;
     type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
@@ -161,11 +161,11 @@ unsafe impl RustSpec for String {
 macro_rules! impl_owned_buffer {
     ($($buffer:ident),+ $(,)?) => { $(
 unsafe impl<T: RustSpec<Mutability: crate::mutability::PointerMutability>> RustSpec for $buffer<T> {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type Drop = CustomDrop<AutoDrop>;
     type Mutability = <T::Mutability as crate::mutability::PointerMutability>::Output;
     type Opacity = NonOpaque;

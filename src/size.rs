@@ -1,7 +1,7 @@
 use core::{convert::Infallible, ops::Add};
 
 pub use crate::{Gt, Zero};
-use crate::{Stable, Unstable, layout::LayoutKind};
+use crate::{Specified, Unspecified, layout::LayoutKind};
 
 #[sealed::sealed]
 pub trait SizedKind {}
@@ -59,22 +59,22 @@ pub trait PointerLayout {
 
 #[sealed::sealed]
 impl<K: SizedKind> PointerLayout for Sized<K> {
-    type Output = Stable;
+    type Output = Specified;
 }
 
 #[sealed::sealed]
 impl<K: MetadataKind> PointerLayout for MetaSized<K> {
-    type Output = Unstable;
+    type Output = Unspecified;
 }
 
 #[sealed::sealed]
 impl PointerLayout for ExternTypeLike {
-    type Output = Stable;
+    type Output = Specified;
 }
 
 #[sealed::sealed]
 impl PointerLayout for NulTerminated {
-    type Output = Unstable;
+    type Output = Unspecified;
 }
 
 pub(crate) trait Dst {}

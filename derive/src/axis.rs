@@ -11,8 +11,8 @@ use syn::{Generics, Type};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Known {
-    Stable,
-    Unstable,
+    Specified,
+    Unspecified,
     Zero,
     Nonzero,
     Slice,
@@ -29,8 +29,8 @@ impl Known {
     fn tokens(self) -> TokenStream {
         let c = crate_path();
         match self {
-            Self::Stable => quote!(#c::Stable),
-            Self::Unstable => quote!(#c::Unstable),
+            Self::Specified => quote!(#c::Specified),
+            Self::Unspecified => quote!(#c::Unspecified),
             Self::Zero => quote!(#c::size::Sized<#c::Zero>),
             Self::Nonzero => quote!(#c::size::Sized<#c::Gt<#c::Zero>>),
             Self::Slice => quote!(#c::size::MetaSized<#c::size::SliceLike>),
@@ -108,13 +108,13 @@ impl Expr {
         }
         match axis {
             Axis::Layout => {
-                if left.is(Unstable) || right.is(Unstable) {
-                    return Self::known(Unstable);
+                if left.is(Unspecified) || right.is(Unspecified) {
+                    return Self::known(Unspecified);
                 }
-                if left.is(Stable) {
+                if left.is(Specified) {
                     return right;
                 }
-                if right.is(Stable) {
+                if right.is(Specified) {
                     return left;
                 }
             }
@@ -161,7 +161,7 @@ impl Expr {
             }
             Axis::Drop if left.is(NoDrop) && right.is(NoDrop) => return left,
             Axis::Niche if matches!(&left, Self::Niche(_)) || matches!(&right, Self::Niche(_)) => {
-                return Self::Niche(Box::new(Self::known(Unstable)));
+                return Self::Niche(Box::new(Self::known(Unspecified)));
             }
             Axis::Niche if left.is(NoNiche) && right.is(NoNiche) => return left,
             Axis::Mutability => {
@@ -177,15 +177,15 @@ impl Expr {
         Self::Binary(axis, Box::new(left), Box::new(right))
     }
     pub(crate) fn nullable(inner: Self, axis: Axis) -> Self {
-        let stable = matches!(&inner, Self::Niche(layout) if layout.is(Known::Stable));
+        let stable = matches!(&inner, Self::Niche(layout) if layout.is(Known::Specified));
         let unstable = inner.is(Known::NoNiche)
-            || matches!(&inner, Self::Niche(layout) if layout.is(Known::Unstable));
+            || matches!(&inner, Self::Niche(layout) if layout.is(Known::Unspecified));
         if stable || unstable {
             match axis {
                 Axis::Layout => Self::known(if stable {
-                    Known::Stable
+                    Known::Specified
                 } else {
-                    Known::Unstable
+                    Known::Unspecified
                 }),
                 Axis::Trap => Self::known(if stable {
                     Known::Robust
@@ -193,7 +193,7 @@ impl Expr {
                     Known::NonRobust
                 }),
                 Axis::Niche if stable => Self::known(Known::NoNiche),
-                Axis::Niche => Self::Niche(Box::new(Self::known(Known::Unstable))),
+                Axis::Niche => Self::Niche(Box::new(Self::known(Known::Unspecified))),
                 _ => unreachable!("nullable representations expose layout, trap, and niche"),
             }
         } else {
@@ -203,8 +203,8 @@ impl Expr {
 
     pub(crate) fn pointer_layout(inner: Self) -> Self {
         match inner {
-            Self::Known(Known::Zero | Known::Nonzero) => Self::known(Known::Stable),
-            Self::Known(Known::Slice | Known::DynTrait) => Self::known(Known::Unstable),
+            Self::Known(Known::Zero | Known::Nonzero) => Self::known(Known::Specified),
+            Self::Known(Known::Slice | Known::DynTrait) => Self::known(Known::Unspecified),
             inner => Self::PointerLayout(Box::new(inner)),
         }
     }
@@ -452,7 +452,7 @@ pub(crate) fn field(ty: &Type, axis: Axis, generics: &Generics) -> Expr {
         Type::Tuple(t) => {
             if t.elems.is_empty() {
                 return known(match axis {
-                    Layout => Stable,
+                    Layout => Specified,
                     Size => Zero,
                     Alignment => One,
                     Trap | IndirectTrap => Robust,
@@ -462,7 +462,7 @@ pub(crate) fn field(ty: &Type, axis: Axis, generics: &Generics) -> Expr {
                 });
             }
             if axis == Layout {
-                return known(Unstable);
+                return known(Unspecified);
             }
             let fields: Vec<_> = t.elems.iter().collect();
             let inner = aggregate(axis, &fields, generics).unwrap();
@@ -513,7 +513,7 @@ pub(crate) fn field(ty: &Type, axis: Axis, generics: &Generics) -> Expr {
             Size => known(Nonzero),
             Alignment => Expr::Projection(syn::parse_quote!(::core::primitive::usize), Alignment),
             Trap => known(NonRobust),
-            Niche => Expr::Niche(Box::new(known(Stable))),
+            Niche => Expr::Niche(Box::new(known(Specified))),
             Drop => known(NoDrop),
             Mutability => known(Exclusive),
             IndirectTrap => known(Robust),
@@ -522,7 +522,7 @@ pub(crate) fn field(ty: &Type, axis: Axis, generics: &Generics) -> Expr {
                     abi.name.as_ref().is_some_and(|name| name.value() == "Rust")
                 }) =>
             {
-                known(Unstable)
+                known(Unspecified)
             }
             // Foreign ABI layout depends on the signature. Keep the whole
             // projection so bound lifetimes stay inside the function type.
@@ -565,10 +565,10 @@ pub(crate) fn field(ty: &Type, axis: Axis, generics: &Generics) -> Expr {
 }
 fn pointer_layout(ty: &Type, generics: &Generics) -> Expr {
     match classify::classify_type(ty, generics) {
-        classify::TypeClass::Sized => Expr::known(Known::Stable),
+        classify::TypeClass::Sized => Expr::known(Known::Specified),
         classify::TypeClass::Unsized(
             classify::UnsizedTail::SliceLike | classify::UnsizedTail::DynTraitLike,
-        ) => Expr::known(Known::Unstable),
+        ) => Expr::known(Known::Unspecified),
         _ => Expr::pointer_layout(field(ty, Axis::Size, generics)),
     }
 }
@@ -673,7 +673,7 @@ pub(crate) fn resolve_self(
                 Resolution::Resolved(expr) => return expr.clone(),
                 Resolution::Active => {
                     return match axis {
-                        Axis::Layout => Expr::known(Known::Stable),
+                        Axis::Layout => Expr::known(Known::Specified),
                         Axis::Trap | Axis::IndirectTrap => Expr::known(Known::Robust),
                         Axis::Drop => Expr::known(Known::NoDrop),
                         Axis::Mutability => Expr::known(Known::Exclusive),
@@ -758,7 +758,7 @@ mod tests {
             (
                 parse_quote!(*mut T),
                 Axis::Layout,
-                Expr::known(Known::Unstable),
+                Expr::known(Known::Unspecified),
             ),
             (
                 parse_quote!(*mut T),
@@ -857,7 +857,11 @@ mod tests {
     fn nested_syntax_discards_unneeded_axis_dependencies() {
         let generics = parse_quote!(<'a, T, U>);
         for (ty, axis, expected) in [
-            (parse_quote!([(&'a T, U); 2]), Axis::Layout, Known::Unstable),
+            (
+                parse_quote!([(&'a T, U); 2]),
+                Axis::Layout,
+                Known::Unspecified,
+            ),
             (parse_quote!([(&'a T, U); 2]), Axis::Trap, Known::NonRobust),
             (parse_quote!(([T; 0], &'a U)), Axis::Drop, Known::NoDrop),
             (parse_quote!([(&'a T, U); 0]), Axis::Size, Known::Zero),
@@ -882,7 +886,7 @@ mod tests {
         let unknown = parse_quote!(T);
         let tuple = parse_quote!([(&U,); 2]);
         for (axis, expected) in [
-            (Axis::Layout, Known::Unstable),
+            (Axis::Layout, Known::Unspecified),
             (Axis::Trap, Known::NonRobust),
         ] {
             let family = aggregate(axis, &[&unknown, &tuple], &generics)
@@ -915,7 +919,10 @@ mod tests {
         }
         let rust =
             field(&parse_quote!(extern "Rust" fn(T)), Axis::Layout, &generics).emit(&generics);
-        assert_eq!(rust.kind.to_string(), Known::Unstable.tokens().to_string());
+        assert_eq!(
+            rust.kind.to_string(),
+            Known::Unspecified.tokens().to_string()
+        );
         assert!(rust.aggregate_bounds.is_empty());
         let foreign =
             field(&parse_quote!(extern "C" fn(T)), Axis::Layout, &generics).emit(&generics);

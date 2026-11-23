@@ -5,7 +5,7 @@ use core::ffi::{CStr, c_void};
 #[cfg(feature = "alloc")]
 use crate::drop::{AutoDrop, CustomDrop};
 use crate::{
-    NonOpaque, RustSpec, Stable, Unstable,
+    NonOpaque, RustSpec, Specified, Unspecified,
     drop::NoDrop,
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithoutInterior},
@@ -14,11 +14,11 @@ use crate::{
 };
 
 unsafe impl RustSpec for c_void {
-    type Layout = Stable;
+    type Layout = Specified;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type __Alignment = crate::One;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type Drop = NoDrop;
     type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;
@@ -26,7 +26,7 @@ unsafe impl RustSpec for c_void {
 }
 
 unsafe impl RustSpec for CStr {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Size = NulTerminated;
     type __Alignment = crate::One;
     type Trap = NonRobust;
@@ -39,11 +39,11 @@ unsafe impl RustSpec for CStr {
 
 #[cfg(feature = "alloc")]
 unsafe impl RustSpec for CString {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Size = size::Sized<crate::Gt<crate::Zero>>;
     type __Alignment = <usize as RustSpec>::__Alignment;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
     type Drop = CustomDrop<AutoDrop>;
     type Mutability = Exclusive<WithoutInterior>;
     type Opacity = NonOpaque;

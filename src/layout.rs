@@ -6,7 +6,7 @@
 //! This module provides the marker types used by [`crate::RustSpec::Layout`] and [`crate::RustSpec::Trap`].
 use core::ops::Add;
 
-use crate::{Stable, Unstable};
+use crate::{Specified, Unspecified};
 
 /// Closed family of representation-stability classifications.
 #[sealed::sealed]
@@ -25,10 +25,10 @@ pub enum Robust {}
 pub enum NonRobust {}
 
 #[sealed::sealed]
-impl LayoutKind for Stable {}
+impl LayoutKind for Specified {}
 
 #[sealed::sealed]
-impl LayoutKind for Unstable {}
+impl LayoutKind for Unspecified {}
 
 impl<K> Add<K> for NonRobust {
     type Output = Self;
@@ -46,7 +46,7 @@ impl<K> Add<K> for Robust {
     }
 }
 
-impl<K> Add<K> for Unstable {
+impl<K> Add<K> for Unspecified {
     type Output = Self;
 
     fn add(self, _: K) -> Self::Output {
@@ -54,7 +54,7 @@ impl<K> Add<K> for Unstable {
     }
 }
 
-impl<K: LayoutKind> Add<K> for Stable {
+impl<K: LayoutKind> Add<K> for Specified {
     type Output = K;
 
     fn add(self, _: K) -> Self::Output {

@@ -14,8 +14,8 @@
 //! ## Layout
 //!
 //! Describes total reachable (through pointer indirection) representation stability:
-//! - [`Stable`]: compiler-guaranteed representation.
-//! - [`Unstable`]: representation is not guaranteed.
+//! - [`Specified`]: compiler-guaranteed representation.
+//! - [`Unspecified`]: representation is not guaranteed.
 //!
 //! ## Size
 //!
@@ -41,10 +41,10 @@
 //!
 //! Describes whether and what kind of niche is available for the type:
 //! - [`WithoutNiche`]: no niche is available.
-//! - [`WithNiche`]<[`Stable`]>: compiler-guaranteed niche.
-//! - [`WithNiche`]<[`Unstable`]>: niche exists but is not guaranteed.
+//! - [`WithNiche`]<[`Specified`]>: compiler-guaranteed niche.
+//! - [`WithNiche`]<[`Unspecified`]>: niche exists but is not guaranteed.
 //!
-//! **Use `#[rust_spec(custom_niche)]` when deriving [`RustSpec`] to select `WithNiche<Unstable>`**.
+//! **Use `#[rust_spec(custom_niche)]` when deriving [`RustSpec`] to select `WithNiche<Unspecified>`**.
 //!
 //! ## Drop
 //!
@@ -78,7 +78,7 @@
 //! # #[cfg(feature = "derive")]
 //! # {
 //! use disjoint_impls::disjoint_impls;
-//! use rust_spec::{RustSpec, Stable, Unstable, niche::{WithNiche, WithoutNiche}};
+//! use rust_spec::{RustSpec, Specified, Unspecified, niche::{WithNiche, WithoutNiche}};
 //!
 //! #[derive(RustSpec)]
 //! struct Header {
@@ -95,11 +95,11 @@
 //!         const NEEDS_TAG: bool = true;
 //!     }
 //!
-//!     impl<T: RustSpec<Niche = WithNiche<Stable>>> NullableEncoding for T {
+//!     impl<T: RustSpec<Niche = WithNiche<Specified>>> NullableEncoding for T {
 //!         const NEEDS_TAG: bool = false;
 //!     }
 //!
-//!     impl<T: RustSpec<Niche = WithNiche<Unstable>>> NullableEncoding for T {
+//!     impl<T: RustSpec<Niche = WithNiche<Unspecified>>> NullableEncoding for T {
 //!         const NEEDS_TAG: bool = false;
 //!     }
 //! }
@@ -146,10 +146,10 @@ type Sum<A, B> = <A as Add<B>>::Output;
 pub type Maximum<A, B> = <A as Max<B>>::Output;
 
 /// Marker for a compiler-guaranteed representation or niche.
-pub enum Stable {}
+pub enum Specified {}
 
 /// Marker for a representation or niche that is not compiler-guaranteed.
-pub enum Unstable {}
+pub enum Unspecified {}
 
 /// The value is opaque and must be placed behind an indirection.
 pub enum Opaque {}
@@ -328,33 +328,33 @@ mod tests {
     fn transparent_type() {
         assert_impl_all!(bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = One,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -362,22 +362,22 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -385,11 +385,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -397,11 +397,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[bool]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -409,22 +409,22 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<bool>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([bool; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = One,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -432,10 +432,10 @@ mod tests {
         // FIXME:
         //assert_impl_all!(Option<bool>:
         //    RustSpec<
-        //        Layout = Unstable,
+        //        Layout = Unspecified,
         //        Size = RustSpecSized<Gt<Zero>>,
         //        Trap = NonRobust,
-        //        Niche = WithNiche<Unstable>,
+        //        Niche = WithNiche<Unspecified>,
         //        Mutability = Exclusive<WithoutInterior>,
         //    >,
         //);
@@ -447,7 +447,7 @@ mod tests {
 
         assert_impl_all!(Option<NonZeroU8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = One,
                 Trap = Robust,
@@ -458,7 +458,7 @@ mod tests {
         );
         assert_impl_all!(Option<&u8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -469,7 +469,7 @@ mod tests {
         );
         assert_impl_all!(Option<&(u8, u8, u8)>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -480,7 +480,7 @@ mod tests {
         );
         assert_impl_all!(Option<&NonZeroU8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
@@ -497,7 +497,7 @@ mod tests {
 
         assert_impl_all!(Result<NonZeroU8, ()>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = One,
                 Trap = Robust,
@@ -508,7 +508,7 @@ mod tests {
         );
         assert_impl_all!(Result<&u8, ()>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -519,7 +519,7 @@ mod tests {
         );
         assert_impl_all!(Result<&NonZeroU8, ()>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
@@ -530,7 +530,7 @@ mod tests {
         );
         assert_impl_all!(Result<(), NonZeroU8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = One,
                 Trap = Robust,
@@ -541,7 +541,7 @@ mod tests {
         );
         assert_impl_all!(Result<&mut u8, ()>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -556,22 +556,22 @@ mod tests {
     fn robust_ref() {
         assert_impl_all!(&&u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -579,33 +579,33 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -613,11 +613,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&u8]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -625,29 +625,29 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&u8; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&u8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -662,22 +662,22 @@ mod tests {
     fn transparent_ref() {
         assert_impl_all!(&&bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -685,22 +685,22 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -708,11 +708,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(&mut [&bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -720,11 +720,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&bool]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -732,29 +732,29 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&bool>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&bool; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Option<&bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
@@ -769,22 +769,22 @@ mod tests {
     fn robust_ref_mut() {
         assert_impl_all!(&&mut u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &mut u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -792,33 +792,33 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&mut u8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&mut u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&mut u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -826,11 +826,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut u8]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -838,29 +838,29 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&mut u8; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(Option<&mut u8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = Robust,
@@ -875,22 +875,22 @@ mod tests {
     fn transparent_ref_mut() {
         assert_impl_all!(&&mut bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut &mut bool:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -898,33 +898,33 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<&mut bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Stable>,
+                Niche = WithNiche<Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&[&mut bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(&mut [&mut bool]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -932,11 +932,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[&mut bool]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
@@ -944,29 +944,29 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<&mut bool>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!([&mut bool; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<Unstable>,
+                Niche = WithNiche<Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = NonRobust,
             >,
         );
         assert_impl_all!(Option<&mut bool>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = RustSpecSized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,

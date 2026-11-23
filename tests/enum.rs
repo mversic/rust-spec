@@ -1,7 +1,7 @@
 use core::{cell::UnsafeCell, num::NonZeroU8};
 
 use rust_spec::{
-    RustSpec, Stable, Unstable,
+    RustSpec, Specified, Unspecified,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithInterior, WithoutInterior},
@@ -46,7 +46,7 @@ pub enum PrimitiveUsizeDataEnum {
 
 #[derive(RustSpec)]
 #[repr(u8)]
-pub enum PrimitiveDataEnumWithUnstableField {
+pub enum PrimitiveDataEnumWithUnspecifiedField {
     A(String),
     B,
 }
@@ -92,7 +92,7 @@ pub enum ReprCPrimitiveDataEnum {
 
 #[derive(RustSpec)]
 #[repr(C)]
-pub enum ReprCDataEnumWithUnstableField {
+pub enum ReprCDataEnumWithUnspecifiedField {
     A(String),
     B,
 }
@@ -206,7 +206,7 @@ pub enum ReprCDataEnum2<'a, T> {
 fn enum_classification() {
     assert_impl_all!(EmptyEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -217,7 +217,7 @@ fn enum_classification() {
     );
     assert_impl_all!(SingletonEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -228,7 +228,7 @@ fn enum_classification() {
     );
     assert_impl_all!(SingletonWithoutNicheEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -239,18 +239,18 @@ fn enum_classification() {
     );
     assert_impl_all!(SingletonWithNicheEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(SingletonInteriorEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -261,29 +261,29 @@ fn enum_classification() {
     );
     assert_impl_all!(TwoVariantEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TaggedSingletonEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentNoNicheEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -294,29 +294,29 @@ fn enum_classification() {
     );
     assert_impl_all!(TransparentWithNicheEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
-            Niche = WithNiche<Stable>,
+            Niche = WithNiche<Specified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentWithMultipleFieldsEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentZstEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -328,77 +328,77 @@ fn enum_classification() {
 
     assert_impl_all!(RustEnum:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(PrimitiveEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(PrimitiveUsizeEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(PrimitiveUsizeDataEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
-    assert_impl_all!(PrimitiveDataEnumWithUnstableField:
+    assert_impl_all!(PrimitiveDataEnumWithUnspecifiedField:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = NonRobust,
         >,
     );
     assert_impl_all!(ReprCFieldlessEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCDataEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
@@ -414,22 +414,22 @@ fn enum_classification() {
     );
     assert_impl_all!(ReprCPrimitiveDataEnum:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
-    assert_impl_all!(ReprCDataEnumWithUnstableField:
+    assert_impl_all!(ReprCDataEnumWithUnspecifiedField:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = NonRobust,
         >,
@@ -440,7 +440,7 @@ mod discriminants {
     #![allow(dead_code)]
 
     use rust_spec::{
-        Gt, One, RustSpec, Unstable,
+        Gt, One, RustSpec, Unspecified,
         layout::{NonRobust, Robust},
         niche::{WithNiche, WithoutNiche},
     };
@@ -594,7 +594,7 @@ mod discriminants {
     fn exhaustiveness_uses_inferred_width() {
         assert_impl_all!(Full: RustSpec<__Alignment = One, Trap = Robust, Niche = WithoutNiche>);
         assert_impl_all!(SignedFull: RustSpec<__Alignment = One, Trap = Robust, Niche = WithoutNiche>);
-        assert_impl_all!(Shifted: RustSpec<__Alignment = Gt<One>, Trap = NonRobust, Niche = WithNiche<Unstable>>);
+        assert_impl_all!(Shifted: RustSpec<__Alignment = Gt<One>, Trap = NonRobust, Niche = WithNiche<Unspecified>>);
         assert_impl_all!(AlignedFull: RustSpec<__Alignment = Gt<One>, Trap = Robust, Niche = WithoutNiche>);
         assert_eq!(core::mem::size_of::<Shifted>(), 2);
     }
@@ -618,7 +618,7 @@ mod classification_regressions {
     use core::cell::Cell;
 
     use rust_spec::{
-        RustSpec, Unstable,
+        RustSpec, Unspecified,
         layout::Robust,
         mutability::{Exclusive, WithInterior, WithoutInterior},
         niche::WithNiche,
@@ -695,10 +695,10 @@ mod classification_regressions {
         macro_rules! check {
             ($ok:ty, $err:ty) => {
                 assert_impl_all!(Result<$ok, $err>: RustSpec<
-                    Layout = Unstable,
+                    Layout = Unspecified,
                     Size = rust_spec::size::Sized<rust_spec::Gt<rust_spec::Zero>>,
                     Trap = rust_spec::layout::NonRobust,
-                    Niche = WithNiche<Unstable>,
+                    Niche = WithNiche<Unspecified>,
                 >);
             };
         }

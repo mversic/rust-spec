@@ -3,7 +3,7 @@
 use core::{cmp::Ordering, ops::Add};
 
 use crate::{
-    NonOpaque, RustSpec, Stable, Sum, Unstable, Zero,
+    NonOpaque, RustSpec, Specified, Sum, Unspecified, Zero,
     drop::{NeedsDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithoutInterior},
@@ -14,7 +14,7 @@ use crate::{
 macro_rules! primitive_derive {
     ( $primitive:ty => $alignment:ty ) => {
         unsafe impl RustSpec for $primitive {
-            type Layout = Stable;
+            type Layout = Specified;
             type Size = size::Sized<crate::Gt<Zero>>;
             type __Alignment = $alignment;
             type Trap = Robust;
@@ -97,7 +97,7 @@ macro_rules! impl_fn_types {
         };
     };
     (@rust $fn_type:ty; $($arg:ident),*) => {
-        impl_fn_types!(@impl $fn_type; [$($arg,)* R] [Unstable]);
+        impl_fn_types!(@impl $fn_type; [$($arg,)* R] [Unspecified]);
     };
     (@c $fn_type:ty; [$($params:tt)*] [$layout:ty]; $next:ident $(, $rest:ident)*) => {
         impl_fn_types!(@c $fn_type;
@@ -113,7 +113,7 @@ macro_rules! impl_fn_types {
             type Size = size::Sized<crate::Gt<Zero>>;
             type __Alignment = <usize as RustSpec>::__Alignment;
             type Trap = NonRobust;
-            type Niche = WithNiche<Stable>;
+            type Niche = WithNiche<Specified>;
             type Drop = NoDrop;
             type Mutability = Exclusive<WithoutInterior>;
             type Opacity = NonOpaque;
@@ -125,11 +125,11 @@ macro_rules! impl_fn_types {
 macro_rules! fieldless_enum_derive {
     ( $src:ty => $alignment:ty ) => {
         unsafe impl RustSpec for $src {
-            type Layout = Stable;
+            type Layout = Specified;
             type Size = size::Sized<crate::Gt<Zero>>;
             type __Alignment = $alignment;
             type Trap = NonRobust;
-            type Niche = WithNiche<Unstable>;
+            type Niche = WithNiche<Unspecified>;
             type Drop = NoDrop;
             type Mutability = Exclusive<WithoutInterior>;
             type Opacity = NonOpaque;
@@ -229,7 +229,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        Unstable,
+        Unspecified,
         layout::{NonRobust, Robust},
         niche::WithNiche,
     };
@@ -239,21 +239,21 @@ mod tests {
         type RustFn = fn();
         type CFn12 = extern "C" fn(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
 
-        assert_impl_all!(RustFn: RustSpec<Layout = Unstable, Niche = WithNiche<Stable>>);
-        assert_impl_all!(unsafe fn(u8) -> u16: RustSpec<Layout = Unstable>);
-        assert_impl_all!(extern "Rust" fn(u8) -> u16: RustSpec<Layout = Unstable>);
-        assert_impl_all!(extern "C" fn(u8) -> u16: RustSpec<Layout = Stable>);
-        assert_impl_all!(unsafe extern "C" fn(u8) -> u16: RustSpec<Layout = Stable>);
-        assert_impl_all!(extern "C-unwind" fn(u8) -> u16: RustSpec<Layout = Stable>);
-        assert_impl_all!(extern "system" fn(u8) -> u16: RustSpec<Layout = Stable>);
-        assert_impl_all!(extern "system-unwind" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(RustFn: RustSpec<Layout = Unspecified, Niche = WithNiche<Specified>>);
+        assert_impl_all!(unsafe fn(u8) -> u16: RustSpec<Layout = Unspecified>);
+        assert_impl_all!(extern "Rust" fn(u8) -> u16: RustSpec<Layout = Unspecified>);
+        assert_impl_all!(extern "C" fn(u8) -> u16: RustSpec<Layout = Specified>);
+        assert_impl_all!(unsafe extern "C" fn(u8) -> u16: RustSpec<Layout = Specified>);
+        assert_impl_all!(extern "C-unwind" fn(u8) -> u16: RustSpec<Layout = Specified>);
+        assert_impl_all!(extern "system" fn(u8) -> u16: RustSpec<Layout = Specified>);
+        assert_impl_all!(extern "system-unwind" fn(u8) -> u16: RustSpec<Layout = Specified>);
         #[cfg(target_arch = "x86_64")]
-        assert_impl_all!(extern "sysv64" fn(u8) -> u16: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "sysv64" fn(u8) -> u16: RustSpec<Layout = Specified>);
         #[cfg(target_arch = "x86_64")]
-        assert_impl_all!(extern "win64" fn(u8) -> u16: RustSpec<Layout = Stable>);
-        assert_impl_all!(extern "C" fn((u8,)) -> u16: RustSpec<Layout = Unstable>);
-        assert_impl_all!(extern "C" fn(u8) -> (u16,): RustSpec<Layout = Unstable>);
-        assert_impl_all!(CFn12: RustSpec<Layout = Stable>);
+        assert_impl_all!(extern "win64" fn(u8) -> u16: RustSpec<Layout = Specified>);
+        assert_impl_all!(extern "C" fn((u8,)) -> u16: RustSpec<Layout = Unspecified>);
+        assert_impl_all!(extern "C" fn(u8) -> (u16,): RustSpec<Layout = Unspecified>);
+        assert_impl_all!(CFn12: RustSpec<Layout = Specified>);
     }
 
     #[test]
@@ -281,7 +281,7 @@ mod tests {
     fn robust_u8() {
         assert_impl_all!(u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = crate::One,
                 Trap = Robust,
@@ -292,22 +292,22 @@ mod tests {
         );
         assert_impl_all!(&u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Stable>,
+                Niche = WithNiche<crate::Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&mut u8:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Stable>,
+                Niche = WithNiche<crate::Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -315,33 +315,33 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<u8>:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Stable>,
+                Niche = WithNiche<crate::Specified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&[u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!(&mut [u8]:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -349,11 +349,11 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Box<[u8]>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -361,18 +361,18 @@ mod tests {
         #[cfg(feature = "alloc")]
         assert_impl_all!(Vec<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
         );
         assert_impl_all!([u8; 2]:
             RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = crate::One,
                 Trap = Robust,
@@ -383,11 +383,11 @@ mod tests {
         );
         assert_impl_all!(Option<u8>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<crate::Gt<Zero>>,
                 __Alignment = crate::One,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,

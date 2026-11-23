@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use core::num::NonZeroU8;
-use rust_spec::{RustSpec, Unstable, niche::WithNiche};
+use rust_spec::{RustSpec, Unspecified, niche::WithNiche};
 use static_assertions::assert_impl_all;
 
 #[derive(RustSpec)]
@@ -14,6 +14,6 @@ struct Struct(NonZeroU8);
 struct TransparentStruct(NonZeroU8);
 
 fn main() {
-    assert_impl_all!(Struct: RustSpec<Niche = WithNiche<Unstable>>);
-    assert_impl_all!(TransparentStruct: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(Struct: RustSpec<Niche = WithNiche<Unspecified>>);
+    assert_impl_all!(TransparentStruct: RustSpec<Niche = WithNiche<Unspecified>>);
 }

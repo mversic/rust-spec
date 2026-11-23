@@ -117,11 +117,11 @@ impl Wrapper {
                 IndirectTrap => child(Trap),
             },
             Self::Vec | Self::VecDeque => match axis {
-                Layout => known(Unstable),
+                Layout => known(Unspecified),
                 Size => known(Nonzero),
                 Alignment => pointer_alignment(),
                 Trap => known(NonRobust),
-                Niche => Expr::Niche(Box::new(known(Unstable))),
+                Niche => Expr::Niche(Box::new(known(Unspecified))),
                 Drop => Expr::CustomDrop(Box::new(known(AutoDrop))),
                 Mutability => pointer_mutability(),
                 IndirectTrap => child(Trap),

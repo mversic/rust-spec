@@ -1,7 +1,7 @@
 use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 use rust_spec::{
-    RustSpec, Stable, Unstable,
+    RustSpec, Specified, Unspecified,
     drop::{CustomDrop, NoDrop},
     layout::Robust,
     mutability::{Exclusive, WithInterior, WithoutInterior},
@@ -18,7 +18,7 @@ pub union RustUnion {
 
 #[derive(RustSpec)]
 #[repr(C)]
-union ReprCStableUnion {
+union ReprCSpecifiedUnion {
     byte: u8,
     word: u16,
 }
@@ -79,7 +79,7 @@ fn union_classification() {
     assert_impl_all!(InteriorUnion: RustSpec<Mutability = WithInterior<Robust>>);
     assert_impl_all!(RustUnion:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -90,7 +90,7 @@ fn union_classification() {
     );
     assert_impl_all!(ReprCUnion:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -99,9 +99,9 @@ fn union_classification() {
             __IndirectTrap = Robust,
         >,
     );
-    assert_impl_all!(ReprCStableUnion:
+    assert_impl_all!(ReprCSpecifiedUnion:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
@@ -112,7 +112,7 @@ fn union_classification() {
     );
     assert_impl_all!(Payload<u8>:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
@@ -123,7 +123,7 @@ fn union_classification() {
     );
     assert_impl_all!(Payload<(u32,)>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,

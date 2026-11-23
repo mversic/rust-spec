@@ -20,8 +20,8 @@
 ### Layout
 
 Describes total reachable (through pointer indirection) representation stability:
-- `Stable`: compiler-guaranteed representation.
-- `Unstable`: representation is not guaranteed.
+- `Specified`: compiler-guaranteed representation.
+- `Unspecified`: representation is not guaranteed.
 
 ### Size
 
@@ -47,10 +47,10 @@ a non-null representation must still be a valid reference before constructing th
 
 Describes whether and what kind of niche is available for the type:
 - `WithoutNiche`: no niche is available.
-- `WithNiche<Stable>`: compiler-guaranteed niche.
-- `WithNiche<Unstable>`: niche exists but is not guaranteed.
+- `WithNiche<Specified>`: compiler-guaranteed niche.
+- `WithNiche<Unspecified>`: niche exists but is not guaranteed.
 
-**Use `#[rust_spec(custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unstable>`**.
+**Use `#[rust_spec(custom_niche)]` when deriving `RustSpec` to select `WithNiche<Unspecified>`**.
 
 ### Drop
 
@@ -82,7 +82,7 @@ Derive `RustSpec` for your types, then use its associated marker families as bou
 
 ```rust
 use disjoint_impls::disjoint_impls;
-use rust_spec::{RustSpec, Stable, Unstable, niche::{WithNiche, WithoutNiche}};
+use rust_spec::{RustSpec, Specified, Unspecified, niche::{WithNiche, WithoutNiche}};
 
 #[derive(RustSpec)]
 struct Header {
@@ -99,11 +99,11 @@ disjoint_impls! {
         const NEEDS_TAG: bool = true;
     }
 
-    impl<T: RustSpec<Niche = WithNiche<Stable>>> NullableEncoding for T {
+    impl<T: RustSpec<Niche = WithNiche<Specified>>> NullableEncoding for T {
         const NEEDS_TAG: bool = false;
     }
 
-    impl<T: RustSpec<Niche = WithNiche<Unstable>>> NullableEncoding for T {
+    impl<T: RustSpec<Niche = WithNiche<Unspecified>>> NullableEncoding for T {
         const NEEDS_TAG: bool = false;
     }
 }

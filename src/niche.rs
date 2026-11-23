@@ -3,7 +3,7 @@
 use core::{convert::Infallible, ops::Add};
 
 use crate::{
-    Stable, Unstable,
+    Specified, Unspecified,
     layout::{LayoutKind, NonRobust, Robust},
 };
 
@@ -27,23 +27,23 @@ pub trait NullableRepresentation {
 
 #[sealed::sealed]
 impl NullableRepresentation for WithoutNiche {
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
 }
 
 #[sealed::sealed]
-impl NullableRepresentation for WithNiche<Unstable> {
+impl NullableRepresentation for WithNiche<Unspecified> {
     // Without a count of available niches, consuming one cannot establish
     // robustness or whether any guaranteed niche remains.
-    type Layout = Unstable;
+    type Layout = Unspecified;
     type Trap = NonRobust;
-    type Niche = WithNiche<Unstable>;
+    type Niche = WithNiche<Unspecified>;
 }
 
 #[sealed::sealed]
-impl NullableRepresentation for WithNiche<Stable> {
-    type Layout = Stable;
+impl NullableRepresentation for WithNiche<Specified> {
+    type Layout = Specified;
     type Trap = Robust;
     type Niche = WithoutNiche;
 }
@@ -56,21 +56,21 @@ impl Add for WithoutNiche {
     }
 }
 impl<K: LayoutKind> Add<WithNiche<K>> for WithoutNiche {
-    type Output = WithNiche<Unstable>;
+    type Output = WithNiche<Unspecified>;
 
     fn add(self, _: WithNiche<K>) -> Self::Output {
         unreachable!()
     }
 }
 impl<K: LayoutKind> Add<WithoutNiche> for WithNiche<K> {
-    type Output = WithNiche<Unstable>;
+    type Output = WithNiche<Unspecified>;
 
     fn add(self, _: WithoutNiche) -> Self::Output {
         unreachable!()
     }
 }
 impl<K: LayoutKind, U: LayoutKind> Add<WithNiche<U>> for WithNiche<K> {
-    type Output = WithNiche<Unstable>;
+    type Output = WithNiche<Unspecified>;
 
     fn add(self, _: WithNiche<U>) -> Self::Output {
         unreachable!()
@@ -93,11 +93,11 @@ mod tests {
     fn nested_option_niche_family() {
         assert_impl_all!(Option<bool>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = crate::size::Sized<crate::Gt<crate::Zero>>,
                 __Alignment = crate::One,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -105,11 +105,11 @@ mod tests {
 
         assert_impl_all!(Option<Option<bool>>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = crate::size::Sized<crate::Gt<crate::Zero>>,
                 __Alignment = crate::One,
                 Trap = NonRobust,
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,
@@ -117,12 +117,12 @@ mod tests {
 
         assert_impl_all!(Option<(u8, StdNonZero<u8>)>:
             RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = crate::size::Sized<crate::Gt<crate::Zero>>,
                 __Alignment = crate::One,
                 Trap = NonRobust,
                 // FIXME: The type should be WithoutNiche
-                Niche = WithNiche<crate::Unstable>,
+                Niche = WithNiche<crate::Unspecified>,
                 Mutability = Exclusive<WithoutInterior>,
                 __IndirectTrap = Robust,
             >,

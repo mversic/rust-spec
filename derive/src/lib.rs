@@ -27,7 +27,7 @@ mod wrappers;
 /// private constructors.
 ///
 /// For example, if an invariant of `#[repr(C)] Wrapper(u8)` is that it may never hold `u8::MAX`,
-/// `RustSpec` will infer `Layout = Stable` and `Trap = Robust` which downstream consumers may
+/// `RustSpec` will infer `Layout = Specified` and `Trap = Robust` which downstream consumers may
 /// interpret as a permission to transmute `u8` into `Wrapper` and cause UB.
 ///
 ///Likewise, be very careful when the inner fields are raw pointers, `NonNull<T>` or `MaybeUninit<T>`.
@@ -242,7 +242,7 @@ fn expand(input: &syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         let (impl_generics, ty_generics, where_clause) = rust_spec_generics.split_for_impl();
         return Ok(quote! {
             unsafe impl #impl_generics #crate_::RustSpec for #name #ty_generics #where_clause {
-                type Layout = #crate_::Stable;
+                type Layout = #crate_::Specified;
                 type Size = #crate_::size::Sized<#crate_::Gt<#crate_::Zero>>;
                 type __Alignment = #crate_::One;
                 type Trap = #crate_::layout::Robust;
@@ -507,7 +507,7 @@ fn gen_struct_fields_impl(
         gen_trap_family(generics, fields, false)
     };
     let niche = if attrs.custom_niche {
-        Expr::Niche(Box::new(Expr::Known(axis::Known::Unstable)))
+        Expr::Niche(Box::new(Expr::Known(axis::Known::Unspecified)))
     } else if let Some(ReprKind::Transparent) = repr {
         gen_transparent_niche_family(generics, fields)
     } else {
@@ -628,11 +628,11 @@ fn gen_union_impl(
 }
 
 fn gen_unstable_layout_family() -> Expr {
-    Expr::Known(axis::Known::Unstable)
+    Expr::Known(axis::Known::Unspecified)
 }
 
 fn gen_stable_layout_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Expr {
-    Expr::aggregate(Axis::Layout, generics, fields).unwrap_or(Expr::Known(axis::Known::Stable))
+    Expr::aggregate(Axis::Layout, generics, fields).unwrap_or(Expr::Known(axis::Known::Specified))
 }
 
 fn gen_indirect_trap_family(generics: &syn::Generics, fields: &[&syn::Type]) -> Expr {
@@ -761,7 +761,7 @@ fn gen_type_spec_impl(
 
 fn gen_enum_niche_family(has_trap_tag_values: bool) -> Expr {
     if has_trap_tag_values {
-        Expr::Niche(Box::new(Expr::Known(axis::Known::Unstable)))
+        Expr::Niche(Box::new(Expr::Known(axis::Known::Unspecified)))
     } else {
         Expr::Known(axis::Known::NoNiche)
     }
@@ -850,7 +850,7 @@ mod axis_short_circuit_tests {
             assert!(family.aggregate_bounds.is_empty());
             assert_eq!(
                 family.kind.to_string(),
-                quote!(#crate_::Unstable).to_string()
+                quote!(#crate_::Unspecified).to_string()
             );
         }
         for known in [parse_quote!(&T), parse_quote!(&mut T)] {

@@ -2,7 +2,7 @@ use core::{cell::UnsafeCell, num::NonZero as StdNonZero, num::NonZeroU8, ops::Ad
 use std::ffi::CStr;
 
 use rust_spec::{
-    RustSpec, Stable, Unstable,
+    RustSpec, Specified, Unspecified,
     drop::{AutoDrop, CustomDrop, NoDrop},
     layout::{NonRobust, Robust},
     mutability::{Exclusive, WithInterior, WithoutInterior},
@@ -29,13 +29,13 @@ fn concrete_fields_normalize_before_generic_folds() {
     #[repr(C)]
     struct Multiple<T, U>(T, bool, U, core::ffi::c_long);
 
-    assert_impl_all!(FlagFirst<u8>: RustSpec<Niche = WithNiche<Unstable>>);
-    assert_impl_all!(FlagLast<u8>: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(FlagFirst<u8>: RustSpec<Niche = WithNiche<Unspecified>>);
+    assert_impl_all!(FlagLast<u8>: RustSpec<Niche = WithNiche<Unspecified>>);
     assert_impl_all!(AliasFields<()>: RustSpec<Size = SpecSized<Gt<Zero>>>);
-    assert_impl_all!(AliasFields<StdNonZero<u8>>: RustSpec<Niche = WithNiche<Unstable>>);
+    assert_impl_all!(AliasFields<StdNonZero<u8>>: RustSpec<Niche = WithNiche<Unspecified>>);
     assert_impl_all!(Multiple<(), u8>: RustSpec<
         Size = SpecSized<Gt<Zero>>,
-        Niche = WithNiche<Unstable>,
+        Niche = WithNiche<Unspecified>,
         Drop = NoDrop,
     >);
     assert_impl_all!(Multiple<Box<u8>, u8>: RustSpec<Drop = AutoDrop>);
@@ -129,7 +129,7 @@ struct AssertedCustomNiche(u8);
 fn custom_niche_is_a_trap_value() {
     assert_impl_all!(AssertedCustomNiche: RustSpec<
         Trap = NonRobust,
-        Niche = WithNiche<Unstable>,
+        Niche = WithNiche<Unspecified>,
     >);
 }
 
@@ -255,7 +255,7 @@ fn generic_slice_classification() {
 fn struct_classification() {
     assert_impl_all!(ParamReprCZst<()>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -266,7 +266,7 @@ fn struct_classification() {
     );
     assert_impl_all!(ParamReprCZst<UnsafeCell<NonZeroU8>>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
@@ -277,7 +277,7 @@ fn struct_classification() {
     );
     assert_impl_all!(ParamReprCZst<u8>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -289,11 +289,11 @@ fn struct_classification() {
 
     assert_impl_all!(SingletonWithNiche:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
@@ -301,29 +301,29 @@ fn struct_classification() {
 
     assert_impl_all!(TransparentWithNiche:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Stable>,
+            Niche = WithNiche<Specified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentWithMultipleFields:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TransparentZstStruct:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -335,7 +335,7 @@ fn struct_classification() {
 
     assert_impl_all!(Empty:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Zero>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -346,7 +346,7 @@ fn struct_classification() {
     );
     assert_impl_all!(RustStruct:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -357,18 +357,18 @@ fn struct_classification() {
     );
     assert_impl_all!(NonRobustRustRepr:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(ReprCStruct:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -379,7 +379,7 @@ fn struct_classification() {
     );
     assert_impl_all!(ReprCProjectionCTypeFields:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -390,7 +390,7 @@ fn struct_classification() {
     );
     assert_impl_all!(InteriorWrapper:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::Gt<rust_spec::One>,
             Trap = Robust,
@@ -401,7 +401,7 @@ fn struct_classification() {
     );
     assert_impl_all!(MixedMutability:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = SpecSized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -418,7 +418,7 @@ fn struct_classification() {
     );
     assert_impl_all!(Wrapper<u8>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = size::Sized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -429,7 +429,7 @@ fn struct_classification() {
     );
     assert_impl_all!(Wrapper<UnsafeCell<u8>>:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = size::Sized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -440,29 +440,29 @@ fn struct_classification() {
     );
     assert_impl_all!(Pair<u8, StdNonZero<u8>>:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = size::Sized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(Pair<bool, u8>:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = size::Sized<Gt<Zero>>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(*mut u8:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = size::Sized<Gt<Zero>>,
             __Alignment = <usize as RustSpec>::__Alignment,
             Trap = Robust,
@@ -477,7 +477,7 @@ fn struct_classification() {
 fn struct_wide_classification() {
     assert_impl_all!(Bytes:
         RustSpec<
-            Layout = Stable,
+            Layout = Specified,
             Size = MetaSized<SliceLike>,
             __Alignment = rust_spec::One,
             Trap = Robust,
@@ -487,22 +487,22 @@ fn struct_wide_classification() {
     );
     assert_impl_all!(Packet:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = MetaSized<SliceLike>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
     );
     assert_impl_all!(TuplePacket:
         RustSpec<
-            Layout = Unstable,
+            Layout = Unspecified,
             Size = MetaSized<SliceLike>,
             __Alignment = rust_spec::One,
             Trap = NonRobust,
-            Niche = WithNiche<Unstable>,
+            Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>,
             __IndirectTrap = Robust,
         >,
@@ -511,10 +511,10 @@ fn struct_wide_classification() {
 
 #[test]
 fn generic_raw_pointer_bounds_follow_pointee_shape() {
-    assert_impl_all!(*const bool: RustSpec<Layout = Stable, Trap = NonRobust>);
-    assert_impl_all!(*const [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
-    assert_impl_all!(*mut [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
-    assert_impl_all!(*const *mut [bool]: RustSpec<Layout = Unstable, Trap = NonRobust>);
+    assert_impl_all!(*const bool: RustSpec<Layout = Specified, Trap = NonRobust>);
+    assert_impl_all!(*const [bool]: RustSpec<Layout = Unspecified, Trap = NonRobust>);
+    assert_impl_all!(*mut [bool]: RustSpec<Layout = Unspecified, Trap = NonRobust>);
+    assert_impl_all!(*const *mut [bool]: RustSpec<Layout = Unspecified, Trap = NonRobust>);
     assert_not_impl_any!(*const NotRustSpec: RustSpec);
 }
 
@@ -522,7 +522,7 @@ fn generic_raw_pointer_bounds_follow_pointee_shape() {
 fn nul_terminated_raw_pointers() {
     fn check<
         P: RustSpec<
-                Layout = Unstable,
+                Layout = Unspecified,
                 Size = size::Sized<Gt<Zero>>,
                 __Alignment = <usize as RustSpec>::__Alignment,
                 Trap = NonRobust,
@@ -544,7 +544,7 @@ mod tail_classification {
     #![allow(dead_code)]
 
     use rust_spec::{
-        Gt, RustSpec, Stable, Zero,
+        Gt, RustSpec, Specified, Zero,
         layout::Robust,
         size::{MetaSized, Sized as SpecSized, SliceLike},
     };
@@ -616,7 +616,7 @@ mod tail_classification {
     struct Unclassified;
     struct Hidden<T>(T);
     unsafe impl RustSpec for Hidden<*mut Unclassified> {
-        type Layout = Stable;
+        type Layout = Specified;
         type Size = SpecSized<Gt<Zero>>;
         type __Alignment = <usize as RustSpec>::__Alignment;
         type Trap = Robust;
@@ -635,7 +635,7 @@ mod tail_classification {
 
     #[test]
     fn named_wrapper_arguments_are_not_inspected() {
-        assert_impl_all!(ContainsHidden: RustSpec<Layout = Stable, Trap = Robust>);
+        assert_impl_all!(ContainsHidden: RustSpec<Layout = Specified, Trap = Robust>);
     }
 }
 
@@ -643,7 +643,7 @@ mod pointer_classification {
     #![allow(dead_code)]
     use core::ptr::NonNull;
     use rust_spec::{
-        RustSpec, Stable, Unstable,
+        RustSpec, Specified, Unspecified,
         drop::NoDrop,
         mutability::{Exclusive, WithoutInterior},
         niche::{WithNiche, WithoutNiche},
@@ -663,7 +663,7 @@ mod pointer_classification {
     trait Object {}
     impl Object for u32 {}
     unsafe impl RustSpec for dyn Object + '_ {
-        type Layout = Unstable;
+        type Layout = Unspecified;
         type Size = rust_spec::size::MetaSized<rust_spec::size::DynTraitLike>;
         type __Alignment = rust_spec::Gt<rust_spec::One>;
         type Trap = rust_spec::layout::NonRobust;
@@ -676,13 +676,13 @@ mod pointer_classification {
 
     #[test]
     fn nonnull_layout_follows_pointer_shape() {
-        assert_impl_all!(NonNull<u8>: RustSpec<Layout = Stable, Niche = WithNiche<Stable>>);
-        assert_impl_all!(Option<NonNull<u8>>: RustSpec<Layout = Stable>);
+        assert_impl_all!(NonNull<u8>: RustSpec<Layout = Specified, Niche = WithNiche<Specified>>);
+        assert_impl_all!(Option<NonNull<u8>>: RustSpec<Layout = Specified>);
         macro_rules! check {
             ($($ty:ty),*) => {$(
-                assert_impl_all!(NonNull<$ty>: RustSpec<Layout = Unstable, Niche = WithNiche<Unstable>>);
-                assert_impl_all!(Option<NonNull<$ty>>: RustSpec<Layout = Unstable>);
-                assert_impl_all!(Pointer<$ty>: RustSpec<Layout = Unstable>);
+                assert_impl_all!(NonNull<$ty>: RustSpec<Layout = Unspecified, Niche = WithNiche<Unspecified>>);
+                assert_impl_all!(Option<NonNull<$ty>>: RustSpec<Layout = Unspecified>);
+                assert_impl_all!(Pointer<$ty>: RustSpec<Layout = Unspecified>);
             )*};
         }
         check!([u8], str, dyn Object, Tail<[u8]>, Tail<dyn Object>);
@@ -757,7 +757,7 @@ fn interior_robustness_is_independent_of_aggregate_trap() {
 mod recursive_syntax {
     #![allow(dead_code)]
     use rust_spec::{
-        Gt, One, RustSpec, Stable, Unstable, Zero,
+        Gt, One, RustSpec, Specified, Unspecified, Zero,
         drop::{AutoDrop, NoDrop},
         layout::{NonRobust, Robust},
         mutability::{Exclusive, WithoutInterior},
@@ -780,7 +780,7 @@ mod recursive_syntax {
     // eliminate that dependency even inside tuples and arrays.
     fn prove_size<
         T: RustSpec<
-                Layout = Stable,
+                Layout = Specified,
                 __Alignment = One,
                 Trap = Robust,
                 Niche = WithoutNiche,
@@ -814,8 +814,8 @@ mod recursive_syntax {
     #[test]
     fn nested_rules_preserve_classifications() {
         assert_impl_all!(NestedReference<'static, u8>: RustSpec<
-            Layout = Unstable, Size = SpecSized<Gt<Zero>>, Trap = NonRobust,
-            Drop = NoDrop, Niche = WithNiche<Unstable>,
+            Layout = Unspecified, Size = SpecSized<Gt<Zero>>, Trap = NonRobust,
+            Drop = NoDrop, Niche = WithNiche<Unspecified>,
             Mutability = Exclusive<WithoutInterior>, __IndirectTrap = Robust>);
         assert_impl_all!(Empty<String>: RustSpec<Size = SpecSized<Zero>,
             Trap = Robust, Drop = NoDrop, Niche = WithoutNiche,
@@ -828,13 +828,13 @@ mod recursive_syntax {
 
 #[test]
 fn function_pointer_fields_need_no_argument_classification() {
-    use rust_spec::{Gt, RustSpec, Unstable, Zero, drop::NoDrop, size::Sized as SpecSized};
+    use rust_spec::{Gt, RustSpec, Unspecified, Zero, drop::NoDrop, size::Sized as SpecSized};
     #[derive(RustSpec)]
     #[repr(C)]
     struct Callback<T>(for<'a> fn(&'a T) -> &'a T);
     struct Unclassified;
     static_assertions::assert_impl_all!(Callback<Unclassified>: RustSpec<
-        Layout = Unstable, Size = SpecSized<Gt<Zero>>, Drop = NoDrop>);
+        Layout = Unspecified, Size = SpecSized<Gt<Zero>>, Drop = NoDrop>);
 }
 
 #[test]
@@ -842,14 +842,14 @@ fn pin_and_vec_deque_classification() {
     use core::pin::Pin;
     use std::collections::VecDeque;
 
-    assert_impl_all!(Pin<&u8>: RustSpec<Layout = Stable, Trap = NonRobust,
-        Drop = NoDrop, Niche = WithNiche<Stable>>);
+    assert_impl_all!(Pin<&u8>: RustSpec<Layout = Specified, Trap = NonRobust,
+        Drop = NoDrop, Niche = WithNiche<Specified>>);
     assert_impl_all!(Pin<Box<u8>>: RustSpec<Drop = AutoDrop>);
     assert_impl_all!(Pin<Box<UnsafeCell<bool>>>: RustSpec<
         Mutability = Exclusive<WithInterior<NonRobust>>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(VecDeque<u8>: RustSpec<Layout = Unstable,
+    assert_impl_all!(VecDeque<u8>: RustSpec<Layout = Unspecified,
         Size = SpecSized<Gt<Zero>>, Trap = NonRobust, Drop = CustomDrop<AutoDrop>,
-        Niche = WithNiche<Unstable>, Mutability = Exclusive<WithoutInterior>>);
+        Niche = WithNiche<Unspecified>, Mutability = Exclusive<WithoutInterior>>);
     assert_impl_all!(VecDeque<UnsafeCell<bool>>: RustSpec<
         Mutability = Exclusive<WithInterior<NonRobust>>, __IndirectTrap = NonRobust>);
 }

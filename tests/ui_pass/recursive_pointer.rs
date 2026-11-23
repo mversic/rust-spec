@@ -2,7 +2,7 @@
 
 use core::cell::UnsafeCell;
 use rust_spec::{
-    RustSpec, Stable, Unstable, Gt, Zero,
+    RustSpec, Specified, Unspecified, Gt, Zero,
     drop::NoDrop,
     layout::{Robust, NonRobust},
     mutability::{Exclusive, WithoutInterior, WithInterior},
@@ -67,29 +67,29 @@ struct GenericTail<T: ?Sized> {
 }
 
 fn main() {
-    assert_impl_all!(Node: RustSpec<Layout = Stable, Size = SpecSized<Gt<Zero>>,
+    assert_impl_all!(Node: RustSpec<Layout = Specified, Size = SpecSized<Gt<Zero>>,
         __Alignment = <usize as RustSpec>::__Alignment, Trap = Robust,
         Niche = WithoutNiche, Drop = NoDrop,
         Mutability = Exclusive<WithoutInterior>, __IndirectTrap = Robust>);
-    assert_impl_all!(ConstNode: RustSpec<Layout = Stable, Trap = Robust,
+    assert_impl_all!(ConstNode: RustSpec<Layout = Specified, Trap = Robust,
         Mutability = Exclusive<WithoutInterior>, __IndirectTrap = Robust>);
-    assert_impl_all!(RustNode: RustSpec<Layout = Unstable, Trap = Robust>);
-    assert_impl_all!(Shared<'static>: RustSpec<Layout = Stable, Trap = NonRobust,
-        Niche = WithNiche<Unstable>, Drop = NoDrop,
+    assert_impl_all!(RustNode: RustSpec<Layout = Unspecified, Trap = Robust>);
+    assert_impl_all!(Shared<'static>: RustSpec<Layout = Specified, Trap = NonRobust,
+        Niche = WithNiche<Unspecified>, Drop = NoDrop,
         Mutability = Exclusive<WithoutInterior>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(Mutable<'static>: RustSpec<Layout = Stable, Trap = NonRobust,
+    assert_impl_all!(Mutable<'static>: RustSpec<Layout = Specified, Trap = NonRobust,
         Mutability = Exclusive<WithoutInterior>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(Nested<'static>: RustSpec<Layout = Unstable, Trap = NonRobust,
+    assert_impl_all!(Nested<'static>: RustSpec<Layout = Unspecified, Trap = NonRobust,
         Mutability = Exclusive<WithoutInterior>, __IndirectTrap = NonRobust>);
-    assert_impl_all!(Payload<u8>: RustSpec<Layout = Stable, Trap = Robust>);
+    assert_impl_all!(Payload<u8>: RustSpec<Layout = Specified, Trap = Robust>);
     assert_impl_all!(Payload<bool>: RustSpec<Trap = NonRobust, __IndirectTrap = NonRobust>);
     assert_impl_all!(Payload<UnsafeCell<u8>>: RustSpec<Mutability = WithInterior<Robust>>);
     assert_impl_all!(*mut Payload<UnsafeCell<bool>>:
         RustSpec<Mutability = Exclusive<WithInterior<NonRobust>>>);
     assert_impl_all!(Invariant: RustSpec<Trap = NonRobust, __IndirectTrap = NonRobust>);
-    assert_impl_all!(Transparent: RustSpec<Layout = Stable, Trap = Robust>);
-    assert_impl_all!(SliceTail: RustSpec<Layout = Unstable, Size = MetaSized<SliceLike>,
+    assert_impl_all!(Transparent: RustSpec<Layout = Specified, Trap = Robust>);
+    assert_impl_all!(SliceTail: RustSpec<Layout = Unspecified, Size = MetaSized<SliceLike>,
         Trap = Robust, Mutability = Exclusive<WithoutInterior>>);
-    assert_impl_all!(GenericTail<u8>: RustSpec<Layout = Stable, Size = SpecSized<Gt<Zero>>>);
-    assert_impl_all!(GenericTail<[u8]>: RustSpec<Layout = Unstable, Size = MetaSized<SliceLike>>);
+    assert_impl_all!(GenericTail<u8>: RustSpec<Layout = Specified, Size = SpecSized<Gt<Zero>>>);
+    assert_impl_all!(GenericTail<[u8]>: RustSpec<Layout = Unspecified, Size = MetaSized<SliceLike>>);
 }
